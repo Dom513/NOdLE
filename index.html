@@ -16,7 +16,12 @@
         .screen { display: none; flex-direction: column; align-items: center; }
         .screen.active { display: flex; }
         h2 { font-size: 11px; letter-spacing: 0.2em; color: #555; text-transform: uppercase; margin-bottom: 14px; font-family: 'Rajdhani', sans-serif; font-weight: 500; }
-        canvas:not(#animOverlay) { border: 2px solid #444; background-color: #222; border-radius: 8px; cursor: crosshair; touch-action: none; }
+        canvas:not(#animOverlay) { cursor: crosshair; touch-action: none; display: block; }
+        #setupCanvas { border: 2px solid #444; background-color: #222; border-radius: 8px; }
+        #canvasWrapper {
+            border: 2px solid #444; background-color: #222; border-radius: 8px;
+            overflow: hidden;
+        }
         p { margin-top: 14px; color: #555; font-size: 11px; text-align: center; max-width: 440px; font-family: 'Share Tech Mono', monospace; }
         .btn-row { display: flex; gap: 10px; margin-top: 14px; }
         button {
@@ -30,39 +35,53 @@
         button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
         button.primary:hover { background: #66aaff; border-color: #66aaff; }
 
-        #animOverlay {
-            position: absolute; pointer-events: none;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10;
+        .canvas-toolbar {
+            display: flex; align-items: center; width: 460px;
+            margin-bottom: 8px;
         }
-        #mistakeOverlay {
+        .toolbar-btn {
+            background: none; border: none; color: #666; font-size: 28px;
+            cursor: pointer; padding: 4px 6px; letter-spacing: 0;
+            transition: color 0.15s; line-height: 1; font-weight: 900;
+        }
+        .toolbar-btn:hover { color: #ddd; }
+        @keyframes rotateCW {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(90deg); }
+        }
+        #canvasWrapper.rotating {
+            animation: rotateCW 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
+            transform-origin: center center;
+        }
+        #infoOverlay {
             display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75);
             align-items: center; justify-content: center;
-            z-index: 100; pointer-events: none;
+            z-index: 100;
         }
-        #mistakeOverlay.visible { display: flex; }
-        @keyframes fadeInOut {
-            0%   { opacity: 0; transform: translateY(-8px); }
-            10%  { opacity: 1; transform: translateY(0); }
-            70%  { opacity: 1; }
-            100% { opacity: 0; }
+        #infoOverlay.visible { display: flex; }
+        #infoBox {
+            position: relative;
+            background: #2a2a2a; border: 2px solid #444; border-radius: 12px;
+            padding: 36px 40px 28px; max-width: 360px; width: 90%;
+            display: flex; flex-direction: column; gap: 10px;
         }
-        @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            15%     { transform: translateX(-6px); }
-            30%     { transform: translateX(6px); }
-            45%     { transform: translateX(-5px); }
-            60%     { transform: translateX(5px); }
-            75%     { transform: translateX(-3px); }
-            90%     { transform: translateX(3px); }
+        #infoClose {
+            position: absolute; top: 10px; right: 14px;
+            background: none; border: none; color: #555; font-size: 18px;
+            cursor: pointer; padding: 4px 8px; transition: color 0.15s;
         }
-        #mistakeBox {
-            background: #2a1a1a; border: 2px solid #ff4444; border-radius: 10px;
-            padding: 18px 32px; color: #ff4444;
-            font-family: 'Share Tech Mono', monospace; font-size: 13px;
-            letter-spacing: 0.05em; text-align: center;
-            animation: fadeInOut 2.5s ease forwards, shake 0.5s ease 0.1s;
+        #infoClose:hover { color: #ccc; }
+        #infoTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: 18px; letter-spacing: 0.1em; color: #ccc;
+            text-transform: uppercase; margin-bottom: 4px;
         }
+        #infoContent p {
+            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            color: #888; line-height: 1.7; margin: 0;
+        }
+        #infoContent em { color: #aaa; font-style: normal; }
         #winOverlay {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.75);
@@ -125,8 +144,8 @@
             color: #aaa; width: 48px; text-align: center;
             touch-action: auto; user-select: text;
         }
-        .tile.filled { color: #ff4444; border-color: #553333; cursor: pointer; }
-        .tile.filled:hover { border-color: #ff4444; }
+        .tile.filled { color: #ff4444; border-color: #555; cursor: pointer; }
+        .tile.filled:hover { border-color: #888; }
         .tile.editable {
             cursor: text; border-color: #555;
         }
@@ -144,7 +163,6 @@
     <div class="screen active" id="screenSetup">
         <h2>Setup</h2>
         <canvas id="setupCanvas" width="460" height="460"></canvas>
-        <p>Drag between any two nodes (horizontal, vertical or 45°) to add a line. Tap a line to remove it.</p>
         <div class="equation">
             <div class="tile" id="setup-t0"></div>
             <span class="eq-op">+</span>
@@ -166,11 +184,15 @@
 
     <div class="screen" id="screenPlay">
         <h2>Play</h2>
-        <div style="position:relative; display:inline-block;">
+        <div class="canvas-toolbar">
+            <button class="toolbar-btn" id="infoBtn" title="How to play">ⓘ</button>
+            <div style="flex:1"></div>
+            <button class="toolbar-btn" id="rotateBtn" title="Rotate 90°">↻</button>
+        </div>
+        <div id="canvasWrapper" style="position:relative; display:flex; width:460px; height:460px;">
             <canvas id="playCanvas" width="460" height="460"></canvas>
             <canvas id="animOverlay" width="460" height="460" style="position:absolute;top:0;left:0;pointer-events:none;background:transparent;"></canvas>
         </div>
-        <p>Tap a blue line to turn it red — trace between nodes to change multiple lines</p>
         <div class="equation">
             <div class="tile" id="play-t0"></div>
             <span class="eq-op">+</span>
@@ -185,14 +207,25 @@
             <div class="tile" id="play-target"></div>
         </div>
         <div class="btn-row">
-            <button class="secondary" id="playResetBtn">Reset</button>
+            <button class="secondary" id="playResetBtn">Clear</button>
             <button class="secondary" id="submitBtn">Submit number</button>
             <button class="secondary" id="goSetupBtn">← Setup</button>
         </div>
 
-        <!-- Mistake overlay -->
-        <div id="mistakeOverlay">
-            <div id="mistakeBox">Something's not right — try again</div>
+        <!-- Info overlay -->
+        <div id="infoOverlay">
+            <div id="infoBox">
+                <button id="infoClose">✕</button>
+                <div id="infoTitle">How to play</div>
+                <div id="infoContent">
+                    <p>Tap a blue line to turn it red.</p>
+                    <p>Trace between nodes to highlight multiple lines at once.</p>
+                    <p>Select lines that form a number (1–9), then press <em>Submit number</em>.</p>
+                    <p>Fill all five tiles so they add up to the target.</p>
+                    <p>Use every line — none should be left on the board.</p>
+                    <p>Tap a filled tile to put its number back on the board.</p>
+                </div>
+            </div>
         </div>
 
         <!-- Win overlay -->
@@ -439,7 +472,7 @@
             nodes.forEach((n, i) => {
                 const isActive    = i === activeNode;
                 const isConnected = connected === null || connected.has(i);
-                const radius = isActive ? 9 : isConnected ? 6 : 3.5;
+                const radius = isActive ? 10 : isConnected ? 8 : 3.5;
                 const fill   = isActive ? '#ffffff' : isConnected ? '#cccccc' : '#555555';
                 ctx.beginPath();
                 ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
@@ -484,7 +517,7 @@
             }
 
             // Existing edges
-            for (const edge of edgeList) drawEdge(setupCtx, edge, '#4488ff', 2.5);
+            for (const edge of edgeList) drawEdge(setupCtx, edge, '#4488ff', 3.5);
 
             // Live drag preview line from start node to snapped/cursor position
             if (setupDown && setupLastNode !== -1 && cursorPos) {
@@ -582,11 +615,10 @@
         let tileEdgeIds  = [null, null, null, null, null];
 
         // Five distinct colours for the 5 number slots
-        const SLOT_COLORS = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff'];
+        const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9'];
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
-            // Save a deep snapshot for reset
             playSnapshot = edgeList.map(e => ({ ...e }));
             tileValues   = [null, null, null, null, null];
             tileEdgeIds  = [null, null, null, null, null];
@@ -595,6 +627,7 @@
             updateTiles();
             const val = document.getElementById('targetInput').value.trim();
             document.getElementById('play-target').textContent = val;
+            document.getElementById('infoOverlay').classList.remove('visible');
             showScreen('play');
             playDraw();
         });
@@ -617,7 +650,7 @@
             playCtx.clearRect(0, 0, W, H);
             for (const edge of edgeList) {
                 const color = edge.color || (edge.red ? '#ff4444' : '#4488ff');
-                const width = edge.red ? 3.5 : 2.5;
+                const width = edge.red ? 4.5 : 3.5;
                 drawEdge(playCtx, edge, color, width);
             }
             if (playLastPos) {
@@ -686,22 +719,17 @@
             playPending    = null;
 
             if (sameRay(playOriginNode, playLastNode, node)) {
-                // Still on the same ray from origin.
-                // Defer only if there's a longer edge from origin that could still be reached.
                 if (hasLongerCollinearEdge(playOriginNode, node)) {
                     playLastNode = node;
                 } else {
-                    // No ambiguity — commit origin→node now and reset origin
                     resolveSegment_to(playOriginNode, node);
                     playOriginNode = node;
                     playLastNode   = node;
                 }
             } else {
-                // Turned off the ray — commit whatever was pending, start fresh
                 resolveSegment();
                 playOriginNode = playLastNode;
                 playLastNode   = node;
-                // Commit this new hop immediately if no ambiguity
                 if (!hasLongerCollinearEdge(playOriginNode, node)) {
                     resolveSegment_to(playOriginNode, node);
                     playOriginNode = node;
@@ -709,15 +737,19 @@
             }
         }
 
-        // Commit one untouched edge exactly between a and b
         function commitEdge(a, b) {
             const sa = Math.min(a, b), sb = Math.max(a, b);
-            const candidates = edgeList.filter(e =>
-                Math.min(e.a, e.b) === sa && Math.max(e.a, e.b) === sb && !playTouched.has(e.id)
+            const allOnSegment = edgeList.filter(e =>
+                Math.min(e.a, e.b) === sa && Math.max(e.a, e.b) === sb
             );
+            // If any edge on this segment is already touched and red, don't touch another
+            if (allOnSegment.some(e => playTouched.has(e.id) && e.red)) return false;
+
+            const candidates = allOnSegment.filter(e => !playTouched.has(e.id));
             if (candidates.length > 0) {
-                candidates[0].red = !candidates[0].red;
-                playTouched.add(candidates[0].id);
+                const target = candidates[0];
+                target.red = !target.red;
+                playTouched.add(target.id);
                 return true;
             }
             return false;
@@ -761,7 +793,6 @@
 
         function playStart(e) {
             e.preventDefault();
-            // Start timer on first interaction
             if (puzzleStartTime === null) puzzleStartTime = performance.now();
             const pos = getPos(playCanvas, e);
             playDown       = true;
@@ -808,12 +839,7 @@
         playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
 
         document.getElementById('playResetBtn').addEventListener('click', () => {
-            edgeList = playSnapshot.map(e => ({ ...e, red: false }));
-            tileValues  = [null, null, null, null, null];
-            tileEdgeIds = [null, null, null, null, null];
-            puzzleStartTime = null;
-            for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
-            updateTiles();
+            for (const e of edgeList) e.red = false;
             playDraw();
         });
 
@@ -874,6 +900,12 @@
 
         function recogniseNumber(redEdges) {
             if (redEdges.length === 0) return null;
+            // Sort by canonical node pair so drawing order doesn't affect recognition
+            redEdges = [...redEdges].sort((a, b) => {
+                const aMin = Math.min(a.a, a.b), aMax = Math.max(a.a, a.b);
+                const bMin = Math.min(b.a, b.b), bMax = Math.max(b.a, b.b);
+                return aMin !== bMin ? aMin - bMin : aMax - bMax;
+            });
 
             // ── Step 1: collapse duplicate edges (same endpoints) ────────────────
             const usedDup = new Set();
@@ -903,38 +935,62 @@
             const usedDed = new Set();
             const strokes = [];
 
-            // Walk from every unused deduped edge, extending greedily in the same direction
+            // Build a quick node-degree map to find endpoints first
+            const dedDegMap = new Map();
+            deduped.forEach((d, i) => {
+                dedDegMap.set(d.a, (dedDegMap.get(d.a) || 0) + 1);
+                dedDegMap.set(d.b, (dedDegMap.get(d.b) || 0) + 1);
+            });
+
+            // Process: start from degree-1 nodes (chain endpoints) first so strokes
+            // are always built from an end inward — this ensures collinear sub-edges merge
+            function tryBuildStroke(startIdx, fromNode, toNode) {
+                if (usedDed.has(startIdx)) return;
+                const stroke = { ids: [...deduped[startIdx].ids], startNode: fromNode, endNode: toNode };
+                usedDed.add(startIdx);
+                const dir = canonDir(fromNode, toNode);
+                let cur = toNode;
+                while (true) {
+                    const neighbors = dadj.get(cur) || [];
+                    const cont = neighbors.find(({ neighbor, dedIdx }) => {
+                        if (usedDed.has(dedIdx)) return false;
+                        return canonDir(cur, neighbor) === dir;
+                    });
+                    if (!cont) break;
+                    usedDed.add(cont.dedIdx);
+                    stroke.ids.push(...deduped[cont.dedIdx].ids);
+                    stroke.endNode = cont.neighbor;
+                    cur = cont.neighbor;
+                }
+                strokes.push(stroke);
+            }
+
+            // Pass 1: start from degree-1 nodes (true endpoints of chains)
+            for (let startIdx = 0; startIdx < deduped.length; startIdx++) {
+                const d = deduped[startIdx];
+                for (const [fromNode, toNode] of [[d.a, d.b], [d.b, d.a]]) {
+                    if ((dedDegMap.get(fromNode) || 0) === 1) {
+                        tryBuildStroke(startIdx, fromNode, toNode);
+                        break;
+                    }
+                }
+            }
+            // Pass 2: handle remaining unused edges — start from the end that has no
+            // unused collinear predecessor so we always walk forward through the chain
             for (let startIdx = 0; startIdx < deduped.length; startIdx++) {
                 if (usedDed.has(startIdx)) continue;
                 const d = deduped[startIdx];
-
-                // Try both orientations as the start
+                // For each orientation, check if there's an unused collinear edge coming INTO fromNode
+                // If so, that predecessor should be the real start — skip this orientation
+                let chosenFrom = d.a, chosenTo = d.b;
                 for (const [fromNode, toNode] of [[d.a, d.b], [d.b, d.a]]) {
-                    if (usedDed.has(startIdx)) break;
-
-                    const stroke = { ids: [...d.ids], startNode: fromNode, endNode: toNode };
-                    usedDed.add(startIdx);
-
                     const dir = canonDir(fromNode, toNode);
-                    let cur = toNode;
-
-                    // Keep extending while next edge is same direction
-                    while (true) {
-                        const neighbors = dadj.get(cur) || [];
-                        const cont = neighbors.find(({ neighbor, dedIdx }) => {
-                            if (usedDed.has(dedIdx)) return false;
-                            return canonDir(cur, neighbor) === dir;
-                        });
-                        if (!cont) break;
-                        usedDed.add(cont.dedIdx);
-                        stroke.ids.push(...deduped[cont.dedIdx].ids);
-                        stroke.endNode = cont.neighbor;
-                        cur = cont.neighbor;
-                    }
-
-                    strokes.push(stroke);
-                    break; // only need one orientation
+                    const hasPred = (dadj.get(fromNode) || []).some(({ neighbor, dedIdx }) =>
+                        !usedDed.has(dedIdx) && dedIdx !== startIdx && canonDir(neighbor, fromNode) === dir
+                    );
+                    if (!hasPred) { chosenFrom = fromNode; chosenTo = toNode; break; }
                 }
+                tryBuildStroke(startIdx, chosenFrom, chosenTo);
             }
 
             if (strokes.length === 0) return null;
@@ -1316,7 +1372,7 @@
                         animCtx.beginPath();
                         animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
                         animCtx.strokeStyle = '#ff4444';
-                        animCtx.lineWidth = 3.5; animCtx.lineCap = 'round';
+                        animCtx.lineWidth = 4.5; animCtx.lineCap = 'round';
                         animCtx.stroke();
                     }
                     // Fade in number over second half of phase 1
@@ -1359,9 +1415,8 @@
         }
 
         document.getElementById('submitBtn').addEventListener('click', () => {
-            // Block submit if all tiles are filled
             if (tileValues.every(v => v !== null)) {
-                showMistake('Tiles are full — tap a number to remove it');
+                showError('All tiles full — tap a number to remove it');
                 return;
             }
 
@@ -1369,9 +1424,10 @@
             const result = recogniseNumber(redEdges);
 
             if (!result) {
-                const btn = document.getElementById('submitBtn');
-                btn.style.color = '#ff4444'; btn.style.borderColor = '#ff4444';
-                setTimeout(() => { btn.style.color = ''; btn.style.borderColor = ''; }, 600);
+                if (redEdges.length === 0) return;
+                for (const e of edgeList) e.red = false;
+                playDraw();
+                showError('Not a valid number');
                 return;
             }
 
@@ -1396,35 +1452,72 @@
         });
 
         function checkWin() {
-            if (tileValues.some(v => v === null)) {
-                // No lines left but tiles not all filled
-                if (edgeList.length === 0) showMistake("There are empty tile spaces");
-                return;
-            }
-
             const target = parseInt(document.getElementById('play-target').textContent.trim());
             if (isNaN(target)) return;
-            const sum = tileValues.reduce((a, b) => a + b, 0);
+            const allFilled = tileValues.every(v => v !== null);
+            const noLines = edgeList.length === 0;
+            const sum = tileValues.filter(v => v !== null).reduce((a, b) => a + b, 0);
 
-            // All tiles filled but wrong — show mistake prompt
-            if (sum !== target || edgeList.length > 0) {
-                const msg = edgeList.length > 0 ? "Something's not right — try again" : "Numbers don't add up — try again";
-                showMistake(msg);
+            if (!allFilled && noLines && puzzleStartTime !== null) {
+                showError(`You need to use all ${tileValues.length} numbers`);
                 return;
             }
-
+            if (!allFilled) return;
+            if (!noLines) { showError('You need to use all available lines'); return; }
+            if (sum !== target) { showError('Your sum is incorrect — try again'); return; }
             showWin();
         }
 
-        function showMistake(msg = "Something's not right — try again") {
-            const overlay = document.getElementById('mistakeOverlay');
-            const box = document.getElementById('mistakeBox');
-            box.textContent = msg;
-            overlay.classList.remove('visible');
-            // Force reflow to restart animation
-            void overlay.offsetWidth;
-            overlay.classList.add('visible');
-            setTimeout(() => overlay.classList.remove('visible'), 2500);
+        function showError(msg) {
+            if (!animCtx) return;
+            const W2 = 460, H2 = 460;
+            const cx = W2 / 2, cy = H2 / 2;
+            const duration = 1800;
+            const shakeDur = 400;
+            const start = performance.now();
+            function shakeX(t) {
+                const p = t / shakeDur;
+                if (p >= 1) return 0;
+                return Math.sin(p * Math.PI * 4) * 7 * (1 - p);
+            }
+            function frame(now) {
+                const elapsed = now - start;
+                const t = Math.min(elapsed / duration, 1);
+                const alpha = t < 0.70 ? 1 : 1 - (t - 0.70) / 0.30;
+                const xOffset = shakeX(elapsed);
+                animCtx.clearRect(0, 0, W2, H2);
+                animCtx.save();
+                animCtx.globalAlpha = alpha;
+                const pad = 20, fontSize = 13;
+                animCtx.font = `${fontSize}px 'Share Tech Mono', monospace`;
+                const textW = animCtx.measureText(msg).width;
+                const boxW = textW + pad * 2, boxH = 44, br = 8;
+                const bx = cx - boxW / 2 + xOffset, by = cy - boxH / 2;
+                animCtx.beginPath();
+                animCtx.moveTo(bx + br, by);
+                animCtx.lineTo(bx + boxW - br, by);
+                animCtx.arcTo(bx + boxW, by, bx + boxW, by + br, br);
+                animCtx.lineTo(bx + boxW, by + boxH - br);
+                animCtx.arcTo(bx + boxW, by + boxH, bx + boxW - br, by + boxH, br);
+                animCtx.lineTo(bx + br, by + boxH);
+                animCtx.arcTo(bx, by + boxH, bx, by + boxH - br, br);
+                animCtx.lineTo(bx, by + br);
+                animCtx.arcTo(bx, by, bx + br, by, br);
+                animCtx.closePath();
+                animCtx.fillStyle = '#2a1a1a';
+                animCtx.fill();
+                animCtx.strokeStyle = '#ff4444';
+                animCtx.lineWidth = 2;
+                animCtx.stroke();
+                animCtx.fillStyle = '#ff4444';
+                animCtx.textAlign = 'center';
+                animCtx.textBaseline = 'middle';
+                animCtx.fillText(msg, cx + xOffset, cy);
+                animCtx.restore();
+                if (t < 1) requestAnimationFrame(frame);
+                else animCtx.clearRect(0, 0, W2, H2);
+            }
+            requestAnimationFrame(frame);
         }
 
         for (let i = 0; i < 5; i++) {
@@ -1513,7 +1606,7 @@
                             animCtx.beginPath();
                             animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
                             animCtx.strokeStyle = '#4488ff';
-                            animCtx.lineWidth = 3.5; animCtx.lineCap = 'round';
+                            animCtx.lineWidth = 4.5; animCtx.lineCap = 'round';
                             animCtx.stroke();
                         }
                         animCtx.restore();
@@ -1568,6 +1661,43 @@
 
         document.getElementById('winClose').addEventListener('click', () => {
             document.getElementById('winOverlay').classList.remove('visible');
+        });
+
+        // ── Info popup ───────────────────────────────────────────────────────────
+        document.getElementById('infoBtn').addEventListener('click', () => {
+            document.getElementById('infoOverlay').classList.add('visible');
+        });
+        document.getElementById('infoClose').addEventListener('click', () => {
+            document.getElementById('infoOverlay').classList.remove('visible');
+        });
+        document.getElementById('infoOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('infoOverlay'))
+                document.getElementById('infoOverlay').classList.remove('visible');
+        });
+
+        // ── Rotate button ────────────────────────────────────────────────────────
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        let isRotating = false;
+
+        document.getElementById('rotateBtn').addEventListener('click', () => {
+            if (isRotating) return;
+            isRotating = true;
+
+            canvasWrapper.classList.add('rotating');
+
+            canvasWrapper.addEventListener('animationend', function handler() {
+                canvasWrapper.removeEventListener('animationend', handler);
+                canvasWrapper.classList.remove('rotating');
+
+                function rotateNodeIdx(idx) {
+                    const r = nodes[idx].r, c = nodes[idx].c;
+                    return c * gridSize + (gridSize - 1 - r);
+                }
+                edgeList     = edgeList.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
+                playSnapshot = playSnapshot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
+                playDraw();
+                isRotating = false;
+            }, { once: true });
         });
 
         function showScreen(name) {
