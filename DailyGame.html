@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Grid Line Toggle</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
+        body {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; background-color: #1a1a1a; color: white;
+            font-family: 'Share Tech Mono', monospace;
+            touch-action: none; user-select: none;
+        }
+        .screen { display: none; flex-direction: column; align-items: center; }
+        .screen.active { display: flex; }
+        h2 { font-size: 11px; letter-spacing: 0.2em; color: #555; text-transform: uppercase; margin-bottom: 14px; font-family: 'Rajdhani', sans-serif; font-weight: 500; }
+        canvas:not(#animOverlay) { border: 2px solid #444; background-color: #222; border-radius: 8px; cursor: crosshair; touch-action: none; }
+        p { margin-top: 14px; color: #555; font-size: 11px; text-align: center; max-width: 440px; font-family: 'Share Tech Mono', monospace; }
+        .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+        button {
+            padding: 8px 22px; background: transparent; border-radius: 4px;
+            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            cursor: pointer; letter-spacing: 0.08em;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        button.secondary { color: #777; border: 1px solid #444; }
+        button.secondary:hover { color: #ccc; border-color: #888; }
+        button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
+        button.primary:hover { background: #66aaff; border-color: #66aaff; }
+
+        #animOverlay {
+            position: absolute; pointer-events: none;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
+        }
+        #mistakeOverlay {
+            display: none; position: fixed; inset: 0;
+            align-items: center; justify-content: center;
+            z-index: 100; pointer-events: none;
+        }
+        #mistakeOverlay.visible { display: flex; }
+        @keyframes fadeInOut {
+            0%   { opacity: 0; transform: translateY(-8px); }
+            10%  { opacity: 1; transform: translateY(0); }
+            70%  { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            15%     { transform: translateX(-6px); }
+            30%     { transform: translateX(6px); }
+            45%     { transform: translateX(-5px); }
+            60%     { transform: translateX(5px); }
+            75%     { transform: translateX(-3px); }
+            90%     { transform: translateX(3px); }
+        }
+        #mistakeBox {
+            background: #2a1a1a; border: 2px solid #ff4444; border-radius: 10px;
+            padding: 18px 32px; color: #ff4444;
+            font-family: 'Share Tech Mono', monospace; font-size: 13px;
+            letter-spacing: 0.05em; text-align: center;
+            animation: fadeInOut 2.5s ease forwards, shake 0.5s ease 0.1s;
+        }
+        #winOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75);
+            align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        #winOverlay.visible { display: flex; }
+        #winBox {
+            background: #2a2a2a; border: 2px solid #4488ff; border-radius: 12px;
+            padding: 36px 48px; text-align: center;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        #winTitle { font-size: 28px; letter-spacing: 0.08em; color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 700; }
+        #winSub { font-size: 12px; color: #777; font-family: 'Share Tech Mono', monospace; }
+
+        .equation {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 16px;
+        }
+        .eq-op {
+            color: #444; font-size: 18px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+        }
+        .tile { 
+            width: 44px; height: 44px;
+            background: #222; border: 1px solid #3a3a3a; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-family: 'Rajdhani', sans-serif; font-weight: 700; color: #333;
+        }
+        .tile.filled { color: #ff4444; border-color: #553333; cursor: pointer; }
+        .tile.filled:hover { border-color: #ff4444; }
+        .tile.editable {
+            cursor: text; border-color: #555;
+        }
+        .tile.editable:focus-within { border-color: #4488ff; }
+        .tile input {
+            width: 100%; height: 100%; background: transparent; border: none; outline: none;
+            text-align: center; font-size: 22px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            color: #aaa; padding: 0;
+            touch-action: auto; user-select: text;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="screen active" id="screenSetup">
+        <h2>Setup</h2>
+        <canvas id="setupCanvas" width="460" height="460"></canvas>
+        <p>Drag between any two nodes (horizontal, vertical or 45°) to add a line. Tap a line to remove it.</p>
+        <div class="equation">
+            <div class="tile" id="setup-t0"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="setup-t1"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="setup-t2"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="setup-t3"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="setup-t4"></div>
+            <span class="eq-op">=</span>
+            <div class="tile editable"><input id="targetInput" type="number" min="0" placeholder="?" /></div>
+        </div>
+        <div class="btn-row">
+            <button class="secondary" id="setupClearBtn">Clear all</button>
+            <button class="primary"   id="goPlayBtn">Play →</button>
+        </div>
+    </div>
+
+    <div class="screen" id="screenPlay">
+        <h2>Play</h2>
+        <div style="position:relative; display:inline-block;">
+            <canvas id="playCanvas" width="460" height="460"></canvas>
+            <canvas id="animOverlay" width="460" height="460" style="position:absolute;top:0;left:0;pointer-events:none;background:transparent;"></canvas>
+        </div>
+        <p>Tap a blue line to turn it red — trace between nodes to change multiple lines</p>
+        <div class="equation">
+            <div class="tile" id="play-t0"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="play-t1"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="play-t2"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="play-t3"></div>
+            <span class="eq-op">+</span>
+            <div class="tile" id="play-t4"></div>
+            <span class="eq-op">=</span>
+            <div class="tile" id="play-target"></div>
+        </div>
+        <div class="btn-row">
+            <button class="secondary" id="playResetBtn">Reset</button>
+            <button class="secondary" id="submitBtn">Submit number</button>
+            <button class="secondary" id="goSetupBtn">← Setup</button>
+        </div>
+
+        <!-- Mistake overlay -->
+        <div id="mistakeOverlay">
+            <div id="mistakeBox">Something's not right — try again</div>
+        </div>
+
+        <!-- Win overlay -->
+        <div id="winOverlay">
+            <div id="winBox">
+                <div id="winTitle">🎉 You win!</div>
+                <div id="winSub">All lines cleared. Sum correct.</div>
+                <button class="primary" id="winPlayAgain">Play again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─── Grid geometry ──────────────────────────────────────────────────────
+        const gridSize = 7;
+        const W = 460, H = 460;
+        const padding = 40;
+        const spacing = (W - padding * 2) / (gridSize - 1);
+
+        const nodes = [];
+        for (let r = 0; r < gridSize; r++)
+            for (let c = 0; c < gridSize; c++)
+                nodes.push({ x: padding + c * spacing, y: padding + r * spacing, r, c });
+
+        // ─── Edge store (array, not map — multiple edges per node pair allowed) ─
+        let edgeList = [];   // { id, a, b, red }
+        let nextId = 0;
+
+        function makeEdge(a, b) {
+            return { id: nextId++, a, b, red: false };
+        }
+
+        // Is a→b a valid direction? Must be horiz, vert, or exactly 45°.
+        function validDirection(a, b) {
+            const dr = Math.abs(nodes[b].r - nodes[a].r);
+            const dc = Math.abs(nodes[b].c - nodes[a].c);
+            if (dr === 0 && dc === 0) return false;
+            return dr === 0 || dc === 0 || dr === dc;
+        }
+
+        // ─── Parallel offset ────────────────────────────────────────────────────
+        const PARALLEL_GAP = 7; // px between parallel lines
+
+        // Normalised direction of an edge: always returns one of 8 canonical directions
+        // encoded as [dr, dc] with dc >= 0, or dc==0 and dr > 0.
+        function edgeDir(edge) {
+            let dr = nodes[edge.b].r - nodes[edge.a].r;
+            let dc = nodes[edge.b].c - nodes[edge.a].c;
+            // Normalise to unit step
+            const g = Math.max(Math.abs(dr), Math.abs(dc));
+            dr /= g; dc /= g;
+            // Canonical: flip so dc > 0, or if dc==0 then dr > 0
+            if (dc < 0 || (dc === 0 && dr < 0)) { dr = -dr; dc = -dc; }
+            return [dr, dc];
+        }
+
+        // Do two edges lie on the same infinite line AND their segments overlap?
+        function areCollinearOverlapping(e1, e2) {
+            const [dr1, dc1] = edgeDir(e1);
+            const [dr2, dc2] = edgeDir(e2);
+            if (dr1 !== dr2 || dc1 !== dc2) return false; // different direction
+
+            // Both on same ray from same origin? Check that one endpoint of e2 lies on e1's line.
+            // Since all nodes are on a grid, we can use the node coords.
+            const na1 = nodes[e1.a], na2 = nodes[e2.a];
+            // Vector from e1.a to e2.a must be parallel to the edge direction
+            const ddr = na2.r - na1.r, ddc = na2.c - na1.c;
+            // ddr/dc1 == ddc/dc1 (same ratio), i.e. they're on the same line
+            // Cross product of (dr1,dc1) x (ddr,ddc) must be 0
+            if (dr1 * ddc - dc1 * ddr !== 0) return false; // different parallel lines
+
+            // Now check segments overlap (1D projection along the direction)
+            // Project all 4 endpoints onto the axis
+            const axis = (r, c) => dr1 !== 0 ? r / dr1 : c / dc1;
+            const p1a = axis(nodes[e1.a].r, nodes[e1.a].c);
+            const p1b = axis(nodes[e1.b].r, nodes[e1.b].c);
+            const p2a = axis(nodes[e2.a].r, nodes[e2.a].c);
+            const p2b = axis(nodes[e2.b].r, nodes[e2.b].c);
+            const min1 = Math.min(p1a, p1b), max1 = Math.max(p1a, p1b);
+            const min2 = Math.min(p2a, p2b), max2 = Math.max(p2a, p2b);
+            return max1 > min2 && max2 > min1; // strict overlap
+        }
+
+        // Returns all edges that are collinear+overlapping with the given edge (including itself)
+        function getSiblingEdges(edge) {
+            return edgeList.filter(e => areCollinearOverlapping(edge, e));
+        }
+
+        // Get all grid nodes that lie strictly between a and b on the same line
+        function intermediateNodes(a, b) {
+            const na = nodes[a], nb = nodes[b];
+            const dr = nb.r - na.r, dc = nb.c - na.c;
+            const steps = Math.max(Math.abs(dr), Math.abs(dc));
+            const result = [];
+            for (let s = 1; s < steps; s++) {
+                const r = na.r + (dr / steps) * s;
+                const c = na.c + (dc / steps) * s;
+                const idx = nodes.findIndex(n => n.r === r && n.c === c);
+                if (idx !== -1) result.push(idx);
+            }
+            return result;
+        }
+
+        // Does edge e pass through or over node n (including endpoints)?
+        function edgeCoversNode(e, n) {
+            const [dr, dc] = edgeDir(e);
+            const na = nodes[e.a], nb = nodes[e.b], nn = nodes[n];
+            const dnr = nn.r - na.r, dnc = nn.c - na.c;
+            if (dr * dnc !== dc * dnr) return false;
+            const axis = (r, c) => dr !== 0 ? r / dr : c / dc;
+            const pa = axis(na.r, na.c), pb = axis(nb.r, nb.c), pn = axis(nn.r, nn.c);
+            const lo = Math.min(pa, pb), hi = Math.max(pa, pb);
+            return pn >= lo && pn <= hi;
+        }
+
+        function crowdOnSubsegment(nA, nB) {
+            const passing = edgeList.filter(e => {
+                if (!edgeCoversNode(e, nA) || !edgeCoversNode(e, nB)) return false;
+                const eMids = intermediateNodes(e.a, e.b);
+                const eSeq  = [e.a, ...eMids, e.b];
+                for (let i = 0; i < eSeq.length - 1; i++) {
+                    if ((eSeq[i] === nA && eSeq[i+1] === nB) ||
+                        (eSeq[i] === nB && eSeq[i+1] === nA)) return true;
+                }
+                return false;
+            });
+            passing.sort((a, b) => {
+                const lenA = Math.max(Math.abs(nodes[a.b].r - nodes[a.a].r), Math.abs(nodes[a.b].c - nodes[a.a].c));
+                const lenB = Math.max(Math.abs(nodes[b.b].r - nodes[b.a].r), Math.abs(nodes[b.b].c - nodes[b.a].c));
+                if (lenA !== lenB) return lenA - lenB; // shorter first
+                return a.id - b.id;
+            });
+            return passing;
+        }
+
+        function crowdOffset(edge, crowd) {
+            if (crowd.length <= 1) return 0;
+            const sorted = [...crowd].sort((a, b) => a.id - b.id);
+            const idx = sorted.findIndex(e => e.id === edge.id);
+            return (idx - (crowd.length - 1) / 2) * PARALLEL_GAP;
+        }
+
+        // Compute perpendicular unit vector for an edge's canonical direction
+        function perpVector(edge) {
+            const [dr, dc] = edgeDir(edge);
+            const pdx = dc * spacing, pdy = dr * spacing;
+            const len = Math.hypot(pdx, pdy);
+            return { px: -pdy / len, py: pdx / len };
+        }
+
+        // Draw a single edge as sub-segments, each piece offset by its local crowd
+        function drawEdge(ctx, edge, color, lineWidth) {
+            const mids = intermediateNodes(edge.a, edge.b);
+            const segNodes = [edge.a, ...mids, edge.b];
+            const { px, py } = perpVector(edge);
+
+            for (let s = 0; s < segNodes.length - 1; s++) {
+                const nA     = segNodes[s], nB = segNodes[s + 1];
+                const crowd  = crowdOnSubsegment(nA, nB);
+                const offset = crowdOffset(edge, crowd);
+
+                ctx.beginPath();
+                ctx.moveTo(nodes[nA].x + px * offset, nodes[nA].y + py * offset);
+                ctx.lineTo(nodes[nB].x + px * offset, nodes[nB].y + py * offset);
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = lineWidth;
+                ctx.lineCap     = 'round';
+                ctx.stroke();
+            }
+        }
+
+        // offsetEndpoints for hit-testing
+        function offsetEndpoints(edge) {
+            const mids = intermediateNodes(edge.a, edge.b);
+            const segNodes = [edge.a, ...mids, edge.b];
+            const { px, py } = perpVector(edge);
+            const crowd  = crowdOnSubsegment(segNodes[0], segNodes[1]);
+            const offset = crowdOffset(edge, crowd);
+            const na = nodes[edge.a], nb = nodes[edge.b];
+            return {
+                x1: na.x + px * offset, y1: na.y + py * offset,
+                x2: nb.x + px * offset, y2: nb.y + py * offset
+            };
+        }
+
+        // Which node indices are endpoints of at least one edge?
+        function connectedNodeSet() {
+            const s = new Set();
+            for (const e of edgeList) { s.add(e.a); s.add(e.b); }
+            return s;
+        }
+
+        // ─── Geometry helpers ───────────────────────────────────────────────────
+        function distToSegment(px, py, ax, ay, bx, by) {
+            const dx = bx - ax, dy = by - ay;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+            let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+        }
+
+        function getNodeAt(mx, my) {
+            const radius = Math.max(18, spacing * 0.42);
+            for (let i = 0; i < nodes.length; i++)
+                if (Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
+            return -1;
+        }
+
+        // Find the topmost edge (last drawn) near point, from the given list
+        function getEdgeNear(mx, my, list, threshold = 8) {
+            // Iterate in reverse so we hit the "top" drawn edge first
+            for (let i = list.length - 1; i >= 0; i--) {
+                const edge = list[i];
+                const { x1, y1, x2, y2 } = offsetEndpoints(edge);
+                if (distToSegment(mx, my, x1, y1, x2, y2) < threshold) return edge;
+            }
+            return null;
+        }
+
+        function getPos(canvas, e) {
+            const rect = canvas.getBoundingClientRect();
+            const src = e.touches ? e.touches[0] : e;
+            return {
+                x: (src.clientX - rect.left) * (W / rect.width),
+                y: (src.clientY - rect.top)  * (H / rect.height)
+            };
+        }
+
+        // ─── Drawing ────────────────────────────────────────────────────────────
+        function drawEdge(ctx, edge, color, lineWidth) {
+            const { x1, y1, x2, y2 } = offsetEndpoints(edge);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = lineWidth;
+            ctx.lineCap     = 'round';
+            ctx.stroke();
+        }
+
+        function drawNodes(ctx, activeNode = -1, connected = null) {
+            nodes.forEach((n, i) => {
+                const isActive    = i === activeNode;
+                const isConnected = connected === null || connected.has(i);
+                const radius = isActive ? 9 : isConnected ? 6 : 3.5;
+                const fill   = isActive ? '#ffffff' : isConnected ? '#cccccc' : '#555555';
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle   = fill;
+                ctx.fill();
+                if (isConnected || isActive) {
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth   = 2;
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // SETUP SCREEN
+        // ════════════════════════════════════════════════════════════════════════
+        const setupCanvas = document.getElementById('setupCanvas');
+        const setupCtx    = setupCanvas.getContext('2d');
+
+        let setupDown      = false;
+        let setupLastNode  = -1;
+        let setupDragMoved = false;
+        let setupStartNode = -1;
+
+        function setupDraw(previewNode = -1, cursorPos = null) {
+            setupCtx.clearRect(0, 0, W, H);
+
+            // Ghost lines for all valid potential connections from setupLastNode
+            if (setupDown && setupLastNode !== -1) {
+                for (let j = 0; j < nodes.length; j++) {
+                    if (j === setupLastNode) continue;
+                    if (!validDirection(setupLastNode, j)) continue;
+                    const na = nodes[setupLastNode], nb = nodes[j];
+                    setupCtx.beginPath();
+                    setupCtx.moveTo(na.x, na.y);
+                    setupCtx.lineTo(nb.x, nb.y);
+                    setupCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+                    setupCtx.lineWidth   = 1;
+                    setupCtx.lineCap     = 'round';
+                    setupCtx.stroke();
+                }
+            }
+
+            // Existing edges
+            for (const edge of edgeList) drawEdge(setupCtx, edge, '#4488ff', 2.5);
+
+            // Live drag preview line from start node to snapped/cursor position
+            if (setupDown && setupLastNode !== -1 && cursorPos) {
+                const na = nodes[setupLastNode];
+                setupCtx.beginPath();
+                setupCtx.moveTo(na.x, na.y);
+                if (previewNode !== -1) {
+                    setupCtx.lineTo(nodes[previewNode].x, nodes[previewNode].y);
+                    setupCtx.strokeStyle = 'rgba(68,136,255,0.6)';
+                } else {
+                    setupCtx.lineTo(cursorPos.x, cursorPos.y);
+                    setupCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+                }
+                setupCtx.lineWidth = 2;
+                setupCtx.setLineDash([5, 4]);
+                setupCtx.lineCap   = 'round';
+                setupCtx.stroke();
+                setupCtx.setLineDash([]);
+            }
+
+            drawNodes(setupCtx, setupLastNode !== -1 && setupDown ? setupLastNode : -1, connectedNodeSet());
+        }
+
+        function setupStart(e) {
+            e.preventDefault();
+            const pos = getPos(setupCanvas, e);
+            setupDown      = true;
+            setupDragMoved = false;
+            setupLastNode  = getNodeAt(pos.x, pos.y);
+            setupStartNode = setupLastNode;
+            setupDraw(-1, pos);
+        }
+
+        function setupMove(e) {
+            e.preventDefault();
+            if (!setupDown) return;
+            const pos  = getPos(setupCanvas, e);
+            const node = getNodeAt(pos.x, pos.y);
+            const snapNode = (node !== -1 && node !== setupLastNode && setupLastNode !== -1 && validDirection(setupLastNode, node))
+                ? node : -1;
+            setupDragMoved = true;
+            setupDraw(snapNode, pos);
+        }
+
+        function setupEnd(e) {
+            e.preventDefault();
+            if (!setupDown) return;
+
+            const pos = e.changedTouches ? (() => {
+                const rect = setupCanvas.getBoundingClientRect();
+                const t = e.changedTouches[0];
+                return { x: (t.clientX - rect.left) * (W / rect.width), y: (t.clientY - rect.top) * (H / rect.height) };
+            })() : getPos(setupCanvas, e);
+
+            if (!setupDragMoved) {
+                // Pure tap — remove the edge nearest the tap point
+                const hit = getEdgeNear(pos.x, pos.y, edgeList);
+                if (hit) edgeList = edgeList.filter(e => e.id !== hit.id);
+            } else if (setupLastNode !== -1) {
+                const endNode = getNodeAt(pos.x, pos.y);
+                if (endNode !== -1 && endNode !== setupLastNode && validDirection(setupLastNode, endNode)) {
+                    // Create one edge per gap between start and end, via all intermediate nodes
+                    const allNodes = [setupLastNode, ...intermediateNodes(setupLastNode, endNode), endNode];
+                    for (let i = 0; i < allNodes.length - 1; i++) {
+                        edgeList.push(makeEdge(allNodes[i], allNodes[i + 1]));
+                    }
+                }
+            }
+
+            setupDown = false; setupLastNode = -1; setupStartNode = -1; setupDragMoved = false;
+            setupDraw();
+        }
+
+        setupCanvas.addEventListener('mousedown',  setupStart);
+        setupCanvas.addEventListener('mousemove',  setupMove);
+        setupCanvas.addEventListener('mouseup',    setupEnd);
+        setupCanvas.addEventListener('mouseleave', () => { setupDown = false; setupLastNode = -1; setupDragMoved = false; setupDraw(); });
+        setupCanvas.addEventListener('touchstart',  setupStart,  { passive: false });
+        setupCanvas.addEventListener('touchmove',   setupMove,   { passive: false });
+        setupCanvas.addEventListener('touchend',    setupEnd,    { passive: false });
+        setupCanvas.addEventListener('touchcancel', () => { setupDown = false; setupLastNode = -1; setupDragMoved = false; setupDraw(); }, { passive: false });
+
+        document.getElementById('setupClearBtn').addEventListener('click', () => {
+            edgeList = [];
+            setupDraw();
+        });
+
+        document.getElementById('targetInput').addEventListener('input', () => {
+            const val = document.getElementById('targetInput').value.trim();
+            document.getElementById('play-target').textContent = val;
+        });
+
+        let playSnapshot = []; // deep copy of edgeList when play started
+        let tileValues = [null, null, null, null, null];
+
+        document.getElementById('goPlayBtn').addEventListener('click', () => {
+            for (const e of edgeList) e.red = false;
+            // Save a deep snapshot for reset
+            playSnapshot = edgeList.map(e => ({ ...e }));
+            tileValues = [null, null, null, null, null];
+            updateTiles();
+            const val = document.getElementById('targetInput').value.trim();
+            document.getElementById('play-target').textContent = val;
+            showScreen('play');
+            playDraw();
+        });
+
+        // ════════════════════════════════════════════════════════════════════════
+        // PLAY SCREEN
+        // ════════════════════════════════════════════════════════════════════════
+        const playCanvas = document.getElementById('playCanvas');
+        const playCtx    = playCanvas.getContext('2d');
+
+        let playDown       = false;
+        let playLastPos    = null;
+        let playOriginNode = -1;   // where the current collinear segment started
+        let playLastNode   = -1;   // last node the finger was on
+        let playHasDragged = false;
+        let playPending    = null; // edge candidate for pure tap
+        let playTouched    = new Set();
+
+        function playDraw() {
+            playCtx.clearRect(0, 0, W, H);
+            for (const edge of edgeList)
+                drawEdge(playCtx, edge, edge.red ? '#ff4444' : '#4488ff', edge.red ? 3.5 : 2.5);
+            if (playLastPos) {
+                playCtx.beginPath();
+                playCtx.arc(playLastPos.x, playLastPos.y, 6, 0, Math.PI * 2);
+                playCtx.fillStyle = 'rgba(255,255,255,0.15)';
+                playCtx.fill();
+            }
+            drawNodes(playCtx, playLastNode, connectedNodeSet());
+        }
+
+        function getConnectedNodeAt(mx, my) {
+            const connected = connectedNodeSet();
+            const radius = Math.max(18, spacing * 0.42);
+            for (let i = 0; i < nodes.length; i++)
+                if (connected.has(i) && Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
+            return -1;
+        }
+
+        // Are b and c on the same ray from a (collinear, same direction)?
+        function sameRay(a, b, c) {
+            if (a === -1 || b === -1 || c === -1) return false;
+            const na = nodes[a], nb = nodes[b], nc = nodes[c];
+            const dr1 = nb.r - na.r, dc1 = nb.c - na.c;
+            const dr2 = nc.r - na.r, dc2 = nc.c - na.c;
+            if (dr1 === 0 && dc1 === 0) return false;
+            if (dr1 * dc2 !== dc1 * dr2) return false; // not collinear
+            const dot = dr1 * dr2 + dc1 * dc2;
+            return dot > 0; // same direction, not behind
+        }
+
+        // Is there any edge from `origin` that is collinear with origin→current
+        // and extends BEYOND `current` (i.e. the user might still be heading further)?
+        function hasLongerCollinearEdge(origin, current) {
+            if (origin === -1 || current === -1) return false;
+            const na = nodes[origin], nc = nodes[current];
+            const dr = nc.r - na.r, dc = nc.c - na.c;
+            for (const e of edgeList) {
+                // get the endpoint of this edge that is NOT origin (if origin is one end)
+                let far = -1;
+                if (e.a === origin) far = e.b;
+                else if (e.b === origin) far = e.a;
+                else continue; // edge doesn't start at origin
+                if (far === current) continue; // that's the short edge, skip
+                const nf = nodes[far];
+                const dfr = nf.r - na.r, dfc = nf.c - na.c;
+                // same direction as origin→current?
+                if (dr === 0 && dc === 0) continue;
+                const g1 = Math.max(Math.abs(dr), Math.abs(dc));
+                const g2 = Math.max(Math.abs(dfr), Math.abs(dfc));
+                if (g2 === 0) continue;
+                if ((dr / g1) === (dfr / g2) && (dc / g1) === (dfc / g2)) return true;
+            }
+            return false;
+        }
+
+        function handleNodeEntry(node) {
+            if (playLastNode === -1) {
+                playLastNode   = node;
+                playOriginNode = node;
+                return;
+            }
+            if (node === playLastNode) return;
+
+            playHasDragged = true;
+            playPending    = null;
+
+            if (sameRay(playOriginNode, playLastNode, node)) {
+                // Still on the same ray from origin.
+                // Defer only if there's a longer edge from origin that could still be reached.
+                if (hasLongerCollinearEdge(playOriginNode, node)) {
+                    playLastNode = node;
+                } else {
+                    // No ambiguity — commit origin→node now and reset origin
+                    resolveSegment_to(playOriginNode, node);
+                    playOriginNode = node;
+                    playLastNode   = node;
+                }
+            } else {
+                // Turned off the ray — commit whatever was pending, start fresh
+                resolveSegment();
+                playOriginNode = playLastNode;
+                playLastNode   = node;
+                // Commit this new hop immediately if no ambiguity
+                if (!hasLongerCollinearEdge(playOriginNode, node)) {
+                    resolveSegment_to(playOriginNode, node);
+                    playOriginNode = node;
+                }
+            }
+        }
+
+        // Commit one untouched edge exactly between a and b
+        function commitEdge(a, b) {
+            const sa = Math.min(a, b), sb = Math.max(a, b);
+            const candidates = edgeList.filter(e =>
+                Math.min(e.a, e.b) === sa && Math.max(e.a, e.b) === sb && !playTouched.has(e.id)
+            );
+            if (candidates.length > 0) {
+                candidates[0].red = !candidates[0].red;
+                playTouched.add(candidates[0].id);
+                return true;
+            }
+            return false;
+        }
+
+        // Resolve the pending segment from origin to last.
+        // First try a direct edge origin→last. If none, walk node by node
+        // along the path from origin to last and commit each hop individually.
+        function resolveSegment() {
+            if (playOriginNode === -1 || playLastNode === -1 || playOriginNode === playLastNode) return;
+            // Try direct edge first
+            if (commitEdge(playOriginNode, playLastNode)) return;
+            // No direct edge — walk sub-hops along the collinear path
+            // Reconstruct the node sequence from origin to last
+            const na = nodes[playOriginNode], nb = nodes[playLastNode];
+            const dr = nb.r - na.r, dc = nb.c - na.c;
+            const steps = Math.max(Math.abs(dr), Math.abs(dc));
+            let prev = playOriginNode;
+            for (let s = 1; s <= steps; s++) {
+                const r = na.r + (dr / steps) * s;
+                const c = na.c + (dc / steps) * s;
+                const next = nodes.findIndex(n => n.r === r && n.c === c);
+                if (next !== -1 && next !== prev) {
+                    commitEdge(prev, next);
+                    prev = next;
+                }
+            }
+        }
+
+        function resolveSegment_to(a, b) {
+            const savedOrigin = playOriginNode;
+            const savedLast   = playLastNode;
+            playOriginNode = a;
+            playLastNode   = b;
+            resolveSegment();
+            playOriginNode = savedOrigin;
+            playLastNode   = savedLast;
+        }
+
+        function playStart(e) {
+            e.preventDefault();
+            const pos = getPos(playCanvas, e);
+            playDown       = true;
+            playLastPos    = pos;
+            playHasDragged = false;
+            playPending    = null;
+            playTouched    = new Set();
+            const node = getConnectedNodeAt(pos.x, pos.y);
+            playLastNode   = node;
+            playOriginNode = node;
+            if (node === -1) playPending = getEdgeNear(pos.x, pos.y, edgeList);
+            playDraw();
+        }
+
+        function playMove(e) {
+            e.preventDefault();
+            if (!playDown) return;
+            const pos  = getPos(playCanvas, e);
+            playLastPos = pos;
+            const node = getConnectedNodeAt(pos.x, pos.y);
+            if (node !== -1 && node !== playLastNode) handleNodeEntry(node);
+            playDraw();
+        }
+
+        function playEnd(e) {
+            e.preventDefault();
+            if (!playHasDragged && playPending) {
+                playPending.red = !playPending.red;
+            } else {
+                resolveSegment();
+            }
+            playDown = false; playLastPos = null; playLastNode = -1; playOriginNode = -1;
+            playHasDragged = false; playPending = null; playTouched = new Set();
+            playDraw();
+        }
+
+        playCanvas.addEventListener('mousedown',  playStart);
+        playCanvas.addEventListener('mousemove',  playMove);
+        playCanvas.addEventListener('mouseup',    playEnd);
+        playCanvas.addEventListener('mouseleave', playEnd);
+        playCanvas.addEventListener('touchstart',  playStart,  { passive: false });
+        playCanvas.addEventListener('touchmove',   playMove,   { passive: false });
+        playCanvas.addEventListener('touchend',    playEnd,    { passive: false });
+        playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
+
+        document.getElementById('playResetBtn').addEventListener('click', () => {
+            edgeList = playSnapshot.map(e => ({ ...e, red: false }));
+            tileValues = [null, null, null, null, null];
+            updateTiles();
+            playDraw();
+        });
+
+        document.getElementById('goSetupBtn').addEventListener('click', () => {
+            edgeList = playSnapshot.map(e => ({ ...e, red: false }));
+            showScreen('setup');
+            setupDraw();
+        });
+
+        // ─── Tile state ─────────────────────────────────────────────────────────
+
+        function updateTiles() {
+            for (let i = 0; i < 5; i++) {
+                const el = document.getElementById(`play-t${i}`);
+                el.textContent = tileValues[i] !== null ? tileValues[i] : '';
+                el.classList.toggle('filled', tileValues[i] !== null);
+            }
+        }
+
+        // ─── Number recognition ──────────────────────────────────────────────────
+
+        function unitDir(r1, c1, r2, c2) {
+            const dr = r2 - r1, dc = c2 - c1;
+            const g = Math.max(Math.abs(dr), Math.abs(dc));
+            return [dr / g, dc / g];
+        }
+
+        // Is a direction straight (horiz or vert)?
+        function isStraight([dr, dc]) { return dr === 0 || dc === 0; }
+        // Is a direction diagonal (45°)?
+        function isDiagonal([dr, dc]) { return Math.abs(dr) === Math.abs(dc) && dr !== 0; }
+        // Are two directions parallel (same axis, regardless of sign or scale)?
+        function areParallel([dr1, dc1], [dr2, dc2]) {
+            // parallel means cross product = 0
+            return dr1 * dc2 === dc1 * dr2;
+        }
+
+        // Build adjacency from a set of edges: node → [{ node, edge }]
+        function buildAdj(edges) {
+            const adj = new Map();
+            for (const e of edges) {
+                if (!adj.has(e.a)) adj.set(e.a, []);
+                if (!adj.has(e.b)) adj.set(e.b, []);
+                adj.get(e.a).push({ node: e.b, edge: e });
+                adj.get(e.b).push({ node: e.a, edge: e });
+            }
+            return adj;
+        }
+
+        // Canonical direction string for node a→b
+        function canonDir(a, b) {
+            const dr = nodes[b].r - nodes[a].r, dc = nodes[b].c - nodes[a].c;
+            const g = Math.max(Math.abs(dr), Math.abs(dc));
+            let dru = dr/g, dcu = dc/g;
+            if (dcu < 0 || (dcu === 0 && dru < 0)) { dru = -dru; dcu = -dcu; }
+            return `${dru},${dcu}`;
+        }
+
+        function recogniseNumber(redEdges) {
+            if (redEdges.length === 0) return null;
+
+            // ── Step 1: collapse duplicate edges (same endpoints) ────────────────
+            const usedDup = new Set();
+            const deduped = [];
+            for (const e of redEdges) {
+                if (usedDup.has(e.id)) continue;
+                const sa = Math.min(e.a, e.b), sb = Math.max(e.a, e.b);
+                const group = redEdges.filter(f => {
+                    if (usedDup.has(f.id)) return false;
+                    const fa = Math.min(f.a, f.b), fb = Math.max(f.a, f.b);
+                    return fa === sa && fb === sb;
+                });
+                group.forEach(f => usedDup.add(f.id));
+                deduped.push({ ids: group.map(f => f.id), a: e.a, b: e.b });
+            }
+
+            // ── Step 2: merge consecutive collinear deduped edges into strokes ────
+            // Build a simple adjacency on deduped edges
+            const dadj = new Map(); // nodeIdx → [{ neighbor, dedIdx }]
+            deduped.forEach((d, i) => {
+                if (!dadj.has(d.a)) dadj.set(d.a, []);
+                if (!dadj.has(d.b)) dadj.set(d.b, []);
+                dadj.get(d.a).push({ neighbor: d.b, dedIdx: i });
+                dadj.get(d.b).push({ neighbor: d.a, dedIdx: i });
+            });
+
+            const usedDed = new Set();
+            const strokes = [];
+
+            // Walk from every unused deduped edge, extending greedily in the same direction
+            for (let startIdx = 0; startIdx < deduped.length; startIdx++) {
+                if (usedDed.has(startIdx)) continue;
+                const d = deduped[startIdx];
+
+                // Try both orientations as the start
+                for (const [fromNode, toNode] of [[d.a, d.b], [d.b, d.a]]) {
+                    if (usedDed.has(startIdx)) break;
+
+                    const stroke = { ids: [...d.ids], startNode: fromNode, endNode: toNode };
+                    usedDed.add(startIdx);
+
+                    const dir = canonDir(fromNode, toNode);
+                    let cur = toNode;
+
+                    // Keep extending while next edge is same direction
+                    while (true) {
+                        const neighbors = dadj.get(cur) || [];
+                        const cont = neighbors.find(({ neighbor, dedIdx }) => {
+                            if (usedDed.has(dedIdx)) return false;
+                            return canonDir(cur, neighbor) === dir;
+                        });
+                        if (!cont) break;
+                        usedDed.add(cont.dedIdx);
+                        stroke.ids.push(...deduped[cont.dedIdx].ids);
+                        stroke.endNode = cont.neighbor;
+                        cur = cont.neighbor;
+                    }
+
+                    strokes.push(stroke);
+                    break; // only need one orientation
+                }
+            }
+
+            if (strokes.length === 0) return null;
+
+            // ── Step 3: build adjacency on strokes and match patterns ─────────────
+
+            // ── Step 3: build adjacency on strokes and match patterns ─────────────
+            const strokeAdj = new Map();
+            strokes.forEach((s, i) => {
+                if (!strokeAdj.has(s.startNode)) strokeAdj.set(s.startNode, []);
+                if (!strokeAdj.has(s.endNode))   strokeAdj.set(s.endNode, []);
+                strokeAdj.get(s.startNode).push({ node: s.endNode, strokeIdx: i });
+                strokeAdj.get(s.endNode).push({ node: s.startNode, strokeIdx: i });
+            });
+            const strokeNodes = [...strokeAdj.keys()];
+            const allStrokeIds = () => strokes.flatMap(s => s.ids);
+
+            function walkStrokeChain(startNode, length) {
+                const chain = [startNode];
+                const visitedEdges = new Set();
+                while (chain.length < length) {
+                    const cur = chain[chain.length - 1];
+                    const next = (strokeAdj.get(cur) || []).find(({ node, strokeIdx }) =>
+                        !visitedEdges.has(strokeIdx) && node !== chain[chain.length - 2]
+                    );
+                    if (!next) return null;
+                    visitedEdges.add(next.strokeIdx);
+                    chain.push(next.node);
+                }
+                return chain;
+            }
+
+            function getStrokeBetween(a, b) {
+                return strokes.find(s =>
+                    (s.startNode === a && s.endNode === b) ||
+                    (s.startNode === b && s.endNode === a)
+                );
+            }
+
+            // Direction of stroke as traversed FROM node `from` TO the other end
+            function strokeDirFrom(s, from) {
+                const to = s.startNode === from ? s.endNode : s.startNode;
+                return unitDir(nodes[from].r, nodes[from].c, nodes[to].r, nodes[to].c);
+            }
+
+            const strokeEnds = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 1);
+            const strokeMids = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 2);
+            const strokeJunc = strokeNodes.find(n => (strokeAdj.get(n)||[]).length === 3);
+            // ── 1: single stroke ─────────────────────────────────────────────────
+            if (strokes.length === 1) {
+                return { num: 1, ids: strokes[0].ids };
+            }
+
+            // ── 7: 2 strokes, chain (a right angle — any directions) ─────────────
+            if (strokes.length === 2 && strokeNodes.length === 3 &&
+                strokeEnds.length === 2 && strokeMids.length === 1) {
+                return { num: 7, ids: allStrokeIds() };
+            }
+
+            // ── 2 or 4(Y): 3 strokes ─────────────────────────────────────────────
+            if (strokes.length === 3) {
+                // 4: star topology
+                if (strokeJunc !== undefined && strokeEnds.length === 3) {
+                    // left-of-stalk check on strokes
+                    const jEdges = strokeAdj.get(strokeJunc);
+                    let stalkA = -1, stalkB = -1, armNode = -1;
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = i+1; j < 3; j++) {
+                            const nA = jEdges[i].node, nB = jEdges[j].node;
+                            const drA = nodes[nA].r - nodes[strokeJunc].r, dcA = nodes[nA].c - nodes[strokeJunc].c;
+                            const drB = nodes[nB].r - nodes[strokeJunc].r, dcB = nodes[nB].c - nodes[strokeJunc].c;
+                            if (drA*dcB - dcA*drB === 0 && drA*drB + dcA*dcB < 0) {
+                                stalkA = nA; stalkB = nB;
+                                armNode = jEdges.find((e,k) => k!==i && k!==j).node;
+                            }
+                        }
+                    }
+                    if (armNode === -1) return null;
+                    const stemTip = strokeEnds.find(n => n === stalkA || n === stalkB) ?? stalkA;
+                    const downDr = nodes[stemTip].r - nodes[strokeJunc].r;
+                    const downDc = nodes[stemTip].c - nodes[strokeJunc].c;
+                    const armDr  = nodes[armNode].r - nodes[strokeJunc].r;
+                    const armDc  = nodes[armNode].c - nodes[strokeJunc].c;
+                    if (downDr*armDc - downDc*armDr >= 0) return null;
+                    return { num: 4, ids: allStrokeIds() };
+                }
+
+                // 4: find the straight stroke (stalk), check arm is to its left
+                if (strokeEnds.length === 2 && strokeMids.length === 2) {
+                    for (const stalk of strokes) {
+                        const d = strokeDirFrom(stalk, stalk.startNode);
+                        if (!isStraight(d)) continue;
+                        // The stalk connects two nodes. One end (junc) should connect to the arm.
+                        // The other end (stemTip) should be a degree-1 node or connect to stem.
+                        for (const [junc, stemTip] of [[stalk.startNode, stalk.endNode], [stalk.endNode, stalk.startNode]]) {
+                            // Find the arm: another stroke from junc that is NOT the stalk
+                            const armEdge = (strokeAdj.get(junc)||[]).find(e => strokes[e.strokeIdx] !== stalk);
+                            if (!armEdge) continue;
+                            const armTip = armEdge.node;
+                            const downDr = nodes[stemTip].r - nodes[junc].r;
+                            const downDc = nodes[stemTip].c - nodes[junc].c;
+                            const armDr  = nodes[armTip].r  - nodes[junc].r;
+                            const armDc  = nodes[armTip].c  - nodes[junc].c;
+                            const cross  = downDr*armDc - downDc*armDr;
+                            if (cross < 0) return { num: 4, ids: allStrokeIds() };
+                        }
+                    }
+                }
+
+                // 2: chain with Z pattern
+                if (strokeEnds.length === 2 && strokeMids.length === 2) {
+                    const chain = walkStrokeChain(strokeEnds[0], 4);
+                    if (!chain) return null;
+
+                    // Try both traversal directions
+                    const chains = [chain, [...chain].reverse()];
+                    for (const ch of chains) {
+                        const s1 = getStrokeBetween(ch[0], ch[1]);
+                        const s2 = getStrokeBetween(ch[1], ch[2]);
+                        const s3 = getStrokeBetween(ch[2], ch[3]);
+                        if (!s1 || !s2 || !s3) continue;
+                        const d1 = strokeDirFrom(s1, ch[0]);
+                        const d2 = strokeDirFrom(s2, ch[1]);
+                        const d3 = strokeDirFrom(s3, ch[2]);
+                        if (isStraight(d1) !== isStraight(d3)) continue;
+                        if (isStraight(d1) === isStraight(d2)) continue;
+                        const dot = d1[0]*d3[0] + d1[1]*d3[1];
+                        if (dot <= 0) continue;
+                        // Diagonal must go "back" — perpendicular projection must be negative
+                        const vr = nodes[ch[2]].r - nodes[ch[1]].r;
+                        const vc = nodes[ch[2]].c - nodes[ch[1]].c;
+                        const perpProj = (-d1[1])*vr + d1[0]*vc;
+                        if (perpProj >= 0) continue;
+                        return { num: 2, ids: allStrokeIds() };
+                    }
+                    return null;
+                }
+                return null;
+            }
+
+            // ── Build deduped adjacency for topology checks ──────────────────────
+            const dedAdjTopo = new Map();
+            for (const d of deduped) {
+                if (!dedAdjTopo.has(d.a)) dedAdjTopo.set(d.a, new Set());
+                if (!dedAdjTopo.has(d.b)) dedAdjTopo.set(d.b, new Set());
+                dedAdjTopo.get(d.a).add(d.b);
+                dedAdjTopo.get(d.b).add(d.a);
+            }
+            const dedNodesTopo = [...dedAdjTopo.keys()];
+            const dedDeg = n => dedAdjTopo.get(n).size;
+            const dedD1 = dedNodesTopo.filter(n => dedDeg(n) === 1);
+            const dedD2 = dedNodesTopo.filter(n => dedDeg(n) === 2);
+            const dedD3 = dedNodesTopo.filter(n => dedDeg(n) === 3);
+            const dedAllStraight = deduped.every(d => isStraight(unitDir(nodes[d.a].r, nodes[d.a].c, nodes[d.b].r, nodes[d.b].c)));
+            const dedAllDiag     = deduped.every(d => isDiagonal(unitDir(nodes[d.a].r, nodes[d.a].c, nodes[d.b].r, nodes[d.b].c)));
+
+            // ── 8: hourglass ─────────────────────────────────────────────────────
+            {
+                const dedD4 = dedNodesTopo.filter(n => dedDeg(n) === 4);
+                if (dedD4.length === 1 && dedD1.length === 0 &&
+                    dedD2.length === dedNodesTopo.length - 1) {
+                    return { num: 8, ids: deduped.flatMap(d => d.ids) };
+                }
+            }
+
+            // ── 9: loop with one tail ────────────────────────────────────────────
+            if (dedD3.length === 1 && dedD1.length === 1 &&
+                dedD2.length === dedNodesTopo.length - 2 && (dedAllStraight || dedAllDiag)) {
+                const junc = dedD3[0];
+                const tailNode = dedD1[0];
+                const tailNeighbor = [...(dedAdjTopo.get(tailNode) || new Set())][0];
+
+                // Walk the tail: follow collinear edges from tailNode until we reach junc or branch
+                const tailDir = unitDir(nodes[tailNode].r, nodes[tailNode].c, nodes[tailNeighbor].r, nodes[tailNeighbor].c);
+                const tailEdgeKeys = new Set(); // set of "a-b" keys to remove
+                let cur = tailNode, prev = -1;
+                while (cur !== junc) {
+                    const nbs = [...(dedAdjTopo.get(cur) || new Set())].filter(n => n !== prev);
+                    // Follow the neighbor that is collinear with tailDir
+                    const next = nbs.find(n => areParallel(tailDir, unitDir(nodes[cur].r, nodes[cur].c, nodes[n].r, nodes[n].c)));
+                    if (!next) break;
+                    tailEdgeKeys.add(`${Math.min(cur,next)}-${Math.max(cur,next)}`);
+                    prev = cur; cur = next;
+                }
+
+                const adjNoTail = new Map();
+                for (const d of deduped) {
+                    const key = `${Math.min(d.a,d.b)}-${Math.max(d.a,d.b)}`;
+                    if (tailEdgeKeys.has(key)) continue;
+                    if (!adjNoTail.has(d.a)) adjNoTail.set(d.a, []);
+                    if (!adjNoTail.has(d.b)) adjNoTail.set(d.b, []);
+                    adjNoTail.get(d.a).push(d.b);
+                    adjNoTail.get(d.b).push(d.a);
+                }
+                const noTailNodes = [...adjNoTail.keys()];
+                const isPureCycle = noTailNodes.length > 0 && noTailNodes.every(n => adjNoTail.get(n).length === 2);
+                if (isPureCycle && cur === junc) {
+                    return { num: 9, ids: deduped.flatMap(d => d.ids) };
+                }
+            }
+
+            // ── 4 (triangle+stem): 4 strokes, 4 stroke-nodes ────────────────────
+            if (strokes.length === 4 && strokeNodes.length === 4) {
+                const deg3n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 3);
+                const deg2n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 2);
+                const deg1n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 1);
+                if (deg3n.length !== 1 || deg2n.length !== 2 || deg1n.length !== 1) return null;
+                const junc = deg3n[0], stemTip = deg1n[0];
+                const jEdges = strokeAdj.get(junc);
+                let armNode = -1;
+                for (let i = 0; i < 3; i++) {
+                    for (let j = i+1; j < 3; j++) {
+                        const nA = jEdges[i].node, nB = jEdges[j].node;
+                        const drA = nodes[nA].r-nodes[junc].r, dcA = nodes[nA].c-nodes[junc].c;
+                        const drB = nodes[nB].r-nodes[junc].r, dcB = nodes[nB].c-nodes[junc].c;
+                        if (drA*dcB - dcA*drB === 0 && drA*drB + dcA*dcB < 0) {
+                            armNode = jEdges.find((e,k)=>k!==i&&k!==j).node;
+                        }
+                    }
+                }
+                if (armNode === -1) return null;
+                const downDr = nodes[stemTip].r-nodes[junc].r, downDc = nodes[stemTip].c-nodes[junc].c;
+                const armDr  = nodes[armNode].r-nodes[junc].r,  armDc  = nodes[armNode].c-nodes[junc].c;
+                if (downDr*armDc - downDc*armDr >= 0) return null;
+                return { num: 4, ids: allStrokeIds() };
+            }
+
+            // ── 3: 4 strokes in chain ────────────────────────────────────────────
+            if (strokes.length === 4 && strokeNodes.length === 5) {
+                if (strokeEnds.length !== 2 || strokeMids.length !== 3) {
+                    // fall through
+                } else {
+                const chain = walkStrokeChain(strokeEnds[0], 5);
+                if (chain) {
+                const s1 = getStrokeBetween(chain[0],chain[1]);
+                const s2 = getStrokeBetween(chain[1],chain[2]);
+                const s3 = getStrokeBetween(chain[2],chain[3]);
+                const s4 = getStrokeBetween(chain[3],chain[4]);
+                if (s1&&s2&&s3&&s4) {
+                const d1=strokeDirFrom(s1,chain[0]),d2=strokeDirFrom(s2,chain[1]),d3=strokeDirFrom(s3,chain[2]),d4=strokeDirFrom(s4,chain[3]);
+                if (isStraight(d1) === isStraight(d4) &&
+                    isStraight(d2) === isStraight(d3) &&
+                    isStraight(d1) !== isStraight(d2)) {
+                    return { num: 3, ids: allStrokeIds() };
+                }}}}}
+
+
+            // ── 5 and 6: chain of same-type strokes, all right turns ─────────────
+            if (strokes.length >= 3 && strokeEnds.length === 2 &&
+                strokeMids.length === strokes.length - 1 &&
+                strokeNodes.length === strokes.length + 1) {
+                // Try both end nodes as starting point to handle non-deterministic Set ordering
+                for (const startEnd of strokeEnds) {
+                const chain = walkStrokeChain(startEnd, strokes.length + 1);
+                if (chain) {
+                    const strokesInOrder = [];
+                    for (let i = 0; i < strokes.length; i++) {
+                        const s = getStrokeBetween(chain[i], chain[i+1]);
+                        if (!s) break;
+                        strokesInOrder.push(s);
+                    }
+                    if (strokesInOrder.length === strokes.length) {
+                        const dirs = strokesInOrder.map((s, i) => strokeDirFrom(s, chain[i]));
+                        const allStraight = dirs.every(d => isStraight(d));
+                        const allDiag     = dirs.every(d => isDiagonal(d));
+                        if (allStraight || allDiag) {
+                            let zigzags = true;
+                            for (let i = 0; i < dirs.length - 1; i++) {
+                                if (areParallel(dirs[i], dirs[i+1])) { zigzags = false; break; }
+                            }
+                            if (zigzags) {
+                                const reverseDirs = [...dirs].reverse().map(d => [-d[0], -d[1]]);
+                                // 6: all crosses same sign in EITHER direction (but not mirrored)
+                                // Check forward only for all-positive (valid 6)
+                                // Check reverse only for all-positive (valid 6 walked backward)
+                                // Mirrored 6 would be all-negative in forward = all-positive in reverse
+                                // So we only accept all-positive in FORWARD direction
+                                const fwdCrosses = [];
+                                for (let i = 0; i < dirs.length - 1; i++)
+                                    fwdCrosses.push(dirs[i][0]*dirs[i+1][1] - dirs[i][1]*dirs[i+1][0]);
+                                const revCrosses = [];
+                                for (let i = 0; i < reverseDirs.length - 1; i++)
+                                    revCrosses.push(reverseDirs[i][0]*reverseDirs[i+1][1] - reverseDirs[i][1]*reverseDirs[i+1][0]);
+
+                                // 6: all crosses positive in forward OR reverse (same shape, different start)
+                                // But NOT if forward is all-negative (mirrored) — reject those
+                                const fwdAllPos = fwdCrosses.every(c => c > 0);
+                                const revAllPos = revCrosses.every(c => c > 0);
+                                const fwdAllNeg = fwdCrosses.every(c => c < 0);
+                                if (fwdAllPos || (revAllPos && !fwdAllNeg)) {
+                                    return { num: 6, ids: allStrokeIds() };
+                                }
+
+                                // 5: mixed crosses, starts positive in either direction
+                                for (const d of [dirs, reverseDirs]) {
+                                    const crosses = [];
+                                    for (let i = 0; i < d.length - 1; i++)
+                                        crosses.push(d[i][0]*d[i+1][1] - d[i][1]*d[i+1][0]);
+                                    const allPos = crosses.every(c => c > 0);
+                                    if (!allPos && crosses[0] > 0) {
+                                        const dFirst = d[0], dLast = d[d.length - 1];
+                                        if (areParallel(dFirst, dLast)) return { num: 5, ids: allStrokeIds() };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                } // end startEnd loop
+            }
+
+            return null;
+        }
+
+        function walkChain(adj, start, length) {
+            const chain = [start];
+            const visited = new Set([start]);
+            while (chain.length < length) {
+                const cur = chain[chain.length - 1];
+                const next = adj.get(cur) && adj.get(cur).find(({ node }) => !visited.has(node));
+                if (!next) return null;
+                chain.push(next.node);
+                visited.add(next.node);
+            }
+            return chain.length === length ? chain : null;
+        }
+
+        function getLogicalEdge(logical, a, b) {
+            return logical.find(l =>
+                (l.a === a && l.b === b) || (l.a === b && l.b === a));
+        }
+
+        const animCanvas = document.getElementById('animOverlay');
+        const animCtx    = animCanvas ? animCanvas.getContext('2d') : null;
+
+        function animateNumberToTile(matchedEdges, num, slot, onComplete) {
+            if (!animCtx) { onComplete(); return; }
+
+            // Compute bounding box directly from node positions (no offsetEndpoints needed)
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const edge of matchedEdges) {
+                const na = nodes[edge.a], nb = nodes[edge.b];
+                minX = Math.min(minX, na.x, nb.x); maxX = Math.max(maxX, na.x, nb.x);
+                minY = Math.min(minY, na.y, nb.y); maxY = Math.max(maxY, na.y, nb.y);
+            }
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+
+            // Target tile position relative to animCanvas
+            const tileEl = document.getElementById(`play-t${slot}`);
+            const canvasRect = animCanvas.getBoundingClientRect();
+            const tileRect   = tileEl.getBoundingClientRect();
+            const tx = (tileRect.left + tileRect.width/2  - canvasRect.left) * (460 / canvasRect.width);
+            const ty = (tileRect.top  + tileRect.height/2 - canvasRect.top)  * (460 / canvasRect.height);
+
+            // Target final text size (matches tile font)
+            const finalFontSize = 22;
+            // Starting "font size" equivalent based on shape bounding box
+            const shapeSize = Math.max(maxX - minX, maxY - minY) || 40;
+            const startFontSize = Math.min(shapeSize * 0.7, 80);
+
+            const duration = 900;
+            const start = performance.now();
+            const fontFace = "Rajdhani, sans-serif";
+
+            function frame(now) {
+                const t = Math.min((now - start) / duration, 1);
+                animCtx.clearRect(0, 0, 460, 460);
+
+                if (t < 0.6) {
+                    const p = t / 0.6;
+                    const easeP = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+                    const scale = 1 - easeP * 0.75;
+                    animCtx.save();
+                    animCtx.globalAlpha = 1 - easeP * 0.2;
+                    animCtx.translate(cx * (1 - scale), cy * (1 - scale));
+                    animCtx.scale(scale, scale);
+                    for (const edge of matchedEdges) {
+                        const na = nodes[edge.a], nb = nodes[edge.b];
+                        animCtx.beginPath();
+                        animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
+                        animCtx.strokeStyle = '#ff4444';
+                        animCtx.lineWidth = 3.5; animCtx.lineCap = 'round';
+                        animCtx.stroke();
+                    }
+                    // Fade in number over second half of phase 1
+                    if (p > 0.5) {
+                        const numP = (p - 0.5) / 0.5;
+                        const fs = startFontSize + (finalFontSize - startFontSize) * numP;
+                        animCtx.globalAlpha = numP;
+                        animCtx.font = `700 ${Math.round(fs / scale)}px ${fontFace}`;
+                        animCtx.fillStyle = '#ff4444';
+                        animCtx.textAlign = 'center';
+                        animCtx.textBaseline = 'middle';
+                        animCtx.fillText(String(num), cx, cy);
+                    }
+                    animCtx.restore();
+                } else {
+                    const p = (t - 0.6) / 0.4;
+                    const easeP = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+                    const x = cx + (tx - cx) * easeP;
+                    const y = cy + (ty - cy) * easeP;
+                    const fs = finalFontSize * (1.5 - easeP * 0.5);
+                    const alpha = p < 0.8 ? 1 : 1 - (p - 0.8) / 0.2;
+                    animCtx.save();
+                    animCtx.globalAlpha = alpha;
+                    animCtx.font = `700 ${Math.round(fs)}px ${fontFace}`;
+                    animCtx.fillStyle = '#ff4444';
+                    animCtx.textAlign = 'center';
+                    animCtx.textBaseline = 'middle';
+                    animCtx.fillText(String(num), x, y);
+                    animCtx.restore();
+                }
+
+                if (t < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    animCtx.clearRect(0, 0, 460, 460);
+                    onComplete();
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        // Track which edge ids belong to each tile slot
+        let tileEdgeIds = [null, null, null, null, null];
+
+        document.getElementById('submitBtn').addEventListener('click', () => {
+            // Block submit if all tiles are filled
+            if (tileValues.every(v => v !== null)) {
+                showMistake('Tiles are full — tap a number to remove it');
+                return;
+            }
+
+            const redEdges = edgeList.filter(e => e.red);
+            const result = recogniseNumber(redEdges);
+
+            if (!result) {
+                const btn = document.getElementById('submitBtn');
+                btn.style.color = '#ff4444'; btn.style.borderColor = '#ff4444';
+                setTimeout(() => { btn.style.color = ''; btn.style.borderColor = ''; }, 600);
+                return;
+            }
+
+            const slot = tileValues.findIndex(v => v === null);
+            edgeList = edgeList.filter(e => !result.ids.includes(e.id));
+            playDraw();
+
+            const matchedEdges = playSnapshot
+                .filter(e => result.ids.includes(e.id))
+                .map(e => ({ ...e }));
+
+            if (slot !== -1) {
+                animateNumberToTile(matchedEdges, result.num, slot, () => {
+                    tileValues[slot] = result.num;
+                    tileEdgeIds[slot] = result.ids;
+                    updateTiles();
+                    checkWin();
+                });
+            } else {
+                checkWin();
+            }
+        });
+
+        function checkWin() {
+            if (tileValues.some(v => v === null)) {
+                // No lines left but tiles not all filled
+                if (edgeList.length === 0) showMistake("There are empty tile spaces");
+                return;
+            }
+
+            const target = parseInt(document.getElementById('targetInput').value.trim());
+            if (isNaN(target)) return;
+            const sum = tileValues.reduce((a, b) => a + b, 0);
+
+            // All tiles filled but wrong — show mistake prompt
+            if (sum !== target || edgeList.length > 0) {
+                const msg = edgeList.length > 0 ? "Something's not right — try again" : "Numbers don't add up — try again";
+                showMistake(msg);
+                return;
+            }
+
+            showWin();
+        }
+
+        function showMistake(msg = "Something's not right — try again") {
+            const overlay = document.getElementById('mistakeOverlay');
+            const box = document.getElementById('mistakeBox');
+            box.textContent = msg;
+            overlay.classList.remove('visible');
+            // Force reflow to restart animation
+            void overlay.offsetWidth;
+            overlay.classList.add('visible');
+            setTimeout(() => overlay.classList.remove('visible'), 2500);
+        }
+
+        for (let i = 0; i < 5; i++) {
+            document.getElementById(`play-t${i}`).addEventListener('click', () => {
+                if (tileValues[i] === null) return;
+                const num = tileValues[i];
+                const ids = tileEdgeIds[i] || [];
+
+                // Compact tiles immediately
+                tileValues[i]  = null;
+                tileEdgeIds[i] = null;
+                const compactVals = tileValues.filter(v => v !== null);
+                const compactIds  = tileEdgeIds.filter(v => v !== null);
+                for (let j = 0; j < 5; j++) {
+                    tileValues[j]  = compactVals[j] ?? null;
+                    tileEdgeIds[j] = compactIds[j]  ?? null;
+                }
+                updateTiles();
+
+                // Get edges to restore
+                const edgesToRestore = playSnapshot.filter(e => ids.includes(e.id)).map(e => ({ ...e, red: false }));
+
+                // Compute shape center
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const edge of edgesToRestore) {
+                    const na = nodes[edge.a], nb = nodes[edge.b];
+                    minX = Math.min(minX, na.x, nb.x); maxX = Math.max(maxX, na.x, nb.x);
+                    minY = Math.min(minY, na.y, nb.y); maxY = Math.max(maxY, na.y, nb.y);
+                }
+                const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+                const shapeSize = Math.max(maxX - minX, maxY - minY) || 40;
+
+                // Tile position
+                const tileEl = document.getElementById(`play-t${i}`);
+                const canvasRect = animCanvas.getBoundingClientRect();
+                const tileRect   = tileEl.getBoundingClientRect();
+                const tx = (tileRect.left + tileRect.width/2  - canvasRect.left) * (460 / canvasRect.width);
+                const ty = (tileRect.top  + tileRect.height/2 - canvasRect.top)  * (460 / canvasRect.height);
+
+                const finalFontSize = 22;
+                const startFontSize = Math.min(shapeSize * 0.7, 80);
+                const fontFace = "Rajdhani, sans-serif";
+                const duration = 900;
+                const start = performance.now();
+
+                function frame(now) {
+                    const t = Math.min((now - start) / duration, 1);
+                    animCtx.clearRect(0, 0, 460, 460);
+
+                    if (t < 0.4) {
+                        // Number moves from tile to shape center, grows
+                        const p = t / 0.4;
+                        const easeP = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+                        const x = tx + (cx - tx) * easeP;
+                        const y = ty + (cy - ty) * easeP;
+                        const fs = finalFontSize * (1 + easeP * 0.5);
+                        animCtx.save();
+                        animCtx.font = `700 ${Math.round(fs)}px ${fontFace}`;
+                        animCtx.fillStyle = '#4488ff';
+                        animCtx.textAlign = 'center';
+                        animCtx.textBaseline = 'middle';
+                        animCtx.fillText(String(num), x, y);
+                        animCtx.restore();
+                    } else {
+                        // Number fades, edges expand out
+                        const p = (t - 0.4) / 0.6;
+                        const easeP = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+                        const scale = 0.25 + easeP * 0.75;
+                        const numAlpha = Math.max(0, 1 - p / 0.4);
+                        if (numAlpha > 0) {
+                            animCtx.save();
+                            animCtx.globalAlpha = numAlpha;
+                            animCtx.font = `700 ${Math.round(startFontSize * scale)}px ${fontFace}`;
+                            animCtx.fillStyle = '#4488ff';
+                            animCtx.textAlign = 'center';
+                            animCtx.textBaseline = 'middle';
+                            animCtx.fillText(String(num), cx, cy);
+                            animCtx.restore();
+                        }
+                        animCtx.save();
+                        animCtx.globalAlpha = easeP;
+                        animCtx.translate(cx * (1 - scale), cy * (1 - scale));
+                        animCtx.scale(scale, scale);
+                        for (const edge of edgesToRestore) {
+                            const na = nodes[edge.a], nb = nodes[edge.b];
+                            animCtx.beginPath();
+                            animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
+                            animCtx.strokeStyle = '#4488ff';
+                            animCtx.lineWidth = 3.5; animCtx.lineCap = 'round';
+                            animCtx.stroke();
+                        }
+                        animCtx.restore();
+                    }
+
+                    if (t < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        animCtx.clearRect(0, 0, 460, 460);
+                        for (const e of edgesToRestore) {
+                            if (!edgeList.find(ex => ex.id === e.id)) edgeList.push(e);
+                        }
+                        playDraw();
+                    }
+                }
+                requestAnimationFrame(frame);
+            });
+        }
+
+        function showScreen(name) {
+            document.getElementById('screenSetup').classList.toggle('active', name === 'setup');
+            document.getElementById('screenPlay').classList.toggle('active',  name === 'play');
+        }
+
+        setupDraw();
+    </script>
+</body>
+</html>
