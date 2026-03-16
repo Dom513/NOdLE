@@ -1687,6 +1687,7 @@
                     tileEdgeIds[slot] = result.ids;
                     if (hintedSlot !== -1) tileHinted[hintedSlot] = null; // hint earned
                     updateTiles();
+                    saveProgress();
                     checkWin();
                 });
             } else {
@@ -1865,6 +1866,7 @@
                             if (!edgeList.find(ex => ex.id === e.id)) edgeList.push(e);
                         }
                         playDraw();
+                        saveProgress();
                     }
                 }
                 requestAnimationFrame(frame);
@@ -1904,6 +1906,7 @@
 
             // Mark solved AFTER edges are colored so coloredEdges snapshot is complete
             puzzleSolved = true;
+            clearProgress();
             markSolved(todayStr(), elapsed);
 
             document.getElementById('winOverlay').classList.add('visible');
@@ -2011,6 +2014,7 @@
             setTimeout(() => {
                 hintAnimating.delete(slot);
                 updateTiles();
+                saveProgress();
                 requestAnimationFrame(() => {
                     flyer.style.transition = 'opacity 0.3s ease';
                     flyer.style.opacity = '0';
@@ -2073,6 +2077,32 @@
             } catch(e) { return null; }
         }
 
+        function getProgressKey(dateStr) { return `gridlines_progress_${dateStr}`; }
+
+        function saveProgress() {
+            if (puzzleSolved) return;
+            const dateStr = todayStr();
+            localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
+                tileValues:    [...tileValues],
+                tileEdgeIds:   tileEdgeIds.map(ids => ids ? [...ids] : null),
+                tileHinted:    [...tileHinted],
+                hintsRemaining,
+                elapsedMs:     getElapsed(),
+                remainingEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b }))
+            }));
+        }
+
+        function clearProgress() {
+            localStorage.removeItem(getProgressKey(todayStr()));
+        }
+
+        function getProgressData(dateStr) {
+            try {
+                const raw = localStorage.getItem(getProgressKey(dateStr));
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+
         function startCountdown() {
             function update() {
                 const now = new Date();
@@ -2129,6 +2159,30 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const puzzle = await resp.json();
                 loadPuzzle(puzzle);
+
+                // Restore in-progress state if player left mid-game
+                if (!solved) {
+                    const progress = getProgressData(dateStr);
+                    if (progress) {
+                        tileValues     = progress.tileValues     || tileValues;
+                        tileEdgeIds    = progress.tileEdgeIds    || tileEdgeIds;
+                        tileHinted     = progress.tileHinted     || tileHinted;
+                        hintsRemaining = progress.hintsRemaining ?? hintsRemaining;
+                        puzzleElapsed  = progress.elapsedMs      || 0;
+                        puzzleSessionStart = performance.now(); // resume timer
+
+                        // Replace edgeList with only the edges still remaining on the board
+                        if (progress.remainingEdges) {
+                            edgeList = progress.remainingEdges.map(re => {
+                                const snap = playSnapshot.find(e => e.id === re.id);
+                                return snap ? { ...snap, red: false } : { ...re, red: false };
+                            });
+                        }
+
+                        updateTiles();
+                        playDraw();
+                    }
+                }
 
                 // Already solved today — restore exact board state and show overlay
                 if (solved) {
