@@ -1618,7 +1618,8 @@
         }
 
         document.getElementById('submitBtn').addEventListener('click', () => {
-            const allFull = tileValues.every((v, i) => v !== null || tileHinted[i] !== null);
+            // Only truly full if every slot has a confirmed submitted value
+            const allFull = tileValues.every(v => v !== null);
             if (allFull) {
                 showError('All tiles full — tap a number to remove it');
                 return;
