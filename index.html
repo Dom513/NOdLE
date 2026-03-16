@@ -1223,8 +1223,6 @@
             if (strokes.length === 0) return null;
 
             // ── Step 3: build adjacency on strokes and match patterns ─────────────
-
-            // ── Step 3: build adjacency on strokes and match patterns ─────────────
             const strokeAdj = new Map();
             strokes.forEach((s, i) => {
                 if (!strokeAdj.has(s.startNode)) strokeAdj.set(s.startNode, []);
@@ -1284,62 +1282,50 @@
                 }
                 return null;
             }
-            // ── 2 or 4(Y): 3 strokes ─────────────────────────────────────────────
+            // ── 2 or 4: 3 strokes ────────────────────────────────────────────────
             if (strokes.length === 3) {
-                // 4: star topology
+                // 4 (star): two spokes are antiparallel (the stalk), third arm is perpendicular to stalk
                 if (strokeJunc !== undefined && strokeEnds.length === 3) {
-                    // left-of-stalk check on strokes
                     const jEdges = strokeAdj.get(strokeJunc);
-                    let stalkA = -1, stalkB = -1, armNode = -1;
-                    for (let i = 0; i < 3; i++) {
-                        for (let j = i+1; j < 3; j++) {
+                    let found = false;
+                    for (let i = 0; i < 3 && !found; i++) {
+                        for (let j = i + 1; j < 3 && !found; j++) {
                             const nA = jEdges[i].node, nB = jEdges[j].node;
                             const drA = nodes[nA].r - nodes[strokeJunc].r, dcA = nodes[nA].c - nodes[strokeJunc].c;
                             const drB = nodes[nB].r - nodes[strokeJunc].r, dcB = nodes[nB].c - nodes[strokeJunc].c;
-                            if (drA*dcB - dcA*drB === 0 && drA*drB + dcA*dcB < 0) {
-                                stalkA = nA; stalkB = nB;
-                                armNode = jEdges.find((e,k) => k!==i && k!==j).node;
+                            // antiparallel pair = stalk axis
+                            if (drA * dcB - dcA * drB === 0 && drA * drB + dcA * dcB < 0) {
+                                // arm is the remaining spoke
+                                const armIdx = [0,1,2].find(k => k !== i && k !== j);
+                                const nArm = jEdges[armIdx].node;
+                                const drArm = nodes[nArm].r - nodes[strokeJunc].r;
+                                const dcArm = nodes[nArm].c - nodes[strokeJunc].c;
+                                // arm must be perpendicular to stalk
+                                if (drA * drArm + dcA * dcArm === 0) found = true;
                             }
                         }
                     }
-                    if (armNode === -1) return null;
-                    const stemTip = strokeEnds.find(n => n === stalkA || n === stalkB) ?? stalkA;
-                    const downDr = nodes[stemTip].r - nodes[strokeJunc].r;
-                    const downDc = nodes[stemTip].c - nodes[strokeJunc].c;
-                    const armDr  = nodes[armNode].r - nodes[strokeJunc].r;
-                    const armDc  = nodes[armNode].c - nodes[strokeJunc].c;
-                    if (downDr*armDc - downDc*armDr >= 0) return null;
-                    return { num: 4, ids: allStrokeIds() };
+                    if (found) return { num: 4, ids: allStrokeIds() };
                 }
 
-                // 4: find the straight stroke (stalk), check arm is to its left
+                // 4 (chain): stalk is collinear with one triangle arm so they merge.
+                // Produces ends=2, mids=2. The stalk vertex becomes an INTERMEDIATE
+                // node of the merged stroke — detect this by checking if one chain
+                // endpoint is inside the other end's stroke.
                 if (strokeEnds.length === 2 && strokeMids.length === 2) {
-                    for (const stalk of strokes) {
-                        const d = strokeDirFrom(stalk, stalk.startNode);
-                        if (!isStraight(d)) continue;
-                        // The stalk connects two nodes. One end (junc) should connect to the arm.
-                        // The other end (stemTip) should be a degree-1 node or connect to stem.
-                        for (const [junc, stemTip] of [[stalk.startNode, stalk.endNode], [stalk.endNode, stalk.startNode]]) {
-                            // Find the arm: another stroke from junc that is NOT the stalk
-                            const armEdge = (strokeAdj.get(junc)||[]).find(e => strokes[e.strokeIdx] !== stalk);
-                            if (!armEdge) continue;
-                            const armTip = armEdge.node;
-                            const downDr = nodes[stemTip].r - nodes[junc].r;
-                            const downDc = nodes[stemTip].c - nodes[junc].c;
-                            const armDr  = nodes[armTip].r  - nodes[junc].r;
-                            const armDc  = nodes[armTip].c  - nodes[junc].c;
-                            const cross  = downDr*armDc - downDc*armDr;
-                            if (cross < 0) return { num: 4, ids: allStrokeIds() };
+                    const [end1, end2] = strokeEnds;
+                    for (const [tipEnd, checkEnd] of [[end1, end2], [end2, end1]]) {
+                        const entry = (strokeAdj.get(tipEnd) || [])[0];
+                        if (!entry) continue;
+                        const tipStroke = strokes[entry.strokeIdx];
+                        if (intermediateNodes(tipStroke.startNode, tipStroke.endNode).includes(checkEnd)) {
+                            return { num: 4, ids: allStrokeIds() };
                         }
                     }
-                }
 
-                // 2: chain with Z pattern
-                if (strokeEnds.length === 2 && strokeMids.length === 2) {
+                    // 2: Z-pattern chain
                     const chain = walkStrokeChain(strokeEnds[0], 4);
                     if (!chain) return null;
-
-                    // Try both traversal directions
                     const chains = [chain, [...chain].reverse()];
                     for (const ch of chains) {
                         const s1 = getStrokeBetween(ch[0], ch[1]);
@@ -1353,7 +1339,6 @@
                         if (isStraight(d1) === isStraight(d2)) continue;
                         const dot = d1[0]*d3[0] + d1[1]*d3[1];
                         if (dot <= 0) continue;
-                        // Diagonal must go "back" — perpendicular projection must be negative
                         const vr = nodes[ch[2]].r - nodes[ch[1]].r;
                         const vc = nodes[ch[2]].c - nodes[ch[1]].c;
                         const perpProj = (-d1[1])*vr + d1[0]*vc;
@@ -1422,34 +1407,53 @@
                 const noTailNodes = [...adjNoTail.keys()];
                 const isPureCycle = noTailNodes.length > 0 && noTailNodes.every(n => adjNoTail.get(n).length === 2);
                 if (isPureCycle && cur === junc) {
-                    return { num: 9, ids: deduped.flatMap(d => d.ids) };
+                    // Chirality check: a 9 has the tail turning left at the junction;
+                    // a mirrored 9 (p) turns right. Reject p.
+                    // tailDir points FROM tailNode TOWARD junc, so hangDir is its opposite.
+                    const hangDr = -tailDir[0], hangDc = -tailDir[1];
+                    // Find the two loop-edge directions from junc
+                    const loopNbrs = [...(dedAdjTopo.get(junc) || new Set())]
+                        .filter(n => {
+                            const key = `${Math.min(n,junc)}-${Math.max(n,junc)}`;
+                            return !tailEdgeKeys.has(key);
+                        });
+                    // One is antiparallel to hangDir (same axis, opposite direction)
+                    // The other is perpendicular — that's the one we care about
+                    const perpNbr = loopNbrs.find(n => {
+                        const ld = unitDir(nodes[junc].r, nodes[junc].c, nodes[n].r, nodes[n].c);
+                        return hangDr * ld[1] - hangDc * ld[0] !== 0; // not parallel
+                    });
+                    if (perpNbr !== undefined) {
+                        const perpDr = nodes[perpNbr].r - nodes[junc].r;
+                        const perpDc = nodes[perpNbr].c - nodes[junc].c;
+                        // cross(hangDir, perpDir): must be negative for a valid 9
+                        const cross = hangDr * perpDc - hangDc * perpDr;
+                        if (cross < 0) {
+                            return { num: 9, ids: deduped.flatMap(d => d.ids) };
+                        }
+                    }
                 }
             }
 
-            // ── 4 (triangle+stem): 4 strokes, 4 stroke-nodes ────────────────────
+            // ── 4 (triangle+stem): 4 strokes ────────────────────────────────────
             if (strokes.length === 4 && strokeNodes.length === 4) {
                 const deg3n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 3);
                 const deg2n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 2);
                 const deg1n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 1);
                 if (deg3n.length !== 1 || deg2n.length !== 2 || deg1n.length !== 1) return null;
-                const junc = deg3n[0], stemTip = deg1n[0];
+                const junc = deg3n[0];
                 const jEdges = strokeAdj.get(junc);
-                let armNode = -1;
+                let perpCount = 0;
                 for (let i = 0; i < 3; i++) {
-                    for (let j = i+1; j < 3; j++) {
+                    for (let j = i + 1; j < 3; j++) {
                         const nA = jEdges[i].node, nB = jEdges[j].node;
-                        const drA = nodes[nA].r-nodes[junc].r, dcA = nodes[nA].c-nodes[junc].c;
-                        const drB = nodes[nB].r-nodes[junc].r, dcB = nodes[nB].c-nodes[junc].c;
-                        if (drA*dcB - dcA*drB === 0 && drA*drB + dcA*dcB < 0) {
-                            armNode = jEdges.find((e,k)=>k!==i&&k!==j).node;
-                        }
+                        const drA = nodes[nA].r - nodes[junc].r, dcA = nodes[nA].c - nodes[junc].c;
+                        const drB = nodes[nB].r - nodes[junc].r, dcB = nodes[nB].c - nodes[junc].c;
+                        if (drA * drB + dcA * dcB === 0) perpCount++;
                     }
                 }
-                if (armNode === -1) return null;
-                const downDr = nodes[stemTip].r-nodes[junc].r, downDc = nodes[stemTip].c-nodes[junc].c;
-                const armDr  = nodes[armNode].r-nodes[junc].r,  armDc  = nodes[armNode].c-nodes[junc].c;
-                if (downDr*armDc - downDc*armDr >= 0) return null;
-                return { num: 4, ids: allStrokeIds() };
+                if (perpCount === 1) return { num: 4, ids: allStrokeIds() };
+                return null;
             }
 
             // ── 3: 4 strokes in chain ────────────────────────────────────────────
@@ -1472,11 +1476,96 @@
                 }}}}}
 
 
-            // ── 5 and 6: chain of same-type strokes, all right turns ─────────────
+            // ── 6: rectangular loop + L-shaped tail ─────────────────────────────
+            // Case A: junction is an explicit degree-3 node in strokeAdj
+            //   (left side drawn as two separate strokes — junction visible)
+            // Case B: junction is internal to a merged stroke
+            //   (left side drawn as one long drag — strokeAdj sees a simple chain
+            //    of 5 strokes, but the last node is an intermediate of another stroke)
+
+            // Case A: strokeEnds.length === 1, explicit junction
+            if (strokeEnds.length === 1 && strokeJunc !== undefined) {
+                const tip  = strokeEnds[0];
+                const junc = strokeJunc;
+                const tipEdges = strokeAdj.get(tip) || [];
+                if (tipEdges.length === 1) {
+                    const bend = tipEdges[0].node;
+                    const stroke1Idx = tipEdges[0].strokeIdx;
+                    const bendEdges = strokeAdj.get(bend) || [];
+                    const bendToJuncEdge = bendEdges.find(e => e.node === junc);
+                    if (bendEdges.length === 2 && bendToJuncEdge) {
+                        const stroke2Idx = bendToJuncEdge.strokeIdx;
+                        const s1 = strokes[stroke1Idx];
+                        const s2 = strokes[stroke2Idx];
+                        const dir1 = strokeDirFrom(s1, tip);
+                        const dir2 = strokeDirFrom(s2, bend);
+                        const perp = dir1[0]*dir2[0] + dir1[1]*dir2[1] === 0;
+                        if (perp) {
+                            const loopEdgesAtJunc = (strokeAdj.get(junc)||[]).filter(e => e.node !== bend);
+                            const tailParallel = loopEdgesAtJunc.some(e =>
+                                areParallel(dir2, strokeDirFrom(strokes[e.strokeIdx], junc))
+                            );
+                            if (tailParallel) {
+                                const tailIdxs = new Set([stroke1Idx, stroke2Idx]);
+                                const loopDeg = new Map();
+                                strokes.forEach((s, i) => {
+                                    if (tailIdxs.has(i)) return;
+                                    loopDeg.set(s.startNode, (loopDeg.get(s.startNode)||0) + 1);
+                                    loopDeg.set(s.endNode,   (loopDeg.get(s.endNode)  ||0) + 1);
+                                });
+                                const loopNodes = [...loopDeg.keys()];
+                                if (loopNodes.length > 0 && loopNodes.every(n => loopDeg.get(n) === 2)) {
+                                    return { num: 6, ids: allStrokeIds() };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Case B: merged left-side — appears as a 5-stroke open chain
+            // All turns same direction, first dir == last dir,
+            // and the chain's final node is an intermediate node of another stroke
+            if (strokeEnds.length === 2 &&
+                strokeMids.length === strokes.length - 1 &&
+                strokeNodes.length === strokes.length + 1) {
+                for (const startEnd of strokeEnds) {
+                    const chain = walkStrokeChain(startEnd, strokes.length + 1);
+                    if (!chain) continue;
+                    const strokesInOrder = [];
+                    for (let i = 0; i < strokes.length; i++) {
+                        const s = getStrokeBetween(chain[i], chain[i+1]);
+                        if (!s) break;
+                        strokesInOrder.push(s);
+                    }
+                    if (strokesInOrder.length !== strokes.length) continue;
+                    const dirs = strokesInOrder.map((s, i) => strokeDirFrom(s, chain[i]));
+                    const allStraight = dirs.every(d => isStraight(d));
+                    const allDiag     = dirs.every(d => isDiagonal(d));
+                    if (!allStraight && !allDiag) continue;
+                    // All consecutive turns must be the same sign
+                    const crosses = [];
+                    for (let i = 0; i < dirs.length - 1; i++)
+                        crosses.push(dirs[i][0]*dirs[i+1][1] - dirs[i][1]*dirs[i+1][0]);
+                    if (!crosses.every(c => c > 0) && !crosses.every(c => c < 0)) continue;
+                    // First and last directions must be identical (spiral closes)
+                    if (dirs[0][0] !== dirs[dirs.length-1][0] ||
+                        dirs[0][1] !== dirs[dirs.length-1][1]) continue;
+                    // Loop closure: the last node of the chain must be an intermediate
+                    // node of one of the other strokes (the merged left-side stroke)
+                    const lastNode = chain[chain.length - 1];
+                    const hasLoopClosure = strokesInOrder.some((s, si) => {
+                        if (si === strokesInOrder.length - 1) return false;
+                        return intermediateNodes(s.startNode, s.endNode).includes(lastNode);
+                    });
+                    if (hasLoopClosure) return { num: 6, ids: allStrokeIds() };
+                }
+            }
+
+            // ── 5: chain of same-type strokes, mixed turns, first turn positive ──
             if (strokes.length >= 3 && strokeEnds.length === 2 &&
                 strokeMids.length === strokes.length - 1 &&
                 strokeNodes.length === strokes.length + 1) {
-                // Try both end nodes as starting point to handle non-deterministic Set ordering
                 for (const startEnd of strokeEnds) {
                 const chain = walkStrokeChain(startEnd, strokes.length + 1);
                 if (chain) {
@@ -1497,28 +1586,6 @@
                             }
                             if (zigzags) {
                                 const reverseDirs = [...dirs].reverse().map(d => [-d[0], -d[1]]);
-                                // 6: all crosses same sign in EITHER direction (but not mirrored)
-                                // Check forward only for all-positive (valid 6)
-                                // Check reverse only for all-positive (valid 6 walked backward)
-                                // Mirrored 6 would be all-negative in forward = all-positive in reverse
-                                // So we only accept all-positive in FORWARD direction
-                                const fwdCrosses = [];
-                                for (let i = 0; i < dirs.length - 1; i++)
-                                    fwdCrosses.push(dirs[i][0]*dirs[i+1][1] - dirs[i][1]*dirs[i+1][0]);
-                                const revCrosses = [];
-                                for (let i = 0; i < reverseDirs.length - 1; i++)
-                                    revCrosses.push(reverseDirs[i][0]*reverseDirs[i+1][1] - reverseDirs[i][1]*reverseDirs[i+1][0]);
-
-                                // 6: all crosses positive in forward OR reverse (same shape, different start)
-                                // But NOT if forward is all-negative (mirrored) — reject those
-                                const fwdAllPos = fwdCrosses.every(c => c > 0);
-                                const revAllPos = revCrosses.every(c => c > 0);
-                                const fwdAllNeg = fwdCrosses.every(c => c < 0);
-                                if (fwdAllPos || (revAllPos && !fwdAllNeg)) {
-                                    return { num: 6, ids: allStrokeIds() };
-                                }
-
-                                // 5: mixed crosses, starts positive in either direction
                                 for (const d of [dirs, reverseDirs]) {
                                     const crosses = [];
                                     for (let i = 0; i < d.length - 1; i++)
@@ -1533,7 +1600,7 @@
                         }
                     }
                 }
-                } // end startEnd loop
+                }
             }
 
             return null;
