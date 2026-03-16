@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>NOdLE - Daily Game</title>
+    <title>Grid Line Toggle</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
@@ -20,7 +20,6 @@
         #setupCanvas { border: 2px solid #444; background-color: #222; border-radius: 8px; }
         #canvasWrapper {
             border: 2px solid #444; background-color: #222; border-radius: 8px;
-            overflow: hidden;
         }
         p { margin-top: 14px; color: #555; font-size: 11px; text-align: center; max-width: 440px; font-family: 'Share Tech Mono', monospace; }
         .btn-row { display: flex; gap: 10px; margin-top: 14px; }
@@ -35,7 +34,45 @@
         button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
         button.primary:hover { background: #66aaff; border-color: #66aaff; }
 
-        .canvas-toolbar {
+        #screenLoading, #screenSolved {
+            display: none; flex-direction: column; align-items: center;
+            justify-content: center; gap: 16px; min-height: 60vh;
+        }
+        #screenLoading.active, #screenSolved.active { display: flex; }
+        #loadingMsg {
+            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            color: #555; letter-spacing: 0.15em;
+        }
+        #solvedBox {
+            background: #2a2a2a; border: 2px solid #444; border-radius: 12px;
+            padding: 36px 40px; max-width: 360px; width: 90%;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+            text-align: center;
+        }
+        #solvedTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: 22px; letter-spacing: 0.1em; color: #ccc;
+        }
+        #solvedTime {
+            font-family: 'Share Tech Mono', monospace; font-size: 32px;
+            color: #4488ff; letter-spacing: 0.1em;
+        }
+        #solvedTimeLabel {
+            font-family: 'Share Tech Mono', monospace; font-size: 11px;
+            color: #555; letter-spacing: 0.2em; text-transform: uppercase;
+        }
+        #solvedDate {
+            font-family: 'Share Tech Mono', monospace; font-size: 11px;
+            color: #444; letter-spacing: 0.1em;
+        }
+        #nextPuzzleLabel {
+            font-family: 'Share Tech Mono', monospace; font-size: 11px;
+            color: #555; letter-spacing: 0.1em;
+        }
+        #countdown {
+            font-family: 'Rajdhani', monospace; font-size: 20px;
+            color: #666; letter-spacing: 0.08em;
+        }
             display: flex; align-items: center; width: 460px;
             margin-bottom: 8px;
         }
@@ -160,7 +197,25 @@
 </head>
 <body>
 
-    <div class="screen active" id="screenSetup">
+    <!-- Loading screen -->
+    <div class="screen active" id="screenLoading">
+        <div id="loadingMsg">Loading today's puzzle...</div>
+    </div>
+
+    <!-- Already solved screen -->
+    <div class="screen" id="screenSolved">
+        <div id="solvedBox">
+            <div id="solvedTitle">🎉 Already solved!</div>
+            <div id="solvedTimeLabel">solved in</div>
+            <div id="solvedTime"></div>
+            <div id="solvedDate"></div>
+            <div id="nextPuzzleLabel">Next puzzle in</div>
+            <div id="countdown"></div>
+        </div>
+    </div>
+
+    <!-- Setup screen (dev only — hidden in production) -->
+    <div class="screen" id="screenSetup">
         <h2>Setup</h2>
         <canvas id="setupCanvas" width="460" height="460"></canvas>
         <div class="equation">
@@ -209,7 +264,6 @@
         <div class="btn-row">
             <button class="secondary" id="playResetBtn">Clear</button>
             <button class="secondary" id="submitBtn">Submit number</button>
-            <button class="secondary" id="goSetupBtn">← Setup</button>
         </div>
 
         <!-- Info overlay -->
@@ -628,7 +682,7 @@
             const val = document.getElementById('targetInput').value.trim();
             document.getElementById('play-target').textContent = val;
             document.getElementById('infoOverlay').classList.remove('visible');
-            showScreen('play');
+            showScreen('screenPlay');
             playDraw();
         });
 
@@ -841,12 +895,6 @@
         document.getElementById('playResetBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
             playDraw();
-        });
-
-        document.getElementById('goSetupBtn').addEventListener('click', () => {
-            edgeList = playSnapshot.map(e => ({ ...e, red: false }));
-            showScreen('setup');
-            setupDraw();
         });
 
         // ─── Tile state ─────────────────────────────────────────────────────────
@@ -1634,6 +1682,9 @@
             const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
             document.getElementById('winTime').innerHTML = `<span id="winTimelabel">solved in</span><br>${timeStr}`;
 
+            // Save solved state to localStorage
+            markSolved(todayStr(), elapsed);
+
             // Restore all edges with their slot colour
             for (let slot = 0; slot < 5; slot++) {
                 if (!tileEdgeIds[slot]) continue;
@@ -1701,11 +1752,111 @@
         });
 
         function showScreen(name) {
-            document.getElementById('screenSetup').classList.toggle('active', name === 'setup');
-            document.getElementById('screenPlay').classList.toggle('active',  name === 'play');
+            ['screenLoading','screenSolved','screenSetup','screenPlay'].forEach(id => {
+                document.getElementById(id).classList.toggle('active', id === name);
+            });
         }
 
-        setupDraw();
+        // ── Daily puzzle ─────────────────────────────────────────────────────────
+
+        // Set this to the base URL of your puzzles folder on GitHub Pages
+        // e.g. 'https://yourusername.github.io/your-repo/puzzles'
+        const PUZZLE_BASE_URL = 'puzzles';
+
+        function todayStr() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function loadPuzzle(puzzleData) {
+            edgeList = puzzleData.edges.map((e, i) => ({ id: i, a: e.a, b: e.b, red: false }));
+            nextId = edgeList.length;
+            playSnapshot = edgeList.map(e => ({ ...e }));
+            tileValues  = [null, null, null, null, null];
+            tileEdgeIds = [null, null, null, null, null];
+            puzzleStartTime = null;
+            for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
+            updateTiles();
+            document.getElementById('play-target').textContent = puzzleData.target;
+            showScreen('screenPlay');
+            playDraw();
+        }
+
+        function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
+
+        function markSolved(dateStr, timeMs) {
+            localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({ timeMs }));
+        }
+
+        function getSolvedData(dateStr) {
+            try {
+                const raw = localStorage.getItem(getSolvedKey(dateStr));
+                return raw ? JSON.parse(raw) : null;
+            } catch { return null; }
+        }
+
+        function startCountdown() {
+            function update() {
+                const now = new Date();
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(0, 0, 0, 0);
+                const diff = tomorrow - now;
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                document.getElementById('countdown').textContent =
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        function showSolvedScreen(dateStr, timeMs) {
+            const totalSec = Math.floor(timeMs / 1000);
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            document.getElementById('solvedTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+            document.getElementById('solvedDate').textContent = dateStr;
+            showScreen('screenSolved');
+            startCountdown();
+        }
+
+        async function initDailyPuzzle() {
+            showScreen('screenLoading');
+            const dateStr = todayStr();
+
+            // Check if already solved today
+            const solved = getSolvedData(dateStr);
+            if (solved) {
+                showSolvedScreen(dateStr, solved.timeMs);
+                return;
+            }
+
+            // Fetch today's puzzle
+            try {
+                const url = `${PUZZLE_BASE_URL}/${dateStr}.json`;
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const puzzle = await resp.json();
+                loadPuzzle(puzzle);
+            } catch (err) {
+                document.getElementById('loadingMsg').textContent =
+                    `No puzzle found for today (${dateStr}). Check back later!`;
+            }
+        }
+
+        // Dev mode: ?dev=1 in URL shows setup screen instead
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('dev') === '1') {
+            showScreen('screenSetup');
+            setupDraw();
+        } else {
+            initDailyPuzzle();
+        }
     </script>
 </body>
 </html>
