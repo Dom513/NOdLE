@@ -807,7 +807,10 @@
             playSnapshot = edgeList.map(e => ({ ...e }));
             tileValues   = [null, null, null, null, null];
             tileEdgeIds  = [null, null, null, null, null];
-            puzzleStartTime = null;
+            puzzleStartTime    = null;
+            puzzleSolved       = false;
+            puzzleElapsed      = 0;
+            puzzleSessionStart = performance.now();
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             const val = document.getElementById('setupTarget').textContent.trim();
@@ -974,8 +977,33 @@
             playLastNode   = savedLast;
         }
 
-        let puzzleStartTime = null;
-        let puzzleSolved    = false;
+        let puzzleStartTime   = null; // kept as alias; unused directly now
+        let puzzleElapsed     = 0;    // total ms accumulated across sessions
+        let puzzleSessionStart = null; // performance.now() of current active session, null if paused
+        let puzzleSolved      = false;
+
+        function getElapsed() {
+            if (puzzleSessionStart !== null)
+                return puzzleElapsed + (performance.now() - puzzleSessionStart);
+            return puzzleElapsed;
+        }
+
+        function pauseTimer() {
+            if (puzzleSessionStart !== null) {
+                puzzleElapsed += performance.now() - puzzleSessionStart;
+                puzzleSessionStart = null;
+            }
+        }
+
+        function resumeTimer() {
+            if (!puzzleSolved && puzzleSessionStart === null)
+                puzzleSessionStart = performance.now();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pauseTimer();
+            else resumeTimer();
+        });
 
         function playStart(e) {
             e.preventDefault();
@@ -1674,7 +1702,7 @@
             const sum = tileValues.filter(v => v !== null).reduce((a, b) => a + b, 0);
             const sumCorrect = sum === target;
 
-            if (!allFilled && noLines && puzzleStartTime !== null) {
+            if (!allFilled && noLines && (puzzleElapsed > 0 || puzzleSessionStart !== null)) {
                 showError(`You need to use all ${tileValues.length} numbers`);
                 return;
             }
@@ -1844,7 +1872,8 @@
         }
 
         function showWin() {
-            const elapsed = puzzleStartTime !== null ? performance.now() - puzzleStartTime : 0;
+            pauseTimer(); // freeze elapsed time
+            const elapsed = getElapsed();
             const totalSec = Math.floor(elapsed / 1000);
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
@@ -2013,9 +2042,11 @@
             tileHinted  = [null, null, null, null, null];
             hintsRemaining = 5;
             hintAnimating.clear();
-            puzzleSolution = puzzleData.solution || null;
-            puzzleStartTime = null;
-            puzzleSolved    = false;
+            puzzleSolution   = puzzleData.solution || null;
+            puzzleStartTime  = null;
+            puzzleSolved     = false;
+            puzzleElapsed    = 0;
+            puzzleSessionStart = performance.now();
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             document.getElementById('play-target').textContent = puzzleData.target;
