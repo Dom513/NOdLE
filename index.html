@@ -291,8 +291,7 @@
         <div id="winOverlay">
             <div id="winBox">
                 <button id="winClose">✕</button>
-                <div id="winTitle">🎉 You win!</div>
-                <div id="winSub">All lines cleared. Sum correct.</div>
+                <div id="winTitle">🎉 You've solved today's puzzle!</div>
                 <div id="winTime"></div>
                 <div id="winNextLabel" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
                 <div id="winCountdown" style="display:none; font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
@@ -1834,7 +1833,11 @@
         function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
 
         function markSolved(dateStr, timeMs) {
-            localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({ timeMs }));
+            localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
+                timeMs,
+                tileValues:  [...tileValues],
+                tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null)
+            }));
         }
 
         function getSolvedData(dateStr) {
@@ -1901,13 +1904,43 @@
                 const puzzle = await resp.json();
                 loadPuzzle(puzzle);
 
-                // Already solved today — show puzzle behind win overlay
+                // Already solved today — show puzzle in completed rainbow form
                 if (solved) {
                     const totalSec = Math.floor(solved.timeMs / 1000);
                     const mins = Math.floor(totalSec / 60);
                     const secs = totalSec % 60;
                     document.getElementById('winTime').innerHTML =
                         `<span id="winTimelabel">solved in</span><br>${mins}:${String(secs).padStart(2,'0')}`;
+
+                    // Restore tile values and colour edges smallest→largest by value
+                    if (solved.tileValues && solved.tileEdgeIds) {
+                        tileValues  = solved.tileValues;
+                        tileEdgeIds = solved.tileEdgeIds;
+                        updateTiles();
+
+                        // Sort slot indices by ascending tile value to assign rainbow colours
+                        const sortedSlots = [0,1,2,3,4]
+                            .filter(i => solved.tileValues[i] !== null)
+                            .sort((a, b) => solved.tileValues[a] - solved.tileValues[b]);
+
+                        sortedSlots.forEach((slot, colorIdx) => {
+                            const color = SLOT_COLORS[colorIdx];
+                            const el = document.getElementById(`play-t${slot}`);
+                            if (el) el.style.color = color;
+                            if (!solved.tileEdgeIds[slot]) return;
+                            for (const id of solved.tileEdgeIds[slot]) {
+                                const snap = playSnapshot.find(e => e.id === id);
+                                if (snap && !edgeList.find(e => e.id === id)) {
+                                    edgeList.push({ ...snap, red: false, color });
+                                } else {
+                                    const existing = edgeList.find(e => e.id === id);
+                                    if (existing) { existing.red = false; existing.color = color; }
+                                }
+                            }
+                        });
+                        playDraw();
+                    }
+
                     document.getElementById('winNextLabel').style.display = '';
                     document.getElementById('winCountdown').style.display = '';
                     startWinCountdown();
