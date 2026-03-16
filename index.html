@@ -221,17 +221,19 @@
 
         .tile.hinted { color: #555; border-color: #444; }
         #hintCount {
-            font-family: 'Share Tech Mono', monospace; font-size: 10px;
-            color: #555; letter-spacing: 0.05em; white-space: nowrap;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 28px;
+            color: #555; letter-spacing: 0.05em; white-space: nowrap; line-height: 1;
         }
         #hintBtn:disabled { opacity: 0.3; cursor: default; }
         .flying-hint {
             position: fixed; pointer-events: none; z-index: 200;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: 26px; color: #555;
-            transition: top 0.5s cubic-bezier(0.4,0,0.2,1),
-                        left 0.5s cubic-bezier(0.4,0,0.2,1),
-                        opacity 0.5s ease;
+            font-size: 48px; color: #4488ff;
+            transform: translate(-50%, -50%);
+            transition: top 0.75s cubic-bezier(0.4,0,0.2,1),
+                        left 0.75s cubic-bezier(0.4,0,0.2,1),
+                        font-size 0.75s cubic-bezier(0.4,0,0.2,1),
+                        opacity 0.2s ease 0.55s;
         }
         @media (max-width: 500px) {
             .tile {
@@ -1053,7 +1055,7 @@
                 const canHint = puzzleSolution && hintsRemaining > 0 &&
                     puzzleSolution.some(n => !tileValues.includes(n) && !tileHinted.includes(n));
                 hintBtn.disabled = !canHint;
-                hintCount.textContent = `${hintsRemaining}/5 remaining`;
+                hintCount.textContent = `${hintsRemaining}/5`;
             }
         }
 
@@ -1932,40 +1934,50 @@
             );
             if (available.length === 0) return;
 
-            const num = available[0]; // reveal the first unearned number
+            const num = available[0];
 
             // Find the first free slot (not filled, not already hinted)
             const slot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
             if (slot === -1) return;
 
             hintsRemaining--;
-            tileHinted[slot] = num;
-            updateTiles();
+            updateTiles(); // update counter immediately; tile stays empty until animation lands
 
-            // Animate: fly a number from the hint button to the tile
+            // Animate: fly a number from the hint button centre to the tile centre
             const hintBtn = document.getElementById('hintBtn');
             const tileEl  = document.getElementById(`play-t${slot}`);
             const btnRect  = hintBtn.getBoundingClientRect();
             const tileRect = tileEl.getBoundingClientRect();
 
+            const startX = btnRect.left  + btnRect.width  / 2;
+            const startY = btnRect.top   + btnRect.height / 2;
+            const endX   = tileRect.left + tileRect.width  / 2;
+            const endY   = tileRect.top  + tileRect.height / 2;
+
             const flyer = document.createElement('div');
             flyer.className = 'flying-hint';
             flyer.textContent = num;
-            flyer.style.left = `${btnRect.left + btnRect.width / 2 - 13}px`;
-            flyer.style.top  = `${btnRect.top  + btnRect.height / 2 - 16}px`;
+            flyer.style.left = `${startX}px`;
+            flyer.style.top  = `${startY}px`;
             flyer.style.opacity = '1';
             document.body.appendChild(flyer);
 
-            // Force reflow then animate to tile
+            // Force reflow then kick off transition
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    flyer.style.left = `${tileRect.left + tileRect.width / 2 - 13}px`;
-                    flyer.style.top  = `${tileRect.top  + tileRect.height / 2 - 16}px`;
-                    flyer.style.opacity = '0';
+                    flyer.style.left     = `${endX}px`;
+                    flyer.style.top      = `${endY}px`;
+                    flyer.style.fontSize = '22px';
+                    flyer.style.opacity  = '0';
                 });
             });
 
-            flyer.addEventListener('transitionend', () => flyer.remove(), { once: true });
+            // Reveal number in tile once animation has landed (~0.75s)
+            setTimeout(() => {
+                tileHinted[slot] = num;
+                updateTiles();
+                flyer.remove();
+            }, 780);
         });
 
         // ── Daily puzzle ─────────────────────────────────────────────────────────
