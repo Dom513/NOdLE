@@ -294,6 +294,8 @@
                 <div id="winTitle">🎉 You win!</div>
                 <div id="winSub">All lines cleared. Sum correct.</div>
                 <div id="winTime"></div>
+                <div id="winNextLabel" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
+                <div id="winCountdown" style="display:none; font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
             </div>
         </div>
     </div>
@@ -1869,16 +1871,27 @@
             startCountdown();
         }
 
+        function startWinCountdown() {
+            function update() {
+                const now = new Date();
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(0, 0, 0, 0);
+                const diff = tomorrow - now;
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                document.getElementById('winCountdown').textContent =
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
         async function initDailyPuzzle() {
             showScreen('screenLoading');
             const dateStr = todayStr();
-
-            // Check if already solved today
             const solved = getSolvedData(dateStr);
-            if (solved) {
-                showSolvedScreen(dateStr, solved.timeMs);
-                return;
-            }
 
             // Fetch today's puzzle
             try {
@@ -1887,10 +1900,27 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const puzzle = await resp.json();
                 loadPuzzle(puzzle);
+
+                // Already solved today — show puzzle behind win overlay
+                if (solved) {
+                    const totalSec = Math.floor(solved.timeMs / 1000);
+                    const mins = Math.floor(totalSec / 60);
+                    const secs = totalSec % 60;
+                    document.getElementById('winTime').innerHTML =
+                        `<span id="winTimelabel">solved in</span><br>${mins}:${String(secs).padStart(2,'0')}`;
+                    document.getElementById('winNextLabel').style.display = '';
+                    document.getElementById('winCountdown').style.display = '';
+                    startWinCountdown();
+                    document.getElementById('winOverlay').classList.add('visible');
+                }
             } catch (err) {
-                // No puzzle found — fall back to setup screen
-                showScreen('screenSetup');
-                setupDraw();
+                // No puzzle found — fall back to solved screen or setup
+                if (solved) {
+                    showSolvedScreen(dateStr, solved.timeMs);
+                } else {
+                    showScreen('screenSetup');
+                    setupDraw();
+                }
             }
         }
 
