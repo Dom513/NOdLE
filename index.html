@@ -291,7 +291,8 @@
         <div id="winOverlay">
             <div id="winBox">
                 <button id="winClose">✕</button>
-                <div id="winTitle">🎉 You've solved today's puzzle!</div>
+                <div id="winTitle">Congratulations</div>
+                <div id="winSub">you solved today's puzzle in</div>
                 <div id="winTime"></div>
                 <div id="winNextLabel" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
                 <div id="winCountdown" style="display:none; font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
@@ -1725,7 +1726,7 @@
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
             const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
-            document.getElementById('winTime').innerHTML = `<span id="winTimelabel">solved in</span><br>${timeStr}`;
+            document.getElementById('winTime').textContent = timeStr;
 
             // Save solved state to localStorage
             markSolved(todayStr(), elapsed);
@@ -1909,14 +1910,13 @@
                     const totalSec = Math.floor(solved.timeMs / 1000);
                     const mins = Math.floor(totalSec / 60);
                     const secs = totalSec % 60;
-                    document.getElementById('winTime').innerHTML =
-                        `<span id="winTimelabel">solved in</span><br>${mins}:${String(secs).padStart(2,'0')}`;
+                    document.getElementById('winTime').textContent =
+                        `${mins}:${String(secs).padStart(2,'0')}`;
 
                     // Restore tile values and colour edges smallest→largest by value
                     if (solved.tileValues && solved.tileEdgeIds) {
                         tileValues  = solved.tileValues;
                         tileEdgeIds = solved.tileEdgeIds;
-                        updateTiles();
 
                         // Sort slot indices by ascending tile value to assign rainbow colours
                         const sortedSlots = [0,1,2,3,4]
@@ -1938,6 +1938,8 @@
                                 }
                             }
                         });
+
+                        updateTiles();
                         playDraw();
                     }
 
