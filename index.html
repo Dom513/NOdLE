@@ -796,6 +796,7 @@
         let tileEdgeIds  = [null, null, null, null, null];
         let tileHinted   = [null, null, null, null, null]; // hint-revealed numbers not yet earned
         let hintsRemaining = 5;
+        const hintAnimating = new Set(); // slot indices currently mid-animation (visually hidden)
         let puzzleSolution = null; // solution numbers from puzzle JSON, if provided
 
         // Five distinct colours for the 5 number slots
@@ -1036,7 +1037,7 @@
                     el.textContent = tileValues[i];
                     el.classList.remove('hinted');
                     el.classList.add('filled');
-                } else if (tileHinted[i] !== null) {
+                } else if (tileHinted[i] !== null && !hintAnimating.has(i)) {
                     el.textContent = tileHinted[i];
                     el.classList.remove('filled');
                     el.classList.add('hinted');
@@ -1938,7 +1939,9 @@
             if (slot === -1) return;
 
             hintsRemaining--;
-            updateTiles(); // update counter immediately; tile stays empty until animation lands
+            tileHinted[slot] = num; // reserve immediately so rapid clicks can't duplicate
+            hintAnimating.add(slot);
+            updateTiles(); // update counter; tile stays visually empty until animation lands
 
             // Animate: fly a number from the hint button centre to the tile centre
             const hintBtn = document.getElementById('hintBtn');
@@ -1971,9 +1974,8 @@
 
             // Phase 2: once arrived, reveal tile number, then fade flyer out
             setTimeout(() => {
-                tileHinted[slot] = num;
+                hintAnimating.delete(slot);
                 updateTiles();
-                // Short pause so tile and flyer are visible together, then fade
                 requestAnimationFrame(() => {
                     flyer.style.transition = 'opacity 0.3s ease';
                     flyer.style.opacity = '0';
@@ -2004,6 +2006,7 @@
             tileEdgeIds = [null, null, null, null, null];
             tileHinted  = [null, null, null, null, null];
             hintsRemaining = 5;
+            hintAnimating.clear();
             puzzleSolution = puzzleData.solution || null;
             puzzleStartTime = null;
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
