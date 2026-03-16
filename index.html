@@ -233,8 +233,10 @@
         </div>
         <div class="btn-row">
             <button class="secondary" id="setupClearBtn">Clear all</button>
+            <button class="secondary" id="copyJsonBtn">Copy JSON</button>
             <button class="primary"   id="goPlayBtn">Play →</button>
         </div>
+        <div id="copyFeedback" style="margin-top:8px; font-size:11px; color:#555; font-family:'Share Tech Mono',monospace; min-height:16px;"></div>
     </div>
 
     <div class="screen" id="screenPlay">
@@ -659,9 +661,47 @@
             setupDraw();
         });
 
-        document.getElementById('targetInput').addEventListener('input', () => {
-            const val = document.getElementById('targetInput').value.trim();
-            document.getElementById('play-target').textContent = val;
+        document.getElementById('copyJsonBtn').addEventListener('click', () => {
+            const target = parseInt(document.getElementById('targetInput').value.trim());
+            const feedback = document.getElementById('copyFeedback');
+
+            if (!edgeList.length) {
+                feedback.textContent = 'No lines drawn yet.';
+                return;
+            }
+            if (isNaN(target)) {
+                feedback.textContent = 'Please enter a target number first.';
+                return;
+            }
+
+            // Preserve all edges including duplicates (for double/parallel lines)
+            const json = JSON.stringify({
+                target,
+                edges: edgeList.map(e => ({ a: e.a, b: e.b }))
+            });
+
+            navigator.clipboard.writeText(json).then(() => {
+                feedback.style.color = '#00e676';
+                feedback.textContent = '✓ JSON copied to clipboard!';
+                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
+            }).catch(() => {
+                // Fallback for browsers that block clipboard
+                const ta = document.createElement('textarea');
+                ta.value = json;
+                ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+                document.body.appendChild(ta);
+                ta.focus(); ta.select();
+                try {
+                    document.execCommand('copy');
+                    feedback.style.color = '#00e676';
+                    feedback.textContent = '✓ JSON copied to clipboard!';
+                } catch(e) {
+                    feedback.style.color = '#ff4444';
+                    feedback.textContent = 'Copy failed — try a different browser.';
+                }
+                document.body.removeChild(ta);
+                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
+            });
         });
 
         let playSnapshot = []; // deep copy of edgeList when play started
@@ -1795,7 +1835,7 @@
             try {
                 const raw = localStorage.getItem(getSolvedKey(dateStr));
                 return raw ? JSON.parse(raw) : null;
-            } catch { return null; }
+            } catch(e) { return null; }
         }
 
         function startCountdown() {
