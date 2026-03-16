@@ -2098,35 +2098,37 @@
                     document.getElementById('winTime').textContent =
                         `${mins}:${String(secs).padStart(2,'0')}`;
 
-                    // Restore tile values and colour edges smallest→largest by value
-                    if (solved.tileValues && solved.tileEdgeIds) {
-                        tileValues  = solved.tileValues;
-                        tileEdgeIds = solved.tileEdgeIds;
+                    // Restore tile numbers — prefer saved values, fall back to puzzle.solution
+                    const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
+                        ? solved.tileValues
+                        : (puzzle.solution ? [...puzzle.solution] : null);
 
-                        // Sort slot indices by ascending tile value to assign rainbow colours
-                        const sortedSlots = [0,1,2,3,4]
-                            .filter(i => solved.tileValues[i] !== null)
-                            .sort((a, b) => solved.tileValues[a] - solved.tileValues[b]);
-
-                        sortedSlots.forEach((slot, colorIdx) => {
-                            const color = SLOT_COLORS[colorIdx];
+                    if (vals) {
+                        tileValues = vals;
+                        // Colour tile text exactly as showWin does — by slot position
+                        for (let slot = 0; slot < 5; slot++) {
+                            if (tileValues[slot] === null) continue;
                             const el = document.getElementById(`play-t${slot}`);
-                            if (el) el.style.color = color;
-                            if (!solved.tileEdgeIds[slot]) return;
-                            for (const id of solved.tileEdgeIds[slot]) {
-                                const snap = playSnapshot.find(e => e.id === id);
-                                if (snap && !edgeList.find(e => e.id === id)) {
-                                    edgeList.push({ ...snap, red: false, color });
-                                } else {
-                                    const existing = edgeList.find(e => e.id === id);
-                                    if (existing) { existing.red = false; existing.color = color; }
-                                }
-                            }
-                        });
-
-                        updateTiles();
-                        playDraw();
+                            if (el) el.style.color = SLOT_COLORS[slot];
+                        }
                     }
+
+                    // Colour edges by slot position (matching showWin)
+                    // All edges exist in edgeList after loadPuzzle — just update their colour
+                    if (solved.tileEdgeIds) {
+                        tileEdgeIds = solved.tileEdgeIds;
+                        for (let slot = 0; slot < 5; slot++) {
+                            if (!tileEdgeIds[slot]) continue;
+                            const color = SLOT_COLORS[slot];
+                            for (const id of tileEdgeIds[slot]) {
+                                const existing = edgeList.find(e => e.id === id);
+                                if (existing) { existing.red = false; existing.color = color; }
+                            }
+                        }
+                    }
+
+                    updateTiles();
+                    playDraw();
 
                     document.getElementById('winNextLabel').style.display = '';
                     document.getElementById('winCountdown').style.display = '';
