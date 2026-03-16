@@ -1548,6 +1548,7 @@
             const allFilled = tileValues.every(v => v !== null);
             const noLines = edgeList.length === 0;
             const sum = tileValues.filter(v => v !== null).reduce((a, b) => a + b, 0);
+            const sumCorrect = sum === target;
 
             if (!allFilled && noLines && puzzleStartTime !== null) {
                 showError(`You need to use all ${tileValues.length} numbers`);
@@ -1555,7 +1556,7 @@
             }
             if (!allFilled) return;
             if (!noLines) { showError('You need to use all available lines'); return; }
-            if (sum !== target) { showError('Your sum is incorrect — try again'); return; }
+            if (!sumCorrect) { showError('Your sum is incorrect — try again'); return; }
             showWin();
         }
 
