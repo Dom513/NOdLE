@@ -230,10 +230,6 @@
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: 48px; color: #ffffff;
             transform: translate(-50%, -50%);
-            transition: top 0.75s cubic-bezier(0.4,0,0.2,1),
-                        left 0.75s cubic-bezier(0.4,0,0.2,1),
-                        font-size 0.75s cubic-bezier(0.4,0,0.2,1),
-                        opacity 0.2s ease 0.55s;
         }
         @media (max-width: 500px) {
             .tile {
@@ -1962,22 +1958,27 @@
             flyer.style.opacity = '1';
             document.body.appendChild(flyer);
 
-            // Force reflow then kick off transition
+            // Phase 1: fly to tile (move + shrink)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
+                    flyer.style.transition = 'top 0.7s cubic-bezier(0.4,0,0.2,1), left 0.7s cubic-bezier(0.4,0,0.2,1), font-size 0.7s cubic-bezier(0.4,0,0.2,1)';
                     flyer.style.left     = `${endX}px`;
                     flyer.style.top      = `${endY}px`;
                     flyer.style.fontSize = '22px';
-                    flyer.style.opacity  = '0';
                 });
             });
 
-            // Reveal number in tile once animation has landed (~0.75s)
+            // Phase 2: once arrived, reveal tile number, then fade flyer out
             setTimeout(() => {
                 tileHinted[slot] = num;
                 updateTiles();
-                flyer.remove();
-            }, 550);
+                // Short pause so tile and flyer are visible together, then fade
+                requestAnimationFrame(() => {
+                    flyer.style.transition = 'opacity 0.3s ease';
+                    flyer.style.opacity = '0';
+                });
+                setTimeout(() => flyer.remove(), 350);
+            }, 720);
         });
 
         // ── Daily puzzle ─────────────────────────────────────────────────────────
