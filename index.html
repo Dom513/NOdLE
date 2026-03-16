@@ -975,10 +975,11 @@
         }
 
         let puzzleStartTime = null;
+        let puzzleSolved    = false;
 
         function playStart(e) {
             e.preventDefault();
-            if (puzzleStartTime === null) puzzleStartTime = performance.now();
+            if (puzzleSolved) return;
             const pos = getPos(playCanvas, e);
             playDown       = true;
             playLastPos    = pos;
@@ -1024,6 +1025,7 @@
         playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
 
         document.getElementById('playResetBtn').addEventListener('click', () => {
+            if (puzzleSolved) return;
             for (const e of edgeList) e.red = false;
             playDraw();
         });
@@ -1619,6 +1621,7 @@
         }
 
         document.getElementById('submitBtn').addEventListener('click', () => {
+            if (puzzleSolved) return;
             // Only truly full if every slot has a confirmed submitted value
             const allFull = tileValues.every(v => v !== null);
             if (allFull) {
@@ -1735,6 +1738,7 @@
 
         for (let i = 0; i < 5; i++) {
             document.getElementById(`play-t${i}`).addEventListener('click', () => {
+                if (puzzleSolved) return;
                 if (tileValues[i] === null) return; // includes hinted-only slots
                 const num = tileValues[i];
                 const ids = tileEdgeIds[i] || [];
@@ -1847,9 +1851,6 @@
             const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
             document.getElementById('winTime').textContent = timeStr;
 
-            // Save solved state to localStorage
-            markSolved(todayStr(), elapsed);
-
             // Restore all edges with their slot colour
             for (let slot = 0; slot < 5; slot++) {
                 if (!tileEdgeIds[slot]) continue;
@@ -1871,6 +1872,10 @@
                 const el = document.getElementById(`play-t${slot}`);
                 if (tileValues[slot] !== null) el.style.color = SLOT_COLORS[slot];
             }
+
+            // Mark solved AFTER edges are colored so coloredEdges snapshot is complete
+            puzzleSolved = true;
+            markSolved(todayStr(), elapsed);
 
             document.getElementById('winOverlay').classList.add('visible');
         }
@@ -1924,6 +1929,7 @@
 
         // ── Hint button ──────────────────────────────────────────────────────────
         document.getElementById('hintBtn').addEventListener('click', () => {
+            if (puzzleSolved) return;
             if (!puzzleSolution || hintsRemaining <= 0) return;
 
             // Pick a solution number not yet placed or hinted
@@ -2009,6 +2015,7 @@
             hintAnimating.clear();
             puzzleSolution = puzzleData.solution || null;
             puzzleStartTime = null;
+            puzzleSolved    = false;
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             document.getElementById('play-target').textContent = puzzleData.target;
@@ -2022,7 +2029,9 @@
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
                 tileValues:  [...tileValues],
-                tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null)
+                tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null),
+                // Save full colored edge list so revisit can restore exact board state
+                coloredEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b, color: e.color || null }))
             }));
         }
 
@@ -2090,22 +2099,22 @@
                 const puzzle = await resp.json();
                 loadPuzzle(puzzle);
 
-                // Already solved today — show puzzle in completed rainbow form
+                // Already solved today — restore exact board state and show overlay
                 if (solved) {
+                    puzzleSolved = true;
+
                     const totalSec = Math.floor(solved.timeMs / 1000);
                     const mins = Math.floor(totalSec / 60);
                     const secs = totalSec % 60;
                     document.getElementById('winTime').textContent =
                         `${mins}:${String(secs).padStart(2,'0')}`;
 
-                    // Restore tile numbers — prefer saved values, fall back to puzzle.solution
+                    // Restore tile numbers
                     const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
                         ? solved.tileValues
                         : (puzzle.solution ? [...puzzle.solution] : null);
-
                     if (vals) {
                         tileValues = vals;
-                        // Colour tile text exactly as showWin does — by slot position
                         for (let slot = 0; slot < 5; slot++) {
                             if (tileValues[slot] === null) continue;
                             const el = document.getElementById(`play-t${slot}`);
@@ -2113,9 +2122,11 @@
                         }
                     }
 
-                    // Colour edges by slot position (matching showWin)
-                    // All edges exist in edgeList after loadPuzzle — just update their colour
-                    if (solved.tileEdgeIds) {
+                    // Restore colored edges — use saved coloredEdges if available,
+                    // otherwise fall back to tileEdgeIds + SLOT_COLORS
+                    if (solved.coloredEdges && solved.coloredEdges.length) {
+                        edgeList = solved.coloredEdges.map(e => ({ ...e, red: false }));
+                    } else if (solved.tileEdgeIds) {
                         tileEdgeIds = solved.tileEdgeIds;
                         for (let slot = 0; slot < 5; slot++) {
                             if (!tileEdgeIds[slot]) continue;
