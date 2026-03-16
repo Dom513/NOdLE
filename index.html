@@ -205,12 +205,8 @@
         #setup-target-wrap {
             background: none; border: none;
             font-size: 24px; color: #aaa; flex-shrink: 0;
-        }
-        #setup-target-wrap input {
-            background: none; border: none; outline: none;
-            font-size: 24px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            color: #aaa; width: 48px; text-align: center;
-            touch-action: auto; user-select: text;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            min-width: 44px; text-align: center;
         }
         .tile.filled { color: #ff4444; border-color: #555; cursor: pointer; }
         .tile.filled:hover { border-color: #888; }
@@ -223,7 +219,20 @@
             touch-action: auto; user-select: text;
         }
 
-        /* ── Mobile responsive ───────────────────────────────────────────── */
+        .tile.hinted { color: #555; border-color: #444; }
+        #hintCount {
+            font-family: 'Share Tech Mono', monospace; font-size: 10px;
+            color: #555; letter-spacing: 0.05em; white-space: nowrap;
+        }
+        #hintBtn:disabled { opacity: 0.3; cursor: default; }
+        .flying-hint {
+            position: fixed; pointer-events: none; z-index: 200;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: 26px; color: #555;
+            transition: top 0.5s cubic-bezier(0.4,0,0.2,1),
+                        left 0.5s cubic-bezier(0.4,0,0.2,1),
+                        opacity 0.5s ease;
+        }
         @media (max-width: 500px) {
             .tile {
                 width: clamp(26px, 8.2vw, 38px);
@@ -233,7 +242,6 @@
             }
             .tile input { font-size: clamp(13px, 4vw, 19px); }
             #play-target { font-size: clamp(13px, 4vw, 19px); }
-            #setup-target-wrap input { font-size: clamp(16px, 4.5vw, 22px); width: clamp(32px, 8vw, 48px); }
             .equation { gap: clamp(3px, 1.2vw, 6px); margin-top: 12px; }
             .eq-op { font-size: clamp(12px, 3.5vw, 16px); }
             .eq-equals { font-size: clamp(12px, 3.5vw, 16px); margin: 0 clamp(3px, 1.5vw, 8px); }
@@ -269,17 +277,17 @@
         <h2>Setup</h2>
         <canvas id="setupCanvas" width="460" height="460"></canvas>
         <div class="equation">
-            <div class="tile" id="setup-t0"></div>
+            <div class="tile editable" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
             <span class="eq-op">+</span>
-            <div class="tile" id="setup-t1"></div>
+            <div class="tile editable" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
             <span class="eq-op">+</span>
-            <div class="tile" id="setup-t2"></div>
+            <div class="tile editable" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
             <span class="eq-op">+</span>
-            <div class="tile" id="setup-t3"></div>
+            <div class="tile editable" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
             <span class="eq-op">+</span>
-            <div class="tile" id="setup-t4"></div>
+            <div class="tile editable" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
             <span class="eq-equals">=</span>
-            <div id="setup-target-wrap"><input id="targetInput" type="number" min="0" placeholder="?" /></div>
+            <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
         </div>
         <div class="btn-row">
             <button class="secondary" id="setupClearBtn">Clear all</button>
@@ -290,9 +298,13 @@
     </div>
 
     <div class="screen" id="screenPlay">
-        <h2>Play</h2>
         <div class="canvas-toolbar">
             <button class="toolbar-btn" id="infoBtn" title="How to play">ⓘ</button>
+            <div style="flex:1"></div>
+            <div id="hintWrap" style="display:flex;align-items:center;gap:6px;">
+                <button class="toolbar-btn" id="hintBtn" title="Hint">?</button>
+                <span id="hintCount"></span>
+            </div>
             <div style="flex:1"></div>
             <button class="toolbar-btn" id="rotateBtn" title="Rotate 90°">↻</button>
         </div>
@@ -708,27 +720,52 @@
         setupCanvas.addEventListener('touchend',    setupEnd,    { passive: false });
         setupCanvas.addEventListener('touchcancel', () => { setupDown = false; setupLastNode = -1; setupDragMoved = false; setupDraw(); }, { passive: false });
 
+        function updateSetupTarget() {
+            let sum = 0, allFilled = true;
+            for (let i = 0; i < 5; i++) {
+                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
+                if (isNaN(v)) { allFilled = false; } else { sum += v; }
+            }
+            document.getElementById('setupTarget').textContent = allFilled ? sum : '?';
+        }
+
+        for (let i = 0; i < 5; i++) {
+            document.getElementById(`setup-n${i}`).addEventListener('input', updateSetupTarget);
+        }
+
         document.getElementById('setupClearBtn').addEventListener('click', () => {
             edgeList = [];
+            for (let i = 0; i < 5; i++) document.getElementById(`setup-n${i}`).value = '';
+            updateSetupTarget();
             setupDraw();
         });
 
         document.getElementById('copyJsonBtn').addEventListener('click', () => {
-            const target = parseInt(document.getElementById('targetInput').value.trim());
             const feedback = document.getElementById('copyFeedback');
 
             if (!edgeList.length) {
                 feedback.textContent = 'No lines drawn yet.';
                 return;
             }
-            if (isNaN(target)) {
-                feedback.textContent = 'Please enter a target number first.';
+
+            const solution = [];
+            let allFilled = true;
+            for (let i = 0; i < 5; i++) {
+                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
+                if (isNaN(v)) allFilled = false;
+                solution.push(isNaN(v) ? null : v);
+            }
+            if (!allFilled) {
+                feedback.textContent = 'Please fill in all five solution numbers first.';
                 return;
             }
+
+            const target = solution.reduce((a, b) => a + b, 0);
 
             // Preserve all edges including duplicates (for double/parallel lines)
             const json = JSON.stringify({
                 target,
+                solution,
                 edges: edgeList.map(e => ({ a: e.a, b: e.b }))
             });
 
@@ -759,6 +796,9 @@
         let playSnapshot = []; // deep copy of edgeList when play started
         let tileValues   = [null, null, null, null, null];
         let tileEdgeIds  = [null, null, null, null, null];
+        let tileHinted   = [null, null, null, null, null]; // hint-revealed numbers not yet earned
+        let hintsRemaining = 5;
+        let puzzleSolution = null; // solution numbers from puzzle JSON, if provided
 
         // Five distinct colours for the 5 number slots
         const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9'];
@@ -771,8 +811,8 @@
             puzzleStartTime = null;
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
-            const val = document.getElementById('targetInput').value.trim();
-            document.getElementById('play-target').textContent = val;
+            const val = document.getElementById('setupTarget').textContent.trim();
+            document.getElementById('play-target').textContent = val === '?' ? '' : val;
             document.getElementById('infoOverlay').classList.remove('visible');
             showScreen('screenPlay');
             playDraw();
@@ -994,8 +1034,26 @@
         function updateTiles() {
             for (let i = 0; i < 5; i++) {
                 const el = document.getElementById(`play-t${i}`);
-                el.textContent = tileValues[i] !== null ? tileValues[i] : '';
-                el.classList.toggle('filled', tileValues[i] !== null);
+                if (tileValues[i] !== null) {
+                    el.textContent = tileValues[i];
+                    el.classList.remove('hinted');
+                    el.classList.add('filled');
+                } else if (tileHinted[i] !== null) {
+                    el.textContent = tileHinted[i];
+                    el.classList.remove('filled');
+                    el.classList.add('hinted');
+                } else {
+                    el.textContent = '';
+                    el.classList.remove('filled', 'hinted');
+                }
+            }
+            const hintBtn = document.getElementById('hintBtn');
+            const hintCount = document.getElementById('hintCount');
+            if (hintBtn) {
+                const canHint = puzzleSolution && hintsRemaining > 0 &&
+                    puzzleSolution.some(n => !tileValues.includes(n) && !tileHinted.includes(n));
+                hintBtn.disabled = !canHint;
+                hintCount.textContent = `${hintsRemaining}/5 remaining`;
             }
         }
 
@@ -1184,12 +1242,19 @@
                 return { num: 1, ids: strokes[0].ids };
             }
 
-            // ── 7: 2 strokes, chain (a right angle — any directions) ─────────────
+            // ── 7: 2 strokes, chain, directions must be perpendicular ────────────
             if (strokes.length === 2 && strokeNodes.length === 3 &&
                 strokeEnds.length === 2 && strokeMids.length === 1) {
-                return { num: 7, ids: allStrokeIds() };
+                const mid = strokeMids[0];
+                const [sA, sB] = strokes;
+                const dirA = strokeDirFrom(sA, mid);
+                const dirB = strokeDirFrom(sB, mid);
+                // Perpendicular: dot product must be zero
+                if (dirA[0] * dirB[0] + dirA[1] * dirB[1] === 0) {
+                    return { num: 7, ids: allStrokeIds() };
+                }
+                return null;
             }
-
             // ── 2 or 4(Y): 3 strokes ─────────────────────────────────────────────
             if (strokes.length === 3) {
                 // 4: star topology
@@ -1555,7 +1620,8 @@
         }
 
         document.getElementById('submitBtn').addEventListener('click', () => {
-            if (tileValues.every(v => v !== null)) {
+            const allFull = tileValues.every((v, i) => v !== null || tileHinted[i] !== null);
+            if (allFull) {
                 showError('All tiles full — tap a number to remove it');
                 return;
             }
@@ -1571,7 +1637,12 @@
                 return;
             }
 
-            const slot = tileValues.findIndex(v => v === null);
+            // Check if the submitted number matches a hinted slot
+            const hintedSlot = tileHinted.findIndex(h => h === result.num);
+            // Otherwise use the first empty non-hinted slot
+            const freeSlot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+            const slot = hintedSlot !== -1 ? hintedSlot : freeSlot;
+
             edgeList = edgeList.filter(e => !result.ids.includes(e.id));
             playDraw();
 
@@ -1583,6 +1654,7 @@
                 animateNumberToTile(matchedEdges, result.num, slot, () => {
                     tileValues[slot] = result.num;
                     tileEdgeIds[slot] = result.ids;
+                    if (hintedSlot !== -1) tileHinted[hintedSlot] = null; // hint earned
                     updateTiles();
                     checkWin();
                 });
@@ -1663,7 +1735,7 @@
 
         for (let i = 0; i < 5; i++) {
             document.getElementById(`play-t${i}`).addEventListener('click', () => {
-                if (tileValues[i] === null) return;
+                if (tileValues[i] === null) return; // includes hinted-only slots
                 const num = tileValues[i];
                 const ids = tileEdgeIds[i] || [];
 
@@ -1850,6 +1922,52 @@
             });
         }
 
+        // ── Hint button ──────────────────────────────────────────────────────────
+        document.getElementById('hintBtn').addEventListener('click', () => {
+            if (!puzzleSolution || hintsRemaining <= 0) return;
+
+            // Pick a solution number not yet placed or hinted
+            const available = puzzleSolution.filter(n =>
+                !tileValues.includes(n) && !tileHinted.includes(n)
+            );
+            if (available.length === 0) return;
+
+            const num = available[0]; // reveal the first unearned number
+
+            // Find the first free slot (not filled, not already hinted)
+            const slot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+            if (slot === -1) return;
+
+            hintsRemaining--;
+            tileHinted[slot] = num;
+            updateTiles();
+
+            // Animate: fly a number from the hint button to the tile
+            const hintBtn = document.getElementById('hintBtn');
+            const tileEl  = document.getElementById(`play-t${slot}`);
+            const btnRect  = hintBtn.getBoundingClientRect();
+            const tileRect = tileEl.getBoundingClientRect();
+
+            const flyer = document.createElement('div');
+            flyer.className = 'flying-hint';
+            flyer.textContent = num;
+            flyer.style.left = `${btnRect.left + btnRect.width / 2 - 13}px`;
+            flyer.style.top  = `${btnRect.top  + btnRect.height / 2 - 16}px`;
+            flyer.style.opacity = '1';
+            document.body.appendChild(flyer);
+
+            // Force reflow then animate to tile
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    flyer.style.left = `${tileRect.left + tileRect.width / 2 - 13}px`;
+                    flyer.style.top  = `${tileRect.top  + tileRect.height / 2 - 16}px`;
+                    flyer.style.opacity = '0';
+                });
+            });
+
+            flyer.addEventListener('transitionend', () => flyer.remove(), { once: true });
+        });
+
         // ── Daily puzzle ─────────────────────────────────────────────────────────
 
         // Set this to the base URL of your puzzles folder on GitHub Pages
@@ -1870,6 +1988,9 @@
             playSnapshot = edgeList.map(e => ({ ...e }));
             tileValues  = [null, null, null, null, null];
             tileEdgeIds = [null, null, null, null, null];
+            tileHinted  = [null, null, null, null, null];
+            hintsRemaining = 5;
+            puzzleSolution = puzzleData.solution || null;
             puzzleStartTime = null;
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
