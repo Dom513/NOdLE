@@ -12,7 +12,7 @@
             min-height: 100vh; background-color: #1a1a1a; color: white;
             font-family: 'Share Tech Mono', monospace;
             user-select: none; overflow-y: auto;
-            padding: max(20px, env(safe-area-inset-top)) max(0px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left));
+            padding: max(5px, env(safe-area-inset-top)) max(0px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left));
         }
         
         /* ── Top Bar (Logo & Menu) ───────────────────────────────────────── */
@@ -20,7 +20,7 @@
             width: 100%; max-width: 500px;
             display: flex; justify-content: center; 
             align-items: center;position: relative; 
-            padding: 0 16px 0 16px; 
+            padding: 16px 16px 0 16px; 
             /* Set top margin to 0 to eliminate any extra space at the very top */
             margin: 0 auto 14px auto; 
             flex-shrink: 0;
@@ -43,11 +43,8 @@
 
         /* MOBILE RESPONSIVENESS */
         @media (max-width: 480px) {
-            #topBar {
-                margin-bottom: 0px; /* Tighter spacing for mobile */
-            }
             #topLogo {
-                height: 40px; /* Smaller logo for mobile screens */
+                height: 50px; /* Smaller logo for mobile screens */
             }
             #menuBtn {
                 font-size: 28px; /* Slightly smaller menu icon for balance */
@@ -341,7 +338,7 @@
 
     <div class="screen" id="screenPlay">
         <div class="canvas-toolbar">
-            <button class="toolbar-btn" id="infoBtn" title="How to play">ⓘ</button>
+            <button class="toolbar-btn" id="infoBtn" title="How to play" style="font-size: 32px">ⓘ</button>
             <div style="flex:1"></div>
             <div id="hintWrap" style="display:flex;align-items:center;gap:6px;">
                 <button class="toolbar-btn" id="hintBtn" title="Hint">?</button>
