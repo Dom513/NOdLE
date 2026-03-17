@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Grid Line Toggle</title>
+    <title>NOdLE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,6 +14,26 @@
             user-select: none; overflow-y: auto;
             padding: max(20px, env(safe-area-inset-top)) max(0px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left));
         }
+        
+        /* ── Top Bar (Logo & Menu) ───────────────────────────────────────── */
+        #topBar {
+            width: 100%; max-width: 500px;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; padding: 0 16px; margin-bottom: 14px;
+            flex-shrink: 0;
+        }
+        #topLogo {
+            height: 60px; /* Adjust this value if your image needs to be larger/smaller */
+            object-fit: contain;
+        }
+        #menuBtn {
+            position: absolute; right: 16px;
+            background: none; border: none; color: #888;
+            font-size: 32px; cursor: pointer; padding: 4px;
+            line-height: 1; transition: color 0.15s;
+        }
+        #menuBtn:hover { color: #ddd; }
+
         .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 0 16px; }
         .screen.active { display: flex; }
         h2 { font-size: 11px; letter-spacing: 0.2em; color: #555; text-transform: uppercase; margin-bottom: 14px; font-family: 'Rajdhani', sans-serif; font-weight: 500; }
@@ -253,12 +273,15 @@
 </head>
 <body>
 
-    <!-- Loading screen -->
+    <div id="topBar">
+        <img src="nodle_logo.png" alt="NodLe" id="topLogo">
+        <button id="menuBtn" title="Menu">☰</button>
+    </div>
+
     <div class="screen active" id="screenLoading">
         <div id="loadingMsg">Loading today's puzzle...</div>
     </div>
 
-    <!-- Already solved screen -->
     <div class="screen" id="screenSolved">
         <div id="solvedBox">
             <div id="solvedTitle">🎉 Already solved!</div>
@@ -270,7 +293,6 @@
         </div>
     </div>
 
-    <!-- Setup screen (dev only — hidden in production) -->
     <div class="screen" id="screenSetup">
         <h2>Setup</h2>
         <canvas id="setupCanvas" width="460" height="460"></canvas>
@@ -328,7 +350,6 @@
             <button class="secondary" id="submitBtn">Submit number</button>
         </div>
 
-        <!-- Info overlay -->
         <div id="infoOverlay">
             <div id="infoBox">
                 <button id="infoClose">✕</button>
@@ -344,7 +365,6 @@
             </div>
         </div>
 
-        <!-- Win overlay -->
         <div id="winOverlay">
             <div id="winBox">
                 <button id="winClose">✕</button>
@@ -760,8 +780,12 @@
 
             const target = solution.reduce((a, b) => a + b, 0);
 
+            const dateRaw = new Date();
+            const date = date.toISOString().split('T')[0];
+
             // Preserve all edges including duplicates (for double/parallel lines)
             const json = JSON.stringify({
+                date,
                 target,
                 solution,
                 edges: edgeList.map(e => ({ a: e.a, b: e.b }))
@@ -2221,11 +2245,18 @@
 
             // Fetch today's puzzle
             try {
-                const url = `${PUZZLE_BASE_URL}/${dateStr}.json`;
+                const url = `${PUZZLE_BASE_URL}/puzzles.json`; 
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const puzzle = await resp.json();
+                const allPuzzles = await resp.json();
+                const puzzle = allPuzzles.find(p => p.date === dateStr);
                 loadPuzzle(puzzle);
+
+                // const url = `${PUZZLE_BASE_URL}/${dateStr}.json`;
+                // const resp = await fetch(url);
+                // if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                // const puzzle = await resp.json();
+                // loadPuzzle(puzzle);
 
                 // Restore in-progress state if player left mid-game
                 if (!solved) {
