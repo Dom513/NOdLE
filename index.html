@@ -42,7 +42,16 @@
         }
 
         /* MOBILE RESPONSIVENESS */
-        @media (max-width: 480px) {
+        @media (max-width: 600px) {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            /* If you have a main container wrapping your game, you can strip its margins too */
+            #screenPlay, .container {
+                margin: 0;
+                border-radius: 0; /* Optional: removes rounded corners so it sits flush */
+            }
             #topBar { 
                 padding: 0px 16px 0 16px; 
             }
