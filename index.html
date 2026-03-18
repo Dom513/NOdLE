@@ -157,6 +157,7 @@
             touch-action: auto; user-select: text;
         }
         .tile.hinted { color: #555; border-color: #444; }
+        .tile.pattern-hinted { color: #00e676 !important; border-color: #00e676; cursor: default; }
 
         /* ── Setup slot selector ─────────────────────────────────────────── */
         .setup-slot { cursor: pointer; border-color: #555; }
@@ -288,8 +289,8 @@
             position: relative;
             background: #2a2a2a; border: 2px solid #4488ff;
             border-radius: var(--radius-lg);
-            padding: clamp(24px, 6vw, 36px) clamp(20px, 8vw, 48px);
-            text-align: center; width: 100%; max-width: 360px;
+            padding: clamp(24px, 6vw, 36px) clamp(16px, 6vw, 48px);
+            text-align: center; width: 100%; max-width: 320px;
             display: flex; flex-direction: column; align-items: center;
             gap: var(--gap-sm);
         }
@@ -1152,10 +1153,12 @@
         let tileEdgeIds  = [null, null, null, null, null];
         let tileHinted   = [null, null, null, null, null]; // hint-revealed numbers not yet earned
         let tileWasHinted = [false, false, false, false, false]; // true if slot was ever hint-revealed
+        let tilePatternHinted = [false, false, false, false, false]; // true if slot was filled by pattern hint (locked)
         let hintsRemaining = 5;
         const hintAnimating = new Set(); // slot indices currently mid-animation (visually hidden)
         let puzzleSolution      = null; // solution numbers from puzzle JSON, if provided
         let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
+        let currentPuzzleDate   = null; // date string of the currently loaded puzzle
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
@@ -1164,9 +1167,8 @@
             tileEdgeIds  = [null, null, null, null, null];
             tileHinted   = [null, null, null, null, null];
             tileWasHinted = [false, false, false, false, false];
+            tilePatternHinted = [false, false, false, false, false];
             hintsRemaining = 5;
-            hintAnimating.clear();
-            // Read solution from setup inputs so hints work in setup→play mode
             const setupNums = [];
             let allFilled = true;
             for (let i = 0; i < 5; i++) {
@@ -1445,14 +1447,23 @@
                 if (tileValues[i] !== null) {
                     el.textContent = tileValues[i];
                     el.classList.remove('hinted');
-                    el.classList.add('filled');
+                    if (tilePatternHinted[i]) {
+                        el.classList.add('filled', 'pattern-hinted');
+                        el.style.color = '#00e676';
+                    } else {
+                        el.classList.add('filled');
+                        el.classList.remove('pattern-hinted');
+                        el.style.color = '';
+                    }
                 } else if (tileHinted[i] !== null && !hintAnimating.has(i)) {
                     el.textContent = tileHinted[i];
-                    el.classList.remove('filled');
+                    el.classList.remove('filled', 'pattern-hinted');
                     el.classList.add('hinted');
+                    el.style.color = '';
                 } else {
                     el.textContent = '';
-                    el.classList.remove('filled', 'hinted');
+                    el.classList.remove('filled', 'hinted', 'pattern-hinted');
+                    el.style.color = '';
                 }
             }
             const hintBtn = document.getElementById('hintBtn');
@@ -2018,7 +2029,7 @@
         const animCanvas = document.getElementById('animOverlay');
         const animCtx    = animCanvas ? animCanvas.getContext('2d') : null;
 
-        function animateNumberToTile(matchedEdges, num, slot, onComplete) {
+        function animateNumberToTile(matchedEdges, num, slot, onComplete, color = '#ff4444') {
             if (!animCtx) { onComplete(); return; }
 
             // Compute bounding box directly from node positions (no offsetEndpoints needed)
@@ -2063,7 +2074,7 @@
                         const na = nodes[edge.a], nb = nodes[edge.b];
                         animCtx.beginPath();
                         animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
-                        animCtx.strokeStyle = '#ff4444';
+                        animCtx.strokeStyle = color;
                         animCtx.lineWidth = 4.5; animCtx.lineCap = 'round';
                         animCtx.stroke();
                     }
@@ -2073,7 +2084,7 @@
                         const fs = startFontSize + (finalFontSize - startFontSize) * numP;
                         animCtx.globalAlpha = numP;
                         animCtx.font = `700 ${Math.round(fs / scale)}px ${fontFace}`;
-                        animCtx.fillStyle = '#ff4444';
+                        animCtx.fillStyle = color;
                         animCtx.textAlign = 'center';
                         animCtx.textBaseline = 'middle';
                         animCtx.fillText(String(num), cx, cy);
@@ -2089,7 +2100,7 @@
                     animCtx.save();
                     animCtx.globalAlpha = alpha;
                     animCtx.font = `700 ${Math.round(fs)}px ${fontFace}`;
-                    animCtx.fillStyle = '#ff4444';
+                    animCtx.fillStyle = color;
                     animCtx.textAlign = 'center';
                     animCtx.textBaseline = 'middle';
                     animCtx.fillText(String(num), x, y);
@@ -2227,6 +2238,7 @@
             document.getElementById(`play-t${i}`).addEventListener('click', () => {
                 if (puzzleSolved) return;
                 if (tileValues[i] === null) return;
+                if (tilePatternHinted[i]) return; // locked — pattern hints cannot be returned
                 const num = tileValues[i];
                 const ids = tileEdgeIds[i] || [];
 
@@ -2533,26 +2545,26 @@
             const slot = bestPatternSlot();
             if (slot === -1) return;
 
+            const PATTERN_COLOR = '#00e676';
+
             hintsRemaining -= 3;
             updateTiles();
 
-            // Mark all edges for this slot red
+            // Mark all edges for this slot green (briefly, before submitting)
             const indices = puzzleSolutionEdges[slot];
             for (const idx of indices) {
                 const snap = playSnapshot[idx];
                 if (!snap) continue;
                 const edge = edgeList.find(e => e.id === snap.id);
-                if (edge) edge.red = true;
+                if (edge) { edge.red = true; edge.color = PATTERN_COLOR; }
             }
             playDraw();
 
-            // Small delay so the player sees the red pattern, then auto-submit
             setTimeout(() => {
-                const redEdges = edgeList.filter(e => e.red);
-                const result = recogniseNumber(redEdges);
+                const patternEdges = edgeList.filter(e => e.red);
+                const result = recogniseNumber(patternEdges);
                 if (!result) return;
 
-                // Find target slot: prefer hinted slot for this number, else first free
                 const hintedSlot = tileHinted.findIndex(h => h === result.num);
                 const freeSlot   = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
                 const targetSlot = hintedSlot !== -1 ? hintedSlot : freeSlot;
@@ -2566,13 +2578,14 @@
 
                 if (targetSlot !== -1) {
                     animateNumberToTile(matchedEdges, result.num, targetSlot, () => {
-                        tileValues[targetSlot]  = result.num;
-                        tileEdgeIds[targetSlot] = result.ids;
+                        tileValues[targetSlot]       = result.num;
+                        tileEdgeIds[targetSlot]      = result.ids;
+                        tilePatternHinted[targetSlot] = true; // lock this slot
                         if (hintedSlot !== -1) tileHinted[hintedSlot] = null;
                         updateTiles();
                         saveProgress();
                         checkWin();
-                    });
+                    }, PATTERN_COLOR);
                 } else {
                     checkWin();
                 }
@@ -2658,10 +2671,12 @@
             tileEdgeIds = [null, null, null, null, null];
             tileHinted  = [null, null, null, null, null];
             tileWasHinted = [false, false, false, false, false];
+            tilePatternHinted = [false, false, false, false, false];
             hintsRemaining = 5;
             hintAnimating.clear();
             puzzleSolution      = puzzleData.solution || null;
             puzzleSolutionEdges = puzzleData.solutionEdges || null;
+            currentPuzzleDate   = puzzleData.date || null;
             puzzleStartTime  = null;
             puzzleSolved     = false;
             puzzleElapsed    = 0;
@@ -2702,6 +2717,7 @@
                 tileEdgeIds:   tileEdgeIds.map(ids => ids ? [...ids] : null),
                 tileHinted:    [...tileHinted],
                 tileWasHinted: [...tileWasHinted],
+                tilePatternHinted: [...tilePatternHinted],
                 hintsRemaining,
                 elapsedMs:     getElapsed(),
                 remainingEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b }))
@@ -2742,7 +2758,31 @@
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
             document.getElementById('winTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
-            startCountdown();
+
+            const isToday = currentPuzzleDate === todayStr();
+
+            // Sub-text: "you solved today's puzzle in" vs "you solved the 18 Mar 2026 puzzle in"
+            if (isToday || !currentPuzzleDate) {
+                document.getElementById('winSub').textContent = "you solved today's puzzle in";
+            } else {
+                const [y, m, d] = currentPuzzleDate.split('-');
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                document.getElementById('winSub').textContent =
+                    `you solved the ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y} puzzle in`;
+            }
+
+            // Only show countdown for today's puzzle
+            const nextLabel    = document.getElementById('winNextLabel');
+            const nextCountdown = document.getElementById('winCountdown');
+            if (isToday || !currentPuzzleDate) {
+                nextLabel.style.display    = '';
+                nextCountdown.style.display = '';
+                startCountdown();
+            } else {
+                nextLabel.style.display    = 'none';
+                nextCountdown.style.display = 'none';
+            }
+
             document.getElementById('winOverlay').classList.add('visible');
         }
 
@@ -2773,7 +2813,8 @@
                         tileValues     = progress.tileValues     || tileValues;
                         tileEdgeIds    = progress.tileEdgeIds    || tileEdgeIds;
                         tileHinted     = progress.tileHinted     || tileHinted;
-                        tileWasHinted  = progress.tileWasHinted  || tileWasHinted;
+                        tileWasHinted      = progress.tileWasHinted     || tileWasHinted;
+                        tilePatternHinted  = progress.tilePatternHinted || tilePatternHinted;
                         hintsRemaining = progress.hintsRemaining ?? hintsRemaining;
                         puzzleElapsed  = progress.elapsedMs      || 0;
                         puzzleSessionStart = performance.now(); // resume timer
