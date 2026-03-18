@@ -3374,16 +3374,10 @@
             let puzzles;
             try {
                 const resp = await fetch(PRACTICE_URL);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${PRACTICE_URL}`);
-                const text = await resp.text();
-                try {
-                    puzzles = JSON.parse(text);
-                } catch(parseErr) {
-                    list.innerHTML = `<div id="archiveLoading">JSON parse error: ${parseErr.message}<br><small>${text.slice(0, 120)}</small></div>`;
-                    return;
-                }
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                puzzles = await resp.json();
             } catch(e) {
-                list.innerHTML = `<div id="archiveLoading">Could not load: ${e.message}</div>`;
+                list.innerHTML = '<div id="archiveLoading">Could not load practice puzzles.</div>';
                 return;
             }
 
