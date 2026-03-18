@@ -3053,8 +3053,13 @@
             const puzzleBtns = document.getElementById('winPuzzleBtns');
             if (!isToday) {
                 puzzleBtns.style.display = 'flex';
-                const hasPrev = currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1;
-                const hasNext = currentPuzzleList && currentPuzzleIndex > 0;
+                const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
+                const hasPrev = currentPuzzleList && (isPrac
+                    ? currentPuzzleIndex > 0
+                    : currentPuzzleIndex < currentPuzzleList.length - 1);
+                const hasNext = currentPuzzleList && (isPrac
+                    ? currentPuzzleIndex < currentPuzzleList.length - 1
+                    : currentPuzzleIndex > 0);
                 document.getElementById('winPrev').disabled = !hasPrev;
                 document.getElementById('winNext').disabled = !hasNext;
             } else {
@@ -3146,9 +3151,12 @@
         });
 
         document.getElementById('winPrev').addEventListener('click', () => {
-            if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
+            if (!currentPuzzleList) return;
+            const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
+            const nextIdx = isPrac ? currentPuzzleIndex - 1 : currentPuzzleIndex + 1;
+            if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
             document.getElementById('winOverlay').classList.remove('visible');
-            currentPuzzleIndex++;
+            currentPuzzleIndex = nextIdx;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
             loadPuzzle(puzzle);
@@ -3156,9 +3164,12 @@
         });
 
         document.getElementById('winNext').addEventListener('click', () => {
-            if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
+            if (!currentPuzzleList) return;
+            const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
+            const nextIdx = isPrac ? currentPuzzleIndex + 1 : currentPuzzleIndex - 1;
+            if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
             document.getElementById('winOverlay').classList.remove('visible');
-            currentPuzzleIndex--;
+            currentPuzzleIndex = nextIdx;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
             loadPuzzle(puzzle);
