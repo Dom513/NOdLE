@@ -2810,7 +2810,33 @@
             document.getElementById('winOverlay').classList.add('visible');
         }
 
-        // Archive popup buttons
+        // Restore the full colored solved board state from saved data, then show win overlay
+        function restoreSolvedBoard(puzzle, solved) {
+            puzzleSolved = true;
+
+            const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
+                ? solved.tileValues
+                : (puzzle && puzzle.solution ? [...puzzle.solution] : null);
+            if (vals) tileValues = vals;
+
+            if (solved.coloredEdges && solved.coloredEdges.length) {
+                edgeList = solved.coloredEdges.map(e => ({ ...e, red: false }));
+            } else if (solved.tileEdgeIds) {
+                tileEdgeIds = solved.tileEdgeIds;
+                for (let slot = 0; slot < 5; slot++) {
+                    if (!tileEdgeIds[slot]) continue;
+                    const color = SLOT_COLORS[slot];
+                    for (const id of tileEdgeIds[slot]) {
+                        const existing = edgeList.find(e => e.id === id);
+                        if (existing) { existing.red = false; existing.color = color; }
+                    }
+                }
+            }
+
+            updateTiles();
+            playDraw();
+            showWinOverlay(solved.timeMs);
+        }
         document.getElementById('winPlayToday').addEventListener('click', async () => {
             document.getElementById('winOverlay').classList.remove('visible');
             await initDailyPuzzle();
@@ -2878,32 +2904,7 @@
 
                 // Already solved today — restore exact board state and show win overlay
                 if (solved) {
-                    puzzleSolved = true;
-
-                    // Restore tile numbers
-                    const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
-                        ? solved.tileValues
-                        : (puzzle.solution ? [...puzzle.solution] : null);
-                    if (vals) tileValues = vals;
-
-                    // Restore colored edges
-                    if (solved.coloredEdges && solved.coloredEdges.length) {
-                        edgeList = solved.coloredEdges.map(e => ({ ...e, red: false }));
-                    } else if (solved.tileEdgeIds) {
-                        tileEdgeIds = solved.tileEdgeIds;
-                        for (let slot = 0; slot < 5; slot++) {
-                            if (!tileEdgeIds[slot]) continue;
-                            const color = SLOT_COLORS[slot];
-                            for (const id of tileEdgeIds[slot]) {
-                                const existing = edgeList.find(e => e.id === id);
-                                if (existing) { existing.red = false; existing.color = color; }
-                            }
-                        }
-                    }
-
-                    updateTiles();
-                    playDraw();
-                    showWinOverlay(solved.timeMs);
+                    restoreSolvedBoard(puzzle, solved);
                 }
             } catch (err) {
                 // No puzzle found — always fall back to setup
@@ -3004,7 +3005,7 @@
                     document.getElementById('archiveOverlay').classList.remove('visible');
                     document.getElementById('winOverlay').classList.remove('visible');
                     loadPuzzle(puzzle);
-                    if (solved) showWinOverlay(solved.timeMs);
+                    if (solved) restoreSolvedBoard(puzzle, solved);
                 });
 
                 list.appendChild(item);
