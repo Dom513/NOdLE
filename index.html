@@ -317,7 +317,7 @@
             font-size: var(--fs-xs); color: #555; letter-spacing: 0.2em;
             text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
         }
-        #winNextLabel {
+        #winHints {
             font-family: 'Share Tech Mono', monospace; font-size: var(--fs-xs);
             color: #555; letter-spacing: 0.1em;
         }
@@ -656,8 +656,10 @@
                 <div id="winTitle">Congratulations</div>
                 <div id="winSub"></div>
                 <div id="winTime"></div>
+                <div id="winHints"></div>
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
+                <button id="winShareBtn" class="secondary" style="display:none; width:100%; margin-top:4px;">Share result</button>
                 <div id="winArchiveBtns" style="display:none;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
@@ -1134,6 +1136,28 @@
             const dateRaw = new Date();
             const date = dateRaw.toISOString().split('T')[0];
 
+            // Validate each slot: run recogniseNumber on its edges and check it matches
+            const errors = [];
+            for (let i = 0; i < 5; i++) {
+                const edges = setupSlotEdges[i];
+                if (edges.length === 0) {
+                    errors.push(`slot ${i + 1} (${solution[i]}): no lines drawn`);
+                    continue;
+                }
+                const result = recogniseNumber(edges);
+                if (!result) {
+                    errors.push(`slot ${i + 1}: lines don't form a recognisable number`);
+                } else if (result.num !== solution[i]) {
+                    errors.push(`slot ${i + 1}: lines look like ${result.num}, expected ${solution[i]}`);
+                }
+            }
+            if (errors.length > 0) {
+                feedback.style.color = '#ff4444';
+                feedback.textContent = errors.join(' · ');
+                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 6000);
+                return;
+            }
+
             // Build flat edge array slot-by-slot; solutionEdges[i] = indices into edges[] for slot i
             const flatEdges = [];
             const solutionEdges = [];
@@ -1469,7 +1493,7 @@
                 if (tileValues[i] !== null) {
                     el.textContent = tileValues[i];
                     el.classList.remove('hinted');
-                    if (tilePatternHinted[i]) {
+                    if (tilePatternHinted[i] && !puzzleSolved) {
                         el.classList.add('filled', 'pattern-hinted');
                         el.style.color = '#00e676';
                     } else if (puzzleSolved) {
@@ -2427,7 +2451,7 @@
             if (solvedDateStr === todayStr()) clearProgress();
             markSolved(solvedDateStr, elapsed);
 
-            showWinOverlay(elapsed);
+            showWinOverlay(elapsed, 5 - hintsRemaining);
         }
 
         document.getElementById('winClose').addEventListener('click', () => {
@@ -2716,9 +2740,9 @@
         function markSolved(dateStr, timeMs) {
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
+                hintsUsed: 5 - hintsRemaining,
                 tileValues:  [...tileValues],
                 tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null),
-                // Save full colored edge list so revisit can restore exact board state
                 coloredEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b, color: e.color || null }))
             }));
         }
@@ -2776,11 +2800,21 @@
         }
 
         // Single helper — shows the win overlay for any solved path
-        function showWinOverlay(timeMs) {
+        function showWinOverlay(timeMs, hintsUsed) {
             const totalSec = Math.floor(timeMs / 1000);
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
-            document.getElementById('winTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+            const timeStr = `${mins}:${String(secs).padStart(2,'0')}`;
+            document.getElementById('winTime').textContent = timeStr;
+
+            // Hints used line
+            const hintsEl = document.getElementById('winHints');
+            if (hintsUsed != null) {
+                hintsEl.textContent = `${hintsUsed} of 5 hint${hintsUsed !== 1 ? 's' : ''} used`;
+                hintsEl.style.display = '';
+            } else {
+                hintsEl.style.display = 'none';
+            }
 
             const isToday = !currentPuzzleDate || currentPuzzleDate === todayStr();
 
@@ -2795,7 +2829,7 @@
             }
 
             // Countdown only for today's puzzle
-            const nextLabel    = document.getElementById('winNextLabel');
+            const nextLabel     = document.getElementById('winNextLabel');
             const nextCountdown = document.getElementById('winCountdown');
             if (isToday) {
                 nextLabel.style.display     = '';
@@ -2804,6 +2838,16 @@
             } else {
                 nextLabel.style.display     = 'none';
                 nextCountdown.style.display = 'none';
+            }
+
+            // Share button only for today's puzzle
+            const shareBtn = document.getElementById('winShareBtn');
+            if (isToday && hintsUsed != null) {
+                shareBtn.style.display = '';
+                shareBtn.dataset.time     = timeStr;
+                shareBtn.dataset.hints    = hintsUsed;
+            } else {
+                shareBtn.style.display = 'none';
             }
 
             // Archive action buttons only for non-today puzzles
@@ -2837,8 +2881,32 @@
 
             updateTiles();
             playDraw();
-            showWinOverlay(solved.timeMs);
+            showWinOverlay(solved.timeMs, solved.hintsUsed ?? null);
         }
+
+        document.getElementById('winShareBtn').addEventListener('click', () => {
+            const btn     = document.getElementById('winShareBtn');
+            const timeStr = btn.dataset.time;
+            const hints   = btn.dataset.hints;
+            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: dom513.github.io/NOdLE`;
+            navigator.clipboard.writeText(msg).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 2000);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = msg;
+                ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+                document.body.appendChild(ta);
+                ta.focus(); ta.select();
+                try { document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 2000);
+            });
+        });
+
         document.getElementById('winPlayToday').addEventListener('click', async () => {
             document.getElementById('winOverlay').classList.remove('visible');
             await initDailyPuzzle();
