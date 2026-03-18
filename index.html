@@ -197,7 +197,7 @@
             font-family: 'Rajdhani', sans-serif; font-weight: 500;
         }
 
-        canvas:not(#animOverlay) { cursor: crosshair; touch-action: none; display: block; }
+        canvas:not(#animOverlay) { cursor: crosshair; display: block; }
 
         /* ── Canvas & wrapper ────────────────────────────────────────────── */
         #setupCanvas {
@@ -723,6 +723,7 @@
             <div class="btn-row">
                 <button class="secondary" id="playResetBtn">Clear</button>
                 <button class="secondary" id="submitBtn">Submit number</button>
+                <button class="primary" id="showResultsBtn" style="display:none; width:100%;">Show results</button>
             </div>
         </div>
         </div><!-- /board-wrap -->
@@ -1539,24 +1540,26 @@
         });
 
         function playStart(e) {
-            e.preventDefault();
             if (puzzleSolved) return;
-            const pos = getPos(playCanvas, e);
+            const pos  = getPos(playCanvas, e);
+            const node = getConnectedNodeAt(pos.x, pos.y);
+            const edge = node === -1 ? getEdgeNear(pos.x, pos.y, edgeList) : null;
+            // Only capture the touch if it hits something interactive
+            if (node === -1 && !edge) return;
+            e.preventDefault();
             playDown       = true;
             playLastPos    = pos;
             playHasDragged = false;
-            playPending    = null;
+            playPending    = edge;
             playTouched    = new Set();
-            const node = getConnectedNodeAt(pos.x, pos.y);
             playLastNode   = node;
             playOriginNode = node;
-            if (node === -1) playPending = getEdgeNear(pos.x, pos.y, edgeList);
             playDraw();
         }
 
         function playMove(e) {
-            e.preventDefault();
             if (!playDown) return;
+            e.preventDefault();
             const pos  = getPos(playCanvas, e);
             playLastPos = pos;
             const node = getConnectedNodeAt(pos.x, pos.y);
@@ -1595,6 +1598,19 @@
         playCanvas.addEventListener('touchmove',   playMove,   { passive: false });
         playCanvas.addEventListener('touchend',    playEnd,    { passive: false });
         playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
+
+        function setSolvedButtonState(solved) {
+            document.getElementById('playResetBtn').style.display  = solved ? 'none' : '';
+            document.getElementById('submitBtn').style.display     = solved ? 'none' : '';
+            document.getElementById('showResultsBtn').style.display = solved ? '' : 'none';
+        }
+
+        document.getElementById('showResultsBtn').addEventListener('click', () => {
+            const solvedData = getSolvedData(currentPuzzleDate || todayStr());
+            if (solvedData) {
+                showWinOverlay(solvedData.timeMs, solvedData.hintsUsed ?? null);
+            }
+        });
 
         document.getElementById('playResetBtn').addEventListener('click', () => {
             if (puzzleSolved) return;
@@ -2567,7 +2583,7 @@
             // Mark solved BEFORE updateTiles so slot colours are applied by updateTiles
             puzzleSolved = true;
             updateTiles();
-            // Save solve under the correct puzzle date (may be an archive puzzle, not today)
+            setSolvedButtonState(true);
             const solvedDateStr = currentPuzzleDate || todayStr();
             if (solvedDateStr === todayStr()) clearProgress();
             markSolved(solvedDateStr, elapsed);
@@ -2852,6 +2868,7 @@
             puzzleSessionStart = performance.now();
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
+            setSolvedButtonState(false);
             document.getElementById('play-target').textContent = puzzleData.target;
 
             // Show description (practice), formatted date (archive), or nothing (today)
@@ -3050,6 +3067,7 @@
         // Restore the full colored solved board state from saved data, then show win overlay
         function restoreSolvedBoard(puzzle, solved) {
             puzzleSolved = true;
+            setSolvedButtonState(true);
 
             const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
                 ? solved.tileValues
