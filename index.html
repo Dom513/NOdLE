@@ -1472,6 +1472,10 @@
                     if (tilePatternHinted[i]) {
                         el.classList.add('filled', 'pattern-hinted');
                         el.style.color = '#00e676';
+                    } else if (puzzleSolved) {
+                        el.classList.add('filled');
+                        el.classList.remove('pattern-hinted');
+                        el.style.color = SLOT_COLORS[i];
                     } else {
                         el.classList.add('filled');
                         el.classList.remove('pattern-hinted');
@@ -2415,14 +2419,9 @@
             }
             playDraw();
 
-            // Colour tile text to match slot colours
-            for (let slot = 0; slot < 5; slot++) {
-                const el = document.getElementById(`play-t${slot}`);
-                if (tileValues[slot] !== null) el.style.color = SLOT_COLORS[slot];
-            }
-
-            // Mark solved AFTER edges are colored so coloredEdges snapshot is complete
+            // Mark solved BEFORE updateTiles so slot colours are applied by updateTiles
             puzzleSolved = true;
+            updateTiles();
             clearProgress();
             markSolved(todayStr(), elapsed);
 
@@ -2885,14 +2884,7 @@
                     const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
                         ? solved.tileValues
                         : (puzzle.solution ? [...puzzle.solution] : null);
-                    if (vals) {
-                        tileValues = vals;
-                        for (let slot = 0; slot < 5; slot++) {
-                            if (tileValues[slot] === null) continue;
-                            const el = document.getElementById(`play-t${slot}`);
-                            if (el) el.style.color = SLOT_COLORS[slot];
-                        }
-                    }
+                    if (vals) tileValues = vals;
 
                     // Restore colored edges
                     if (solved.coloredEdges && solved.coloredEdges.length) {
