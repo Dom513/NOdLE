@@ -289,18 +289,18 @@
             position: relative;
             background: #2a2a2a; border: 2px solid #4488ff;
             border-radius: var(--radius-lg);
-            padding: clamp(24px, 6vw, 36px) clamp(16px, 6vw, 48px);
-            text-align: center; width: 100%; max-width: 320px;
+            padding: clamp(20px, 5vw, 32px);
+            text-align: center; width: 100%; max-width: 280px;
             display: flex; flex-direction: column; align-items: center;
-            gap: var(--gap-sm);
+            gap: clamp(8px, 2vw, 12px);
         }
         #winClose {
-            position: absolute; top: 10px; right: 14px;
+            position: absolute; top: 10px; right: 10px;
             background: none; border: none; color: #555;
             font-size: clamp(14px, 4vw, 18px);
             cursor: pointer; padding: 4px 8px; letter-spacing: 0;
             transition: color 0.15s;
-            min-width: 44px; min-height: 44px;
+            min-width: 36px; min-height: 36px;
             display: flex; align-items: center; justify-content: flex-end;
         }
         #winClose:hover { color: #ccc; }
@@ -316,6 +316,24 @@
         #winTimelabel {
             font-size: var(--fs-xs); color: #555; letter-spacing: 0.2em;
             text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
+        }
+        #winNextLabel {
+            font-family: 'Share Tech Mono', monospace; font-size: var(--fs-xs);
+            color: #555; letter-spacing: 0.1em;
+        }
+        #winCountdown {
+            font-family: 'Rajdhani', monospace; font-size: var(--fs-lg);
+            color: #666; letter-spacing: 0.08em;
+        }
+        #winArchiveBtns {
+            display: flex; flex-direction: column; gap: 8px;
+            width: 100%; margin-top: 4px;
+        }
+        #winArchiveBtns button {
+            width: 100%; padding: 10px 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(10px, 2.6vw, 11px);
+            letter-spacing: 0.06em; min-height: unset;
         }
 
         /* ── Loading / Solved screens ────────────────────────────────────── */
@@ -636,10 +654,14 @@
             <div id="winBox">
                 <button id="winClose">✕</button>
                 <div id="winTitle">Congratulations</div>
-                <div id="winSub">you solved today's puzzle in</div>
+                <div id="winSub"></div>
                 <div id="winTime"></div>
-                <div id="winNextLabel" style="font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
-                <div id="winCountdown" style="font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
+                <div id="winNextLabel">Next puzzle in</div>
+                <div id="winCountdown"></div>
+                <div id="winArchiveBtns" style="display:none;">
+                    <button class="secondary" id="winPlayToday">Play today's puzzle</button>
+                    <button class="secondary" id="winPlayAgain">Play again</button>
+                </div>
             </div>
         </div>
 
@@ -2759,10 +2781,10 @@
             const secs = totalSec % 60;
             document.getElementById('winTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
 
-            const isToday = currentPuzzleDate === todayStr();
+            const isToday = !currentPuzzleDate || currentPuzzleDate === todayStr();
 
-            // Sub-text: "you solved today's puzzle in" vs "you solved the 18 Mar 2026 puzzle in"
-            if (isToday || !currentPuzzleDate) {
+            // Sub-text
+            if (isToday) {
                 document.getElementById('winSub').textContent = "you solved today's puzzle in";
             } else {
                 const [y, m, d] = currentPuzzleDate.split('-');
@@ -2771,20 +2793,43 @@
                     `you solved the ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y} puzzle in`;
             }
 
-            // Only show countdown for today's puzzle
+            // Countdown only for today's puzzle
             const nextLabel    = document.getElementById('winNextLabel');
             const nextCountdown = document.getElementById('winCountdown');
-            if (isToday || !currentPuzzleDate) {
-                nextLabel.style.display    = '';
+            if (isToday) {
+                nextLabel.style.display     = '';
                 nextCountdown.style.display = '';
                 startCountdown();
             } else {
-                nextLabel.style.display    = 'none';
+                nextLabel.style.display     = 'none';
                 nextCountdown.style.display = 'none';
             }
 
+            // Archive action buttons only for non-today puzzles
+            document.getElementById('winArchiveBtns').style.display = isToday ? 'none' : '';
+
             document.getElementById('winOverlay').classList.add('visible');
         }
+
+        // Archive popup buttons
+        document.getElementById('winPlayToday').addEventListener('click', async () => {
+            document.getElementById('winOverlay').classList.remove('visible');
+            await initDailyPuzzle();
+        });
+
+        document.getElementById('winPlayAgain').addEventListener('click', () => {
+            // Reload the current archive puzzle from scratch
+            const dateToReplay = currentPuzzleDate;
+            document.getElementById('winOverlay').classList.remove('visible');
+            // Re-fetch and reload so we get a clean state
+            fetch(`${PUZZLE_BASE_URL}/puzzles.json`)
+                .then(r => r.json())
+                .then(all => {
+                    const puzzle = all.find(p => p.date === dateToReplay);
+                    if (puzzle) loadPuzzle(puzzle);
+                })
+                .catch(() => {});
+        });
 
         async function initDailyPuzzle() {
             showScreen('screenLoading');
@@ -2967,7 +3012,7 @@
                     document.getElementById('archiveOverlay').classList.remove('visible');
                     document.getElementById('winOverlay').classList.remove('visible');
                     loadPuzzle(puzzle);
-                    // Never auto-show the win overlay — let the player play or replay freely
+                    if (solved) showWinOverlay(solved.timeMs);
                 });
 
                 list.appendChild(item);
