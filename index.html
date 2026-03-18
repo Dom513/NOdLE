@@ -2863,8 +2863,44 @@
             } else if (puzzleData.date && !isPracticeDate && puzzleData.date !== todayStr()) {
                 const [y, m, d] = puzzleData.date.split('-');
                 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                descEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
-                descEl.style.display = '';
+                const dateStr = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                descEl.innerHTML =
+                    `<button id="descPrev" style="background:none;border:none;color:#555;font-size:1.2em;cursor:pointer;padding:0 10px;min-height:unset;">&#8249;</button>` +
+                    `<span>${dateStr}</span>` +
+                    `<button id="descNext" style="background:none;border:none;color:#555;font-size:1.2em;cursor:pointer;padding:0 10px;min-height:unset;">&#8250;</button>`;
+                descEl.style.display = 'flex';
+                descEl.style.alignItems = 'center';
+                descEl.style.justifyContent = 'center';
+
+                // Wire up after DOM insertion
+                setTimeout(() => {
+                    const prevBtn = document.getElementById('descPrev');
+                    const nextBtn = document.getElementById('descNext');
+                    if (prevBtn) {
+                        prevBtn.disabled = !(currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1);
+                        prevBtn.style.opacity = prevBtn.disabled ? '0.25' : '1';
+                        prevBtn.addEventListener('click', () => {
+                            if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
+                            currentPuzzleIndex++;
+                            const p = currentPuzzleList[currentPuzzleIndex];
+                            const s = getSolvedData(p.date);
+                            loadPuzzle(p);
+                            if (s) restoreSolvedBoard(p, s);
+                        });
+                    }
+                    if (nextBtn) {
+                        nextBtn.disabled = !(currentPuzzleList && currentPuzzleIndex > 0);
+                        nextBtn.style.opacity = nextBtn.disabled ? '0.25' : '1';
+                        nextBtn.addEventListener('click', () => {
+                            if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
+                            currentPuzzleIndex--;
+                            const p = currentPuzzleList[currentPuzzleIndex];
+                            const s = getSolvedData(p.date);
+                            loadPuzzle(p);
+                            if (s) restoreSolvedBoard(p, s);
+                        });
+                    }
+                }, 0);
             } else {
                 descEl.textContent = '';
                 descEl.style.display = 'none';
