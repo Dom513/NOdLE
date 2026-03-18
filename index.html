@@ -286,7 +286,7 @@
         #infoContent em { color: #aaa; font-style: normal; }
         #infoPracticeIntro {
             color: #bbb !important;
-            font-size: var(--fs-md) !important;
+            font-size: var(--fs-sm) !important;
             font-weight: 700;
             margin-top: 4px;
         }
@@ -532,6 +532,8 @@
             color: #444;
         }
 
+        #winPuzzleBtns button:disabled { opacity: 0.3; cursor: default; }
+
         /* ── Info welcome buttons ────────────────────────────────────────── */
         #infoBtns button { width: 100%; }
 
@@ -626,6 +628,7 @@
     <!-- ── Menu overlay ──────────────────────────────────────────────────── -->
     <div id="menuOverlay">
         <div id="menuBox">
+            <button class="menu-item-btn" id="menuToday">Today's puzzle</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
             <button class="menu-item-btn" id="menuPractice">Practice</button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
@@ -756,9 +759,13 @@
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
                 <button id="winShareBtn" class="secondary" style="display:none; width:100%; margin-top:4px;">Share result</button>
-                <div id="winArchiveBtns" style="display:none;">
+                <div id="winPuzzleBtns" style="display:none; flex-direction:column; gap:8px; width:100%;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
+                    <div style="display:flex; gap:8px;">
+                        <button class="secondary" id="winPrev" style="flex:1;">← Previous</button>
+                        <button class="secondary" id="winNext" style="flex:1;">Next →</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1302,6 +1309,8 @@
         let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
         let currentPuzzleDate   = null; // date string of the currently loaded puzzle
         let currentPuzzleTitle  = null; // title of the currently loaded puzzle (practice puzzles)
+        let currentPuzzleList   = null; // full ordered list of puzzles for prev/next nav
+        let currentPuzzleIndex  = -1;  // index of current puzzle in currentPuzzleList
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
@@ -2981,9 +2990,17 @@
                 shareBtn.style.display = 'none';
             }
 
-            // Archive action buttons only for non-today, non-practice puzzles
-            document.getElementById('winArchiveBtns').style.display =
-                (!isToday && !isPractice) ? '' : 'none';
+            // Show puzzle nav buttons for non-today puzzles (archive and practice)
+            const puzzleBtns = document.getElementById('winPuzzleBtns');
+            if (!isToday) {
+                puzzleBtns.style.display = 'flex';
+                const hasPrev = currentPuzzleList && currentPuzzleIndex > 0;
+                const hasNext = currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1;
+                document.getElementById('winPrev').disabled = !hasPrev;
+                document.getElementById('winNext').disabled = !hasNext;
+            } else {
+                puzzleBtns.style.display = 'none';
+            }
 
             document.getElementById('winOverlay').classList.add('visible');
         }
@@ -3045,21 +3062,37 @@
         });
 
         document.getElementById('winPlayAgain').addEventListener('click', () => {
-            // Reload the current archive puzzle from scratch
-            const dateToReplay = currentPuzzleDate;
             document.getElementById('winOverlay').classList.remove('visible');
-            // Re-fetch and reload so we get a clean state
-            fetch(`${PUZZLE_BASE_URL}/puzzles.json`)
-                .then(r => r.json())
-                .then(all => {
-                    const puzzle = all.find(p => p.date === dateToReplay);
-                    if (puzzle) loadPuzzle(puzzle);
-                })
-                .catch(() => {});
+            if (currentPuzzleList && currentPuzzleIndex >= 0) {
+                const puzzle = currentPuzzleList[currentPuzzleIndex];
+                loadPuzzle(puzzle);
+            }
+        });
+
+        document.getElementById('winPrev').addEventListener('click', () => {
+            if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
+            document.getElementById('winOverlay').classList.remove('visible');
+            currentPuzzleIndex--;
+            const puzzle = currentPuzzleList[currentPuzzleIndex];
+            const solved = getSolvedData(puzzle.date);
+            loadPuzzle(puzzle);
+            if (solved) restoreSolvedBoard(puzzle, solved);
+        });
+
+        document.getElementById('winNext').addEventListener('click', () => {
+            if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
+            document.getElementById('winOverlay').classList.remove('visible');
+            currentPuzzleIndex++;
+            const puzzle = currentPuzzleList[currentPuzzleIndex];
+            const solved = getSolvedData(puzzle.date);
+            loadPuzzle(puzzle);
+            if (solved) restoreSolvedBoard(puzzle, solved);
         });
 
         async function initDailyPuzzle() {
             showScreen('screenLoading');
+            currentPuzzleList  = null;
+            currentPuzzleIndex = -1;
             const dateStr = todayStr();
             const solved = getSolvedData(dateStr);
 
@@ -3146,6 +3179,11 @@
             if (e.target === document.getElementById('menuOverlay')) closeMenu();
         });
 
+        document.getElementById('menuToday').addEventListener('click', async () => {
+            closeMenu();
+            await initDailyPuzzle();
+        });
+
         document.getElementById('menuDonate').addEventListener('click', () => {
             closeMenu();
             window.open('https://ko-fi.com', '_blank'); // replace with real donate URL
@@ -3210,6 +3248,8 @@
                 item.addEventListener('click', () => {
                     document.getElementById('archiveOverlay').classList.remove('visible');
                     document.getElementById('winOverlay').classList.remove('visible');
+                    currentPuzzleList  = allPuzzles;
+                    currentPuzzleIndex = allPuzzles.indexOf(puzzle);
                     loadPuzzle(puzzle);
                     if (solved) restoreSolvedBoard(puzzle, solved);
                 });
@@ -3242,7 +3282,9 @@
             }
 
             list.innerHTML = '';
-            puzzles.forEach((puzzle, idx) => {
+            // Build the annotated list once so prev/next can reference it
+            const annotatedPuzzles = puzzles.map((p, i) => ({ ...p, date: `practice-${i}` }));
+            annotatedPuzzles.forEach((puzzle, idx) => {
                 const item = document.createElement('div');
                 item.className = 'practice-item';
 
@@ -3260,9 +3302,9 @@
                 item.addEventListener('click', () => {
                     document.getElementById('practiceOverlay').classList.remove('visible');
                     document.getElementById('winOverlay').classList.remove('visible');
-                    // Practice puzzles have no date — give them a synthetic one so
-                    // currentPuzzleDate doesn't collide with today's real puzzle
-                    loadPuzzle({ ...puzzle, date: `practice-${idx}` });
+                    currentPuzzleList  = annotatedPuzzles;
+                    currentPuzzleIndex = idx;
+                    loadPuzzle(puzzle);
                 });
 
                 list.appendChild(item);
