@@ -6,74 +6,213 @@
     <title>NOdLE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
+
+        /* ── Reset & base ────────────────────────────────────────────────── */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-            min-height: 100vh; background-color: #1a1a1a; color: white;
-            font-family: 'Share Tech Mono', monospace;
-            user-select: none; overflow-y: auto;
-            padding: max(12px, env(safe-area-inset-top)) max(0px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(0px, env(safe-area-inset-left));
+
+        /*
+         * Global fluid scale (vw-based) for non-board elements.
+         * Board-interior elements (tiles, equation, buttons) use cqw
+         * via .board-wrap which is a container — so they track the
+         * canvas width exactly, not the viewport width.
+         */
+        :root {
+            --fs-xs:    clamp(9px,  2.2vw, 11px);
+            --fs-sm:    clamp(10px, 2.6vw, 12px);
+            --fs-md:    clamp(13px, 3.5vw, 16px);
+            --fs-lg:    clamp(16px, 4.5vw, 20px);
+            --fs-2xl:   clamp(22px, 6.5vw, 32px);
+            --fs-title: clamp(18px, 5vw,   28px);
+
+            --logo-h:        clamp(42px, 9vw,  68px);
+            --toolbar-icon:  clamp(20px, 6vw,  28px);
+            --hint-icon:     clamp(24px, 6.5vw,28px);
+
+            --gap-sm:    clamp(6px,  1.5vw, 10px);
+            --gap-md:    clamp(10px, 2.5vw, 16px);
+            --gap-lg:    clamp(12px, 3vw,   20px);
+
+            --radius:    clamp(4px,  1.5vw, 8px);
+            --radius-lg: clamp(8px,  2vw,   12px);
         }
-        
-        /* ── Top Bar (Logo & Menu) ───────────────────────────────────────── */
+
+        body {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: flex-start; min-height: 100dvh;
+            background-color: #1a1a1a; color: white;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-sm);
+            user-select: none; overflow-y: auto;
+            padding:
+                max(8px, env(safe-area-inset-top))
+                max(0px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom))
+                max(0px, env(safe-area-inset-left));
+        }
+
+        /* ── Top Bar ─────────────────────────────────────────────────────── */
         #topBar {
             width: 100%; max-width: 500px;
-            display: flex; justify-content: center; 
-            align-items: center;position: relative; 
-            padding: 16px 16px 0 16px; 
-            /* Set top margin to 0 to eliminate any extra space at the very top */
-            margin: 0 auto 14px auto; 
+            display: flex; justify-content: center; align-items: center;
+            position: relative;
+            padding: clamp(6px, 2vw, 16px) 16px 0 16px;
+            margin: 0 auto clamp(6px, 2vw, 14px) auto;
             flex-shrink: 0;
         }
 
         #topLogo {
-            /* Desktop default */
-            height: 10vw; max-height: 80px; 
-            width: auto;
+            height: var(--logo-h);
+            flex-shrink: 1;
             object-fit: contain;
+            max-width: 60%;
         }
 
         #menuBtn {
             position: absolute; right: 16px;
-            background: none; border: none; 
-            color: #888;font-size: 32px; 
+            background: none; border: none;
+            color: #888; font-size: var(--toolbar-icon);
             cursor: pointer; padding: 4px;
             line-height: 1; transition: color 0.15s;
+            min-width: 44px; min-height: 44px;
+            display: flex; align-items: center; justify-content: center;
         }
-
-        /* MOBILE RESPONSIVENESS */
-        @media (max-width: 600px) {
-            #topBar { 
-                padding: 0px 16px 0 16px; 
-            }
-            #topLogo {
-                height: 50px; /* Smaller logo for mobile screens */
-            }
-            #menuBtn {
-                font-size: 28px; /* Slightly smaller menu icon for balance */
-            }
-        }
-
         #menuBtn:hover { color: #ddd; }
 
-        .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; padding: 0 16px; }
+        /* ── Screens ─────────────────────────────────────────────────────── */
+        .screen {
+            display: none; flex-direction: column; align-items: center;
+            width: 100%; max-width: 500px;
+            padding: 0;
+            flex: 1;
+        }
         .screen.active { display: flex; }
-        h2 { font-size: 11px; letter-spacing: 0.2em; color: #555; text-transform: uppercase; margin-bottom: 14px; font-family: 'Rajdhani', sans-serif; font-weight: 500; }
+
+        /*
+         * board-wrap: single column holding toolbar + canvas + footer.
+         * Carries the horizontal padding so canvas AND footer are always
+         * the same width — both fill 100% of this one container.
+         */
+        .board-wrap {
+            width: 100%;
+            padding: 0 clamp(8px, 3vw, 16px);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            container-type: inline-size;  /* enables cqw for all children */
+            container-name: board;
+        }
+
+        /* ── Equation & tiles — sized from board container, not viewport ── */
+        /*
+         * The equation has 5 tiles + 4 "+" ops + "=" + target tile.
+         * Total slots competing for width: 7 tiles + 5 operators.
+         * Tile = ~9cqw, gap = ~1.5cqw, op = ~3.5cqw — tuned so at max
+         * width (460px container) tiles ≈ 44px, and they shrink proportionally.
+         */
+        .equation {
+            display: flex; align-items: center;
+            gap: clamp(2px, 1.5cqw, 8px);
+            margin-top: clamp(6px, 2cqw, 14px);
+            width: 100%; justify-content: center; flex-wrap: nowrap;
+        }
+        .eq-op {
+            color: #ccc; font-size: clamp(11px, 3.5cqw, 18px);
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .eq-equals {
+            color: #ccc; font-size: clamp(11px, 3.5cqw, 18px);
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            margin: 0 clamp(1px, 1cqw, 10px); flex-shrink: 0;
+        }
+        .tile {
+            width: clamp(24px, 9cqw, 46px);
+            height: clamp(24px, 9cqw, 46px);
+            flex-shrink: 0;
+            background: #222; border: 1px solid #3a3a3a;
+            border-radius: clamp(3px, 1cqw, 6px);
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(12px, 4.5cqw, 22px);
+            font-family: 'Rajdhani', sans-serif; font-weight: 700; color: #333;
+        }
+        #play-target {
+            background: none; border-color: transparent;
+            font-size: clamp(13px, 5cqw, 24px); color: #aaa;
+        }
+        #setup-target-wrap {
+            background: none; border: none;
+            font-size: clamp(13px, 5cqw, 24px); color: #aaa; flex-shrink: 0;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            min-width: clamp(24px, 9cqw, 46px); text-align: center;
+        }
+        .tile.filled { color: #ff4444; border-color: #555; cursor: pointer; }
+        .tile.filled:hover { border-color: #888; }
+        .tile.editable { cursor: text; border-color: #555; }
+        .tile.editable:focus-within { border-color: #4488ff; }
+        .tile input {
+            width: 100%; height: 100%; background: transparent; border: none; outline: none;
+            text-align: center; font-size: clamp(12px, 4.5cqw, 22px);
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            color: #aaa; padding: 0;
+            touch-action: auto; user-select: text;
+        }
+        .tile.hinted { color: #555; border-color: #444; }
+
+        /* ── Setup slot selector ─────────────────────────────────────────── */
+        .setup-slot { cursor: pointer; border-color: #555; }
+        .setup-slot.active-slot {
+            border-width: 2px;
+            box-shadow: 0 0 0 2px currentColor;
+        }
+        .setup-slot input {
+            pointer-events: none; /* click handled by tile, not input */
+        }
+
+        .btn-row {
+            display: flex; gap: clamp(6px, 2cqw, 10px);
+            margin-top: clamp(6px, 2cqw, 12px);
+            flex-wrap: wrap; justify-content: center;
+        }
+        button {
+            padding: 8px 22px; background: transparent; border-radius: 4px;
+            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            cursor: pointer; letter-spacing: 0.08em;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+            min-height: 44px;
+        }
+        .board-footer button {
+            padding: 8px clamp(10px, 3cqw, 22px); background: transparent;
+            border-radius: clamp(3px, 1cqw, 6px);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(10px, 2.8cqw, 12px);
+            cursor: pointer; letter-spacing: 0.08em;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+            min-height: clamp(34px, 9cqw, 44px); white-space: nowrap;
+        }
+
+        h2 {
+            font-size: var(--fs-xs); letter-spacing: 0.2em; color: #555;
+            text-transform: uppercase; margin-bottom: var(--gap-sm);
+            font-family: 'Rajdhani', sans-serif; font-weight: 500;
+        }
+
         canvas:not(#animOverlay) { cursor: crosshair; touch-action: none; display: block; }
 
         /* ── Canvas & wrapper ────────────────────────────────────────────── */
         #setupCanvas {
-            border: 2px solid #444; background-color: #222; border-radius: 8px;
-            width: 100%; max-width: 460px; aspect-ratio: 1;
+            border: 2px solid #444; background-color: #222;
+            border-radius: var(--radius);
+            width: 100%; aspect-ratio: 1;
         }
         #canvasWrapper {
-            background-color: #222; border-radius: 8px;
+            background-color: #222; border-radius: var(--radius);
             position: relative; display: flex; line-height: 0;
-            width: 100%; max-width: 460px;
+            width: 100%;
         }
         #playCanvas {
-            border: 2px solid #444; border-radius: 8px; background-color: #222;
-            width: 100%; max-width: 460px; aspect-ratio: 1;
+            border: 2px solid #444; border-radius: var(--radius);
+            background-color: #222;
+            width: 100%; aspect-ratio: 1;
         }
         #animOverlay {
             position: absolute; top: 0; left: 0;
@@ -84,16 +223,20 @@
         /* ── Toolbar ─────────────────────────────────────────────────────── */
         .canvas-toolbar {
             display: flex; align-items: center;
-            width: 100%; max-width: 464px;
-            margin-bottom: 8px;
+            width: 100%;
+            margin-bottom: clamp(4px, 1.5vw, 8px);
         }
         .toolbar-btn {
-            background: none; border: none !important; color: #666; font-size: 28px;
+            background: none; border: none !important; color: #666;
+            font-size: var(--toolbar-icon);
             cursor: pointer; padding: 4px 6px; letter-spacing: 0;
             transition: color 0.15s; line-height: 1; font-weight: 900;
-            width: auto; border-radius: 0; min-width: 44px; min-height: 44px;
+            width: auto; border-radius: 0;
+            min-width: clamp(36px, 10vw, 44px);
+            min-height: clamp(36px, 10vw, 44px);
             display: flex; align-items: center; justify-content: center;
         }
+        #rotateBtn { font-size: clamp(28px, 8vw, 40px); }
         .toolbar-btn:hover { color: #ddd; }
 
         @keyframes rotateCW {
@@ -106,190 +249,276 @@
         }
 
         /* ── Overlays ────────────────────────────────────────────────────── */
-        #infoOverlay {
+        #infoOverlay, #winOverlay {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.75);
             align-items: center; justify-content: center;
             z-index: 100; padding: 16px;
         }
-        #infoOverlay.visible { display: flex; }
+        #infoOverlay.visible, #winOverlay.visible { display: flex; }
+
         #infoBox {
             position: relative;
-            background: #2a2a2a; border: 2px solid #444; border-radius: 12px;
-            padding: 36px 40px 28px; max-width: 360px; width: 100%;
-            display: flex; flex-direction: column; gap: 10px;
+            background: #2a2a2a; border: 2px solid #444;
+            border-radius: var(--radius-lg);
+            padding: clamp(24px, 6vw, 36px) clamp(20px, 7vw, 40px) clamp(18px, 5vw, 28px);
+            max-width: 360px; width: 100%;
+            display: flex; flex-direction: column; gap: var(--gap-sm);
         }
         #infoClose {
             position: absolute; top: 10px; right: 14px;
-            background: none; border: none; color: #555; font-size: 18px;
+            background: none; border: none; color: #555;
+            font-size: clamp(14px, 4vw, 18px);
             cursor: pointer; padding: 4px 8px; transition: color 0.15s;
         }
         #infoClose:hover { color: #ccc; }
         #infoTitle {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: 18px; letter-spacing: 0.1em; color: #ccc;
+            font-size: clamp(14px, 4.5vw, 18px); letter-spacing: 0.1em; color: #ccc;
             text-transform: uppercase; margin-bottom: 4px;
         }
         #infoContent p {
-            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-sm);
             color: #888; line-height: 1.7; margin: 0;
         }
         #infoContent em { color: #aaa; font-style: normal; }
-        #winOverlay {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.75);
-            align-items: center; justify-content: center;
-            z-index: 100; padding: 16px;
-        }
-        #winOverlay.visible { display: flex; }
+
         #winBox {
             position: relative;
-            background: #2a2a2a; border: 2px solid #4488ff; border-radius: 12px;
-            padding: 36px 48px; text-align: center; width: 100%; max-width: 360px;
-            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            background: #2a2a2a; border: 2px solid #4488ff;
+            border-radius: var(--radius-lg);
+            padding: clamp(24px, 6vw, 36px) clamp(20px, 8vw, 48px);
+            text-align: center; width: 100%; max-width: 360px;
+            display: flex; flex-direction: column; align-items: center;
+            gap: var(--gap-sm);
         }
         #winClose {
             position: absolute; top: 10px; right: 14px;
-            background: none; border: none; color: #555; font-size: 18px;
+            background: none; border: none; color: #555;
+            font-size: clamp(14px, 4vw, 18px);
             cursor: pointer; padding: 4px 8px; letter-spacing: 0;
-            transition: color 0.15s; min-width: 44px; min-height: 44px;
+            transition: color 0.15s;
+            min-width: 44px; min-height: 44px;
             display: flex; align-items: center; justify-content: flex-end;
         }
         #winClose:hover { color: #ccc; }
+        #winTitle {
+            font-size: var(--fs-title); letter-spacing: 0.08em; color: #fff;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+        }
+        #winSub { font-size: var(--fs-sm); color: #777; font-family: 'Share Tech Mono', monospace; }
         #winTime {
-            font-family: 'Share Tech Mono', monospace; font-size: 28px;
+            font-family: 'Share Tech Mono', monospace; font-size: var(--fs-2xl);
             color: #4488ff; letter-spacing: 0.1em; line-height: 1.4;
         }
         #winTimelabel {
-            font-size: 11px; color: #555; letter-spacing: 0.2em;
+            font-size: var(--fs-xs); color: #555; letter-spacing: 0.2em;
             text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
         }
-        #winTitle { font-size: 28px; letter-spacing: 0.08em; color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 700; }
-        #winSub { font-size: 12px; color: #777; font-family: 'Share Tech Mono', monospace; }
 
         /* ── Loading / Solved screens ────────────────────────────────────── */
-        p { margin-top: 14px; color: #555; font-size: 11px; text-align: center; max-width: 440px; font-family: 'Share Tech Mono', monospace; }
-        #screenLoading, #screenSolved {
-            display: none; flex-direction: column; align-items: center;
-            justify-content: center; gap: 16px; min-height: 60vh;
+        p {
+            margin-top: var(--gap-md); color: #555;
+            font-size: var(--fs-sm); text-align: center;
+            max-width: 440px; font-family: 'Share Tech Mono', monospace;
         }
-        #screenLoading.active, #screenSolved.active { display: flex; }
+        #screenLoading {
+            display: none; flex-direction: column; align-items: center;
+            justify-content: center; gap: var(--gap-md); min-height: 60dvh;
+        }
+        #screenLoading.active { display: flex; }
         #loadingMsg {
-            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            font-family: 'Share Tech Mono', monospace; font-size: var(--fs-sm);
             color: #555; letter-spacing: 0.15em;
         }
-        #solvedBox {
-            background: #2a2a2a; border: 2px solid #444; border-radius: 12px;
-            padding: 36px 40px; max-width: 360px; width: 90%;
-            display: flex; flex-direction: column; align-items: center; gap: 14px;
-            text-align: center;
-        }
-        #solvedTitle {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: 22px; letter-spacing: 0.1em; color: #ccc;
-        }
-        #solvedTime {
-            font-family: 'Share Tech Mono', monospace; font-size: 32px;
-            color: #4488ff; letter-spacing: 0.1em;
-        }
-        #solvedTimeLabel {
-            font-family: 'Share Tech Mono', monospace; font-size: 11px;
-            color: #555; letter-spacing: 0.2em; text-transform: uppercase;
-        }
-        #solvedDate {
-            font-family: 'Share Tech Mono', monospace; font-size: 11px;
-            color: #444; letter-spacing: 0.1em;
-        }
-        #nextPuzzleLabel {
-            font-family: 'Share Tech Mono', monospace; font-size: 11px;
-            color: #555; letter-spacing: 0.1em;
-        }
-        #countdown {
-            font-family: 'Rajdhani', monospace; font-size: 20px;
-            color: #666; letter-spacing: 0.08em;
-        }
 
-        /* ── Equation & tiles ────────────────────────────────────────────── */
-        .btn-row { display: flex; gap: 10px; margin-top: 14px; }
-        button {
-            padding: 8px 22px; background: transparent; border-radius: 4px;
-            font-family: 'Share Tech Mono', monospace; font-size: 12px;
-            cursor: pointer; letter-spacing: 0.08em;
-            transition: color 0.15s, border-color 0.15s, background 0.15s;
-            min-height: 44px;
+        /* ── Board-width footer (equation + buttons) ────────────────────── */
+        .board-footer {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
+        .board-footer .equation { width: 100%; }
+        .board-footer .btn-row  { width: 100%; justify-content: center; }
+
         button.secondary { color: #777; border: 1px solid #444; }
         button.secondary:hover { color: #ccc; border-color: #888; }
         button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
         button.primary:hover { background: #66aaff; border-color: #66aaff; }
-        .equation {
-            display: flex; align-items: center; gap: 8px;
-            margin-top: 16px; width: 100%; justify-content: center;
-        }
-        .eq-op {
-            color: #ccc; font-size: 18px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            flex-shrink: 0;
-        }
-        .eq-equals {
-            color: #ccc; font-size: 18px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            margin: 0 12px; flex-shrink: 0;
-        }
-        .tile { 
-            width: 44px; height: 44px; flex-shrink: 0;
-            background: #222; border: 1px solid #3a3a3a; border-radius: 4px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; font-family: 'Rajdhani', sans-serif; font-weight: 700; color: #333;
-        }
-        #play-target {
-            background: none; border-color: transparent;
-            font-size: 24px; color: #aaa;
-        }
-        #setup-target-wrap {
-            background: none; border: none;
-            font-size: 24px; color: #aaa; flex-shrink: 0;
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            min-width: 44px; text-align: center;
-        }
-        .tile.filled { color: #ff4444; border-color: #555; cursor: pointer; }
-        .tile.filled:hover { border-color: #888; }
-        .tile.editable { cursor: text; border-color: #555; }
-        .tile.editable:focus-within { border-color: #4488ff; }
-        .tile input {
-            width: 100%; height: 100%; background: transparent; border: none; outline: none;
-            text-align: center; font-size: 22px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            color: #aaa; padding: 0;
-            touch-action: auto; user-select: text;
-        }
 
-        .tile.hinted { color: #555; border-color: #444; }
         #hintCount {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 28px;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: var(--hint-icon);
             color: #555; letter-spacing: 0.05em; white-space: nowrap; line-height: 1;
         }
         #hintBtn:disabled { opacity: 0.3; cursor: default; }
+
+        /* ── Menu overlay ────────────────────────────────────────────────── */
+        #menuOverlay {
+            display: none; position: fixed; inset: 0;
+            z-index: 200;
+        }
+        #menuOverlay.visible { display: block; }
+        #menuBox {
+            position: absolute;
+            background: #2a2a2a; border: 1px solid #444;
+            border-radius: 0 0 0 var(--radius-lg);
+            padding: 8px 8px 12px;
+            display: flex; flex-direction: column; gap: 2px;
+            min-width: 160px;
+        }
+        .menu-item-btn {
+            background: none; border: none; color: #aaa;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(11px, 3vw, 13px);
+            letter-spacing: 0.08em;
+            text-align: left; padding: 10px 16px;
+            cursor: pointer; border-radius: var(--radius);
+            transition: background 0.15s, color 0.15s;
+            min-height: unset; white-space: nowrap;
+        }
+        .menu-item-btn:hover { background: #333; color: #fff; }
+
+        /* ── Archive overlay ─────────────────────────────────────────────── */
+        #archiveOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            flex-direction: column; align-items: center;
+        }
+        #archiveOverlay.visible { display: flex; }
+        #archiveBox {
+            width: 100%; max-width: 500px; height: 100%;
+            display: flex; flex-direction: column;
+            background: #1a1a1a;
+        }
+        #archiveHeader {
+            display: flex; align-items: center; gap: 12px;
+            padding: clamp(12px, 3vw, 20px) 16px;
+            border-bottom: 1px solid #333; flex-shrink: 0;
+        }
+        #archiveBack {
+            background: none; border: none; color: #666;
+            font-size: 20px; cursor: pointer;
+            padding: 4px 8px; transition: color 0.15s;
+            min-height: unset; line-height: 1;
+        }
+        #archiveBack:hover { color: #ccc; }
+        #archiveTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
+            color: #ccc; text-transform: uppercase;
+        }
+        #archiveList {
+            overflow-y: auto; flex: 1;
+            padding: 8px 0;
+        }
+        .archive-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .archive-item:hover { background: #242424; }
+        .archive-item.is-today { opacity: 0.4; cursor: default; }
+        .archive-item-date {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(11px, 3vw, 13px); color: #888;
+            letter-spacing: 0.08em;
+        }
+        .archive-item-badge {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .archive-item-badge.solved { color: #4488ff; }
+        .archive-item-badge.unsolved { color: #444; }
+        #archiveLoading {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px; color: #555;
+            text-align: center; padding: 40px 20px;
+        }
+        #hintChoiceOverlay {
+            display: none; position: fixed; inset: 0;
+            z-index: 100;
+            /* no background — bubble floats freely */
+        }
+        #hintChoiceOverlay.visible { display: block; }
+        #hintChoiceBox {
+            position: absolute;
+            background: #2a2a2a; border: 2px solid #555;
+            border-radius: var(--radius-lg);
+            padding: 14px 16px 12px;
+            width: clamp(220px, 70vw, 280px);
+            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        }
+        /* Speech bubble tail — triangle pointing upward toward hint button */
+        #hintChoiceBox::before {
+            content: '';
+            position: absolute;
+            top: -10px; left: var(--tail-pos, 50%); transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #555;
+        }
+        #hintChoiceBox::after {
+            content: '';
+            position: absolute;
+            top: -7px; left: var(--tail-pos, 50%); transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid #2a2a2a;
+        }
+        #hintChoiceClose {
+            position: absolute; top: 6px; right: 8px;
+            background: none; border: none; color: #555;
+            font-size: 13px; cursor: pointer;
+            padding: 2px 6px; transition: color 0.15s; min-height: unset;
+        }
+        #hintChoiceClose:hover { color: #ccc; }
+        #hintChoiceTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(11px, 3vw, 13px); letter-spacing: 0.15em;
+            color: #666; text-transform: uppercase;
+        }
+        #hintChoiceOptions { display: flex; flex-direction: column; gap: 8px; }
+        .hint-choice-btn {
+            background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: var(--radius);
+            padding: 10px 12px; cursor: pointer; text-align: left;
+            display: flex; flex-direction: column; gap: 2px;
+            transition: border-color 0.15s, background 0.15s;
+            min-height: unset;
+        }
+        .hint-choice-btn:hover:not(:disabled) { border-color: #666; background: #252525; }
+        .hint-choice-btn:disabled { opacity: 0.35; cursor: default; }
+        .hint-choice-cost {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px); color: #4488ff;
+            letter-spacing: 0.08em; text-transform: uppercase;
+        }
+        .hint-choice-label {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(13px, 3.5vw, 16px); color: #ddd;
+            letter-spacing: 0.04em;
+        }
+        .hint-choice-desc {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 10px); color: #555;
+        }
+        #hintChoiceRemaining {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 10px); color: #444; text-align: center;
+        }
+
         .flying-hint {
             position: fixed; pointer-events: none; z-index: 200;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: 48px; color: #ffffff;
+            font-size: clamp(32px, 10vw, 48px); color: #ffffff;
             transform: translate(-50%, -50%);
-        }
-        @media (max-width: 500px) {
-            .tile {
-                width: clamp(26px, 8.2vw, 38px);
-                height: clamp(26px, 8.2vw, 38px);
-                font-size: clamp(13px, 4vw, 19px);
-                border-radius: 3px;
-            }
-            .tile input { font-size: clamp(13px, 4vw, 19px); }
-            #play-target { font-size: clamp(13px, 4vw, 19px); }
-            .equation { gap: clamp(3px, 1.2vw, 6px); margin-top: 12px; }
-            .eq-op { font-size: clamp(12px, 3.5vw, 16px); }
-            .eq-equals { font-size: clamp(12px, 3.5vw, 16px); margin: 0 clamp(3px, 1.5vw, 8px); }
-            .btn-row { margin-top: 12px; gap: 8px; }
-            button { padding: 8px 14px; font-size: 11px; }
-            #winBox { padding: 28px 24px; }
-            #winTitle { font-size: 22px; }
-            #infoBox { padding: 28px 24px 20px; }
         }
     </style>
 </head>
@@ -300,48 +529,61 @@
         <button id="menuBtn" title="Menu">☰</button>
     </div>
 
+    <!-- ── Menu overlay ──────────────────────────────────────────────────── -->
+    <div id="menuOverlay">
+        <div id="menuBox">
+            <button class="menu-item-btn" id="menuArchive">Archive</button>
+            <button class="menu-item-btn" id="menuDonate">Donate</button>
+        </div>
+    </div>
+
+    <!-- ── Archive overlay ───────────────────────────────────────────────── -->
+    <div id="archiveOverlay">
+        <div id="archiveBox">
+            <div id="archiveHeader">
+                <button id="archiveBack">←</button>
+                <div id="archiveTitle">Archive</div>
+            </div>
+            <div id="archiveList"></div>
+        </div>
+    </div>
+
     <div class="screen active" id="screenLoading">
         <div id="loadingMsg">Loading today's puzzle...</div>
     </div>
 
-    <div class="screen" id="screenSolved">
-        <div id="solvedBox">
-            <div id="solvedTitle">🎉 Already solved!</div>
-            <div id="solvedTimeLabel">solved in</div>
-            <div id="solvedTime"></div>
-            <div id="solvedDate"></div>
-            <div id="nextPuzzleLabel">Next puzzle in</div>
-            <div id="countdown"></div>
-        </div>
-    </div>
-
     <div class="screen" id="screenSetup">
         <h2>Setup</h2>
+        <div class="board-wrap">
         <canvas id="setupCanvas" width="460" height="460"></canvas>
-        <div class="equation">
-            <div class="tile editable" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
-            <span class="eq-op">+</span>
-            <div class="tile editable" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
-            <span class="eq-op">+</span>
-            <div class="tile editable" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
-            <span class="eq-op">+</span>
-            <div class="tile editable" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
-            <span class="eq-op">+</span>
-            <div class="tile editable" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
-            <span class="eq-equals">=</span>
-            <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
+        <div class="board-footer">
+            <div class="equation">
+                <div class="tile setup-slot" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
+                <span class="eq-op">+</span>
+                <div class="tile setup-slot" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
+                <span class="eq-op">+</span>
+                <div class="tile setup-slot" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
+                <span class="eq-op">+</span>
+                <div class="tile setup-slot" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
+                <span class="eq-op">+</span>
+                <div class="tile setup-slot" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
+                <span class="eq-equals">=</span>
+                <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
+            </div>
+            <div class="btn-row">
+                <button class="secondary" id="setupClearBtn">Clear all</button>
+                <button class="secondary" id="copyJsonBtn">Copy JSON</button>
+                <button class="primary"   id="goPlayBtn">Play →</button>
+            </div>
+            <div id="copyFeedback" style="margin-top:8px; font-size:11px; color:#555; font-family:'Share Tech Mono',monospace; min-height:16px;"></div>
         </div>
-        <div class="btn-row">
-            <button class="secondary" id="setupClearBtn">Clear all</button>
-            <button class="secondary" id="copyJsonBtn">Copy JSON</button>
-            <button class="primary"   id="goPlayBtn">Play →</button>
         </div>
-        <div id="copyFeedback" style="margin-top:8px; font-size:11px; color:#555; font-family:'Share Tech Mono',monospace; min-height:16px;"></div>
     </div>
 
     <div class="screen" id="screenPlay">
+        <div class="board-wrap">
         <div class="canvas-toolbar">
-            <button class="toolbar-btn" id="infoBtn" title="How to play" style="font-size: 32px">ⓘ</button>
+            <button class="toolbar-btn" id="infoBtn" title="How to play" style="font-size: 28px">ⓘ</button>
             <div style="flex:1"></div>
             <div id="hintWrap" style="display:flex;align-items:center;gap:6px;">
                 <button class="toolbar-btn" id="hintBtn" title="Hint">?</button>
@@ -354,23 +596,26 @@
             <canvas id="playCanvas" width="460" height="460"></canvas>
             <canvas id="animOverlay" width="460" height="460"></canvas>
         </div>
-        <div class="equation">
-            <div class="tile" id="play-t0"></div>
-            <span class="eq-op">+</span>
-            <div class="tile" id="play-t1"></div>
-            <span class="eq-op">+</span>
-            <div class="tile" id="play-t2"></div>
-            <span class="eq-op">+</span>
-            <div class="tile" id="play-t3"></div>
-            <span class="eq-op">+</span>
-            <div class="tile" id="play-t4"></div>
-            <span class="eq-equals">=</span>
-            <div class="tile" id="play-target"></div>
+        <div class="board-footer">
+            <div class="equation">
+                <div class="tile" id="play-t0"></div>
+                <span class="eq-op">+</span>
+                <div class="tile" id="play-t1"></div>
+                <span class="eq-op">+</span>
+                <div class="tile" id="play-t2"></div>
+                <span class="eq-op">+</span>
+                <div class="tile" id="play-t3"></div>
+                <span class="eq-op">+</span>
+                <div class="tile" id="play-t4"></div>
+                <span class="eq-equals">=</span>
+                <div class="tile" id="play-target"></div>
+            </div>
+            <div class="btn-row">
+                <button class="secondary" id="playResetBtn">Clear</button>
+                <button class="secondary" id="submitBtn">Submit number</button>
+            </div>
         </div>
-        <div class="btn-row">
-            <button class="secondary" id="playResetBtn">Clear</button>
-            <button class="secondary" id="submitBtn">Submit number</button>
-        </div>
+        </div><!-- /board-wrap -->
 
         <div id="infoOverlay">
             <div id="infoBox">
@@ -393,8 +638,28 @@
                 <div id="winTitle">Congratulations</div>
                 <div id="winSub">you solved today's puzzle in</div>
                 <div id="winTime"></div>
-                <div id="winNextLabel" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
-                <div id="winCountdown" style="display:none; font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
+                <div id="winNextLabel" style="font-family:'Share Tech Mono',monospace; font-size:11px; color:#555; letter-spacing:0.1em; margin-top:4px;">Next puzzle in</div>
+                <div id="winCountdown" style="font-family:'Rajdhani',monospace; font-size:20px; color:#666; letter-spacing:0.08em;"></div>
+            </div>
+        </div>
+
+        <div id="hintChoiceOverlay">
+            <div id="hintChoiceBox">
+                <button id="hintChoiceClose">✕</button>
+                <div id="hintChoiceTitle">Use a hint</div>
+                <div id="hintChoiceOptions">
+                    <button id="hintRevealNumber" class="hint-choice-btn">
+                        <span class="hint-choice-cost">1 hint</span>
+                        <span class="hint-choice-label">Reveal a number</span>
+                        <span class="hint-choice-desc">Shows one answer digit in grey</span>
+                    </button>
+                    <button id="hintRevealPattern" class="hint-choice-btn">
+                        <span class="hint-choice-cost">3 hints</span>
+                        <span class="hint-choice-label">Reveal a pattern</span>
+                        <span class="hint-choice-desc">Scores the largest number for you</span>
+                    </button>
+                </div>
+                <div id="hintChoiceRemaining"></div>
             </div>
         </div>
     </div>
@@ -646,21 +911,46 @@
             });
         }
 
+        // Five distinct colours for the 5 number slots (used by both setup and play)
+        const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9'];
+
         // ════════════════════════════════════════════════════════════════════════
         // SETUP SCREEN
         // ════════════════════════════════════════════════════════════════════════
         const setupCanvas = document.getElementById('setupCanvas');
         const setupCtx    = setupCanvas.getContext('2d');
 
+        // Per-slot edge lists — index 0-4 matches the 5 solution slots.
+        // edgeList is kept as the union of all slots for hit-testing / goPlay export.
+        let setupSlotEdges = [[], [], [], [], []];
+        let activeSlot     = 0;
+
         let setupDown      = false;
         let setupLastNode  = -1;
         let setupDragMoved = false;
         let setupStartNode = -1;
 
+        function rebuildEdgeList() {
+            edgeList = setupSlotEdges.flat();
+        }
+
+        function setActiveSlot(slot) {
+            activeSlot = slot;
+            for (let i = 0; i < 5; i++) {
+                const tile = document.getElementById(`setup-t${i}`);
+                tile.classList.toggle('active-slot', i === slot);
+                // Always show the slot colour; active slot is full brightness, others dimmer
+                tile.style.color       = SLOT_COLORS[i];
+                tile.style.borderColor = SLOT_COLORS[i];
+                tile.style.opacity     = i === slot ? '1' : '0.4';
+            }
+            document.getElementById(`setup-n${slot}`).focus();
+        }
+
         function setupDraw(previewNode = -1, cursorPos = null) {
             setupCtx.clearRect(0, 0, W, H);
 
-            // Ghost lines for all valid potential connections from setupLastNode
+            // Ghost lines for valid connections from current node
             if (setupDown && setupLastNode !== -1) {
                 for (let j = 0; j < nodes.length; j++) {
                     if (j === setupLastNode) continue;
@@ -676,17 +966,22 @@
                 }
             }
 
-            // Existing edges
-            for (const edge of edgeList) drawEdge(setupCtx, edge, '#4488ff', 3.5);
+            // Draw each slot's edges in its colour; active slot is brighter
+            for (let s = 0; s < 5; s++) {
+                const isActive = s === activeSlot;
+                for (const edge of setupSlotEdges[s]) {
+                    drawEdge(setupCtx, edge, SLOT_COLORS[s], isActive ? 3.5 : 2);
+                }
+            }
 
-            // Live drag preview line from start node to snapped/cursor position
+            // Live drag preview in active slot colour
             if (setupDown && setupLastNode !== -1 && cursorPos) {
                 const na = nodes[setupLastNode];
                 setupCtx.beginPath();
                 setupCtx.moveTo(na.x, na.y);
                 if (previewNode !== -1) {
                     setupCtx.lineTo(nodes[previewNode].x, nodes[previewNode].y);
-                    setupCtx.strokeStyle = 'rgba(68,136,255,0.6)';
+                    setupCtx.strokeStyle = SLOT_COLORS[activeSlot] + 'aa';
                 } else {
                     setupCtx.lineTo(cursorPos.x, cursorPos.y);
                     setupCtx.strokeStyle = 'rgba(255,255,255,0.15)';
@@ -733,17 +1028,22 @@
             })() : getPos(setupCanvas, e);
 
             if (!setupDragMoved) {
-                // Pure tap — remove the edge nearest the tap point
+                // Pure tap — remove edge nearest tap from whichever slot owns it
                 const hit = getEdgeNear(pos.x, pos.y, edgeList);
-                if (hit) edgeList = edgeList.filter(e => e.id !== hit.id);
+                if (hit) {
+                    for (let s = 0; s < 5; s++) {
+                        setupSlotEdges[s] = setupSlotEdges[s].filter(e => e.id !== hit.id);
+                    }
+                    rebuildEdgeList();
+                }
             } else if (setupLastNode !== -1) {
                 const endNode = getNodeAt(pos.x, pos.y);
                 if (endNode !== -1 && endNode !== setupLastNode && validDirection(setupLastNode, endNode)) {
-                    // Create one edge per gap between start and end, via all intermediate nodes
                     const allNodes = [setupLastNode, ...intermediateNodes(setupLastNode, endNode), endNode];
                     for (let i = 0; i < allNodes.length - 1; i++) {
-                        edgeList.push(makeEdge(allNodes[i], allNodes[i + 1]));
+                        setupSlotEdges[activeSlot].push(makeEdge(allNodes[i], allNodes[i + 1]));
                     }
+                    rebuildEdgeList();
                 }
             }
 
@@ -760,6 +1060,16 @@
         setupCanvas.addEventListener('touchend',    setupEnd,    { passive: false });
         setupCanvas.addEventListener('touchcancel', () => { setupDown = false; setupLastNode = -1; setupDragMoved = false; setupDraw(); }, { passive: false });
 
+        // Tapping a tile activates that slot; typing in its input still works normally
+        for (let i = 0; i < 5; i++) {
+            const tile  = document.getElementById(`setup-t${i}`);
+            const input = document.getElementById(`setup-n${i}`);
+            tile.addEventListener('mousedown',  (e) => { e.preventDefault(); setActiveSlot(i); }, false);
+            tile.addEventListener('touchstart', (e) => { e.preventDefault(); setActiveSlot(i); }, { passive: false });
+            input.addEventListener('focus', () => setActiveSlot(i));
+            input.addEventListener('input', updateSetupTarget);
+        }
+
         function updateSetupTarget() {
             let sum = 0, allFilled = true;
             for (let i = 0; i < 5; i++) {
@@ -769,12 +1079,9 @@
             document.getElementById('setupTarget').textContent = allFilled ? sum : '?';
         }
 
-        for (let i = 0; i < 5; i++) {
-            document.getElementById(`setup-n${i}`).addEventListener('input', updateSetupTarget);
-        }
-
         document.getElementById('setupClearBtn').addEventListener('click', () => {
-            edgeList = [];
+            setupSlotEdges = [[], [], [], [], []];
+            rebuildEdgeList();
             for (let i = 0; i < 5; i++) document.getElementById(`setup-n${i}`).value = '';
             updateSetupTarget();
             setupDraw();
@@ -783,7 +1090,8 @@
         document.getElementById('copyJsonBtn').addEventListener('click', () => {
             const feedback = document.getElementById('copyFeedback');
 
-            if (!edgeList.length) {
+            const hasEdges = setupSlotEdges.some(s => s.length > 0);
+            if (!hasEdges) {
                 feedback.textContent = 'No lines drawn yet.';
                 return;
             }
@@ -801,24 +1109,27 @@
             }
 
             const target = solution.reduce((a, b) => a + b, 0);
-
             const dateRaw = new Date();
-            const date = date.toISOString().split('T')[0];
+            const date = dateRaw.toISOString().split('T')[0];
 
-            // Preserve all edges including duplicates (for double/parallel lines)
-            const json = JSON.stringify({
-                date,
-                target,
-                solution,
-                edges: edgeList.map(e => ({ a: e.a, b: e.b }))
-            });
+            // Build flat edge array slot-by-slot; solutionEdges[i] = indices into edges[] for slot i
+            const flatEdges = [];
+            const solutionEdges = [];
+            for (let s = 0; s < 5; s++) {
+                const startIdx = flatEdges.length;
+                for (const e of setupSlotEdges[s]) flatEdges.push({ a: e.a, b: e.b });
+                const indices = [];
+                for (let k = startIdx; k < flatEdges.length; k++) indices.push(k);
+                solutionEdges.push(indices);
+            }
+
+            const json = JSON.stringify({ date, target, solution, edges: flatEdges, solutionEdges });
 
             navigator.clipboard.writeText(json).then(() => {
                 feedback.style.color = '#00e676';
                 feedback.textContent = '✓ JSON copied to clipboard!';
                 setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
             }).catch(() => {
-                // Fallback for browsers that block clipboard
                 const ta = document.createElement('textarea');
                 ta.value = json;
                 ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
@@ -828,7 +1139,7 @@
                     document.execCommand('copy');
                     feedback.style.color = '#00e676';
                     feedback.textContent = '✓ JSON copied to clipboard!';
-                } catch(e) {
+                } catch(err) {
                     feedback.style.color = '#ff4444';
                     feedback.textContent = 'Copy failed — try a different browser.';
                 }
@@ -841,18 +1152,41 @@
         let tileValues   = [null, null, null, null, null];
         let tileEdgeIds  = [null, null, null, null, null];
         let tileHinted   = [null, null, null, null, null]; // hint-revealed numbers not yet earned
+        let tileWasHinted = [false, false, false, false, false]; // true if slot was ever hint-revealed
         let hintsRemaining = 5;
         const hintAnimating = new Set(); // slot indices currently mid-animation (visually hidden)
-        let puzzleSolution = null; // solution numbers from puzzle JSON, if provided
-
-        // Five distinct colours for the 5 number slots
-        const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9'];
+        let puzzleSolution      = null; // solution numbers from puzzle JSON, if provided
+        let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
             playSnapshot = edgeList.map(e => ({ ...e }));
             tileValues   = [null, null, null, null, null];
             tileEdgeIds  = [null, null, null, null, null];
+            tileHinted   = [null, null, null, null, null];
+            tileWasHinted = [false, false, false, false, false];
+            hintsRemaining = 5;
+            hintAnimating.clear();
+            // Read solution from setup inputs so hints work in setup→play mode
+            const setupNums = [];
+            let allFilled = true;
+            for (let i = 0; i < 5; i++) {
+                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
+                if (isNaN(v)) { allFilled = false; setupNums.push(null); }
+                else setupNums.push(v);
+            }
+            puzzleSolution = allFilled ? setupNums : null;
+            // Build solutionEdges from setupSlotEdges so pattern hints work in setup→play mode
+            if (allFilled) {
+                let idx = 0;
+                puzzleSolutionEdges = setupSlotEdges.map(slotEdges => {
+                    const indices = slotEdges.map((_, j) => idx + j);
+                    idx += slotEdges.length;
+                    return indices;
+                });
+            } else {
+                puzzleSolutionEdges = null;
+            }
             puzzleStartTime    = null;
             puzzleSolved       = false;
             puzzleElapsed      = 0;
@@ -1125,8 +1459,20 @@
             const hintBtn = document.getElementById('hintBtn');
             const hintCount = document.getElementById('hintCount');
             if (hintBtn) {
-                const canHint = puzzleSolution && hintsRemaining > 0 &&
-                    puzzleSolution.some(n => !tileValues.includes(n) && !tileHinted.includes(n));
+                // Build a frequency-aware remaining list: start with all solution
+                // numbers and remove one entry per placed or hinted value, so
+                // duplicate solution numbers (e.g. five 1s) are handled correctly.
+                const remaining = [...puzzleSolution || []];
+                for (const v of [...tileValues, ...tileHinted]) {
+                    if (v === null) continue;
+                    const idx = remaining.indexOf(v);
+                    if (idx !== -1) remaining.splice(idx, 1);
+                }
+                const canNumber  = puzzleSolution && hintsRemaining >= 1 && remaining.length > 0 &&
+                    tileValues.some((v, i) => v === null && tileHinted[i] === null);
+                const canPattern = puzzleSolution && hintsRemaining >= 3 && puzzleSolutionEdges &&
+                    bestPatternSlot() !== -1;
+                const canHint = canNumber || canPattern;
                 hintBtn.disabled = !canHint;
                 hintCount.textContent = `${hintsRemaining}/5`;
             }
@@ -1881,19 +2227,44 @@
         for (let i = 0; i < 5; i++) {
             document.getElementById(`play-t${i}`).addEventListener('click', () => {
                 if (puzzleSolved) return;
-                if (tileValues[i] === null) return; // includes hinted-only slots
+                if (tileValues[i] === null) return;
                 const num = tileValues[i];
                 const ids = tileEdgeIds[i] || [];
 
-                // Compact tiles immediately
+                // If this slot was originally hint-revealed, restore the grey hint reminder.
+                const restoreHint = tileWasHinted[i];
+
+                // Clear this slot
                 tileValues[i]  = null;
                 tileEdgeIds[i] = null;
-                const compactVals = tileValues.filter(v => v !== null);
-                const compactIds  = tileEdgeIds.filter(v => v !== null);
+                tileHinted[i]  = restoreHint ? num : null;
+                // tileWasHinted[i] stays true — slot remains "was hinted"
+
+                // Compact only truly-empty slots (no value, no hint).
+                // Hinted slots stay pinned — filled values queue up and fill
+                // the first available non-hinted, non-filled slot from the left.
+                const queue = [];
                 for (let j = 0; j < 5; j++) {
-                    tileValues[j]  = compactVals[j] ?? null;
-                    tileEdgeIds[j] = compactIds[j]  ?? null;
+                    if (tileValues[j] !== null) queue.push({ val: tileValues[j], ids: tileEdgeIds[j], wasHinted: tileWasHinted[j] });
                 }
+                // Clear all filled slots first, leaving hinted-only slots intact
+                for (let j = 0; j < 5; j++) {
+                    if (tileValues[j] !== null) {
+                        tileValues[j]    = null;
+                        tileEdgeIds[j]   = null;
+                        tileWasHinted[j] = false;
+                    }
+                }
+                // Re-fill into slots that have no hint
+                for (let j = 0; j < 5 && queue.length; j++) {
+                    if (tileHinted[j] === null) {
+                        const entry = queue.shift();
+                        tileValues[j]    = entry.val;
+                        tileEdgeIds[j]   = entry.ids;
+                        tileWasHinted[j] = entry.wasHinted;
+                    }
+                }
+
                 updateTiles();
 
                 // Get edges to restore
@@ -2022,7 +2393,7 @@
             clearProgress();
             markSolved(todayStr(), elapsed);
 
-            document.getElementById('winOverlay').classList.add('visible');
+            showWinOverlay(elapsed);
         }
 
         document.getElementById('winClose').addEventListener('click', () => {
@@ -2067,39 +2438,68 @@
         });
 
         function showScreen(name) {
-            ['screenLoading','screenSolved','screenSetup','screenPlay'].forEach(id => {
+            ['screenLoading','screenSetup','screenPlay'].forEach(id => {
                 document.getElementById(id).classList.toggle('active', id === name);
             });
         }
 
-        // ── Hint button ──────────────────────────────────────────────────────────
-        document.getElementById('hintBtn').addEventListener('click', () => {
-            if (puzzleSolved) return;
-            if (!puzzleSolution || hintsRemaining <= 0) return;
+        // ── Hint system ──────────────────────────────────────────────────────────
 
-            // Pick a solution number not yet placed or hinted
-            const available = puzzleSolution.filter(n =>
-                !tileValues.includes(n) && !tileHinted.includes(n)
-            );
-            if (available.length === 0) return;
+        // Returns the remaining solution numbers not yet placed or hinted (frequency-aware)
+        function hintRemaining() {
+            const rem = [...(puzzleSolution || [])];
+            for (const v of [...tileValues, ...tileHinted]) {
+                if (v === null) continue;
+                const i = rem.indexOf(v);
+                if (i !== -1) rem.splice(i, 1);
+            }
+            return rem;
+        }
 
-            const num = available[0];
+        // Returns the solution slot index (into puzzleSolutionEdges) for the largest
+        // unscored number whose value is not already hinted and whose edges are on the board.
+        function bestPatternSlot() {
+            if (!puzzleSolutionEdges) return -1;
+            const edgeIds = new Set(edgeList.map(e => e.id));
+            // Frequency-aware list of numbers already placed or showing as a grey hint
+            const accounted = [...tileValues, ...tileHinted].filter(v => v !== null);
+            const eligible = [];
+            for (let s = 0; s < puzzleSolution.length; s++) {
+                const num = puzzleSolution[s];
+                // Skip if this number value is already accounted for
+                const acIdx = accounted.indexOf(num);
+                if (acIdx !== -1) { accounted.splice(acIdx, 1); continue; }
+                const indices = puzzleSolutionEdges[s] || [];
+                if (indices.length === 0) continue;
+                const allPresent = indices.every(idx => {
+                    const snap = playSnapshot[idx];
+                    return snap && edgeIds.has(snap.id);
+                });
+                if (allPresent) eligible.push(s);
+            }
+            if (eligible.length === 0) return -1;
+            return eligible.reduce((best, s) =>
+                puzzleSolution[s] > puzzleSolution[best] ? s : best
+            , eligible[0]);
+        }
 
-            // Find the first free slot (not filled, not already hinted)
+        function executeNumberHint() {
+            const rem = hintRemaining();
+            if (rem.length === 0) return;
+            const num = rem[0];
             const slot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
             if (slot === -1) return;
 
             hintsRemaining--;
-            tileHinted[slot] = num; // reserve immediately so rapid clicks can't duplicate
+            tileHinted[slot] = num;
+            tileWasHinted[slot] = true;
             hintAnimating.add(slot);
-            updateTiles(); // update counter; tile stays visually empty until animation lands
+            updateTiles();
 
-            // Animate: fly a number from the hint button centre to the tile centre
             const hintBtn = document.getElementById('hintBtn');
             const tileEl  = document.getElementById(`play-t${slot}`);
             const btnRect  = hintBtn.getBoundingClientRect();
             const tileRect = tileEl.getBoundingClientRect();
-
             const startX = btnRect.left  + btnRect.width  / 2;
             const startY = btnRect.top   + btnRect.height / 2;
             const endX   = tileRect.left + tileRect.width  / 2;
@@ -2113,7 +2513,6 @@
             flyer.style.opacity = '1';
             document.body.appendChild(flyer);
 
-            // Phase 1: fly to tile (move + shrink)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     flyer.style.transition = 'top 0.7s cubic-bezier(0.4,0,0.2,1), left 0.7s cubic-bezier(0.4,0,0.2,1), font-size 0.7s cubic-bezier(0.4,0,0.2,1)';
@@ -2122,18 +2521,120 @@
                     flyer.style.fontSize = '22px';
                 });
             });
-
-            // Phase 2: once arrived, reveal tile number, then fade flyer out
             setTimeout(() => {
                 hintAnimating.delete(slot);
                 updateTiles();
                 saveProgress();
-                requestAnimationFrame(() => {
-                    flyer.style.transition = 'opacity 0.3s ease';
-                    flyer.style.opacity = '0';
-                });
+                requestAnimationFrame(() => { flyer.style.transition = 'opacity 0.3s ease'; flyer.style.opacity = '0'; });
                 setTimeout(() => flyer.remove(), 350);
             }, 720);
+        }
+
+        function executePatternHint() {
+            const slot = bestPatternSlot();
+            if (slot === -1) return;
+
+            hintsRemaining -= 3;
+            updateTiles();
+
+            // Mark all edges for this slot red
+            const indices = puzzleSolutionEdges[slot];
+            for (const idx of indices) {
+                const snap = playSnapshot[idx];
+                if (!snap) continue;
+                const edge = edgeList.find(e => e.id === snap.id);
+                if (edge) edge.red = true;
+            }
+            playDraw();
+
+            // Small delay so the player sees the red pattern, then auto-submit
+            setTimeout(() => {
+                const redEdges = edgeList.filter(e => e.red);
+                const result = recogniseNumber(redEdges);
+                if (!result) return;
+
+                // Find target slot: prefer hinted slot for this number, else first free
+                const hintedSlot = tileHinted.findIndex(h => h === result.num);
+                const freeSlot   = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+                const targetSlot = hintedSlot !== -1 ? hintedSlot : freeSlot;
+
+                edgeList = edgeList.filter(e => !result.ids.includes(e.id));
+                playDraw();
+
+                const matchedEdges = playSnapshot
+                    .filter(e => result.ids.includes(e.id))
+                    .map(e => ({ ...e }));
+
+                if (targetSlot !== -1) {
+                    animateNumberToTile(matchedEdges, result.num, targetSlot, () => {
+                        tileValues[targetSlot]  = result.num;
+                        tileEdgeIds[targetSlot] = result.ids;
+                        if (hintedSlot !== -1) tileHinted[hintedSlot] = null;
+                        updateTiles();
+                        saveProgress();
+                        checkWin();
+                    });
+                } else {
+                    checkWin();
+                }
+            }, 600);
+        }
+
+        // Open hint choice speech bubble anchored below the hint button
+        document.getElementById('hintBtn').addEventListener('click', () => {
+            if (puzzleSolved) return;
+            if (!puzzleSolution || hintsRemaining <= 0) return;
+            if (hintRemaining().length === 0) return;
+
+            const canNumber  = hintsRemaining >= 1 &&
+                tileValues.some((v, i) => v === null && tileHinted[i] === null);
+            const canPattern = hintsRemaining >= 3 && puzzleSolutionEdges && bestPatternSlot() !== -1;
+
+            document.getElementById('hintRevealNumber').disabled  = !canNumber;
+            document.getElementById('hintRevealPattern').disabled = !canPattern;
+            document.getElementById('hintChoiceRemaining').textContent =
+                `${hintsRemaining} hint${hintsRemaining !== 1 ? 's' : ''} remaining`;
+
+            // Position bubble below the hint button, horizontally centred on it
+            const box     = document.getElementById('hintChoiceBox');
+            const btnRect = document.getElementById('hintBtn').getBoundingClientRect();
+            const bubbleW = box.offsetWidth || 260;
+            const GAP     = 12; // px gap between button bottom and bubble top
+
+            // Horizontal: centre on button, clamped to viewport
+            let left = btnRect.left + btnRect.width / 2 - bubbleW / 2;
+            left = Math.max(8, Math.min(left, window.innerWidth - bubbleW - 8));
+
+            // Vertical: below the button
+            const top = btnRect.bottom + GAP;
+
+            box.style.left = `${left}px`;
+            box.style.top  = `${top}px`;
+
+            // Adjust tail horizontal position to always point at button centre
+            const tailCentre = btnRect.left + btnRect.width / 2 - left;
+            const tailPct    = Math.round((tailCentre / bubbleW) * 100);
+            box.style.setProperty('--tail-pos', `${tailPct}%`);
+
+            document.getElementById('hintChoiceOverlay').classList.add('visible');
+        });
+
+        document.getElementById('hintRevealNumber').addEventListener('click', () => {
+            document.getElementById('hintChoiceOverlay').classList.remove('visible');
+            executeNumberHint();
+        });
+
+        document.getElementById('hintRevealPattern').addEventListener('click', () => {
+            document.getElementById('hintChoiceOverlay').classList.remove('visible');
+            executePatternHint();
+        });
+
+        document.getElementById('hintChoiceClose').addEventListener('click', () => {
+            document.getElementById('hintChoiceOverlay').classList.remove('visible');
+        });
+        document.getElementById('hintChoiceOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('hintChoiceOverlay'))
+                document.getElementById('hintChoiceOverlay').classList.remove('visible');
         });
 
         // ── Daily puzzle ─────────────────────────────────────────────────────────
@@ -2157,9 +2658,11 @@
             tileValues  = [null, null, null, null, null];
             tileEdgeIds = [null, null, null, null, null];
             tileHinted  = [null, null, null, null, null];
+            tileWasHinted = [false, false, false, false, false];
             hintsRemaining = 5;
             hintAnimating.clear();
-            puzzleSolution   = puzzleData.solution || null;
+            puzzleSolution      = puzzleData.solution || null;
+            puzzleSolutionEdges = puzzleData.solutionEdges || null;
             puzzleStartTime  = null;
             puzzleSolved     = false;
             puzzleElapsed    = 0;
@@ -2199,6 +2702,7 @@
                 tileValues:    [...tileValues],
                 tileEdgeIds:   tileEdgeIds.map(ids => ids ? [...ids] : null),
                 tileHinted:    [...tileHinted],
+                tileWasHinted: [...tileWasHinted],
                 hintsRemaining,
                 elapsedMs:     getElapsed(),
                 remainingEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b }))
@@ -2226,38 +2730,21 @@
                 const h = Math.floor(diff / 3600000);
                 const m = Math.floor((diff % 3600000) / 60000);
                 const s = Math.floor((diff % 60000) / 1000);
-                document.getElementById('countdown').textContent =
-                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            }
-            update();
-            setInterval(update, 1000);
-        }
-
-        function showSolvedScreen(dateStr, timeMs) {
-            const totalSec = Math.floor(timeMs / 1000);
-            const mins = Math.floor(totalSec / 60);
-            const secs = totalSec % 60;
-            document.getElementById('solvedTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
-            document.getElementById('solvedDate').textContent = dateStr;
-            showScreen('screenSolved');
-            startCountdown();
-        }
-
-        function startWinCountdown() {
-            function update() {
-                const now = new Date();
-                const tomorrow = new Date(now);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                tomorrow.setHours(0, 0, 0, 0);
-                const diff = tomorrow - now;
-                const h = Math.floor(diff / 3600000);
-                const m = Math.floor((diff % 3600000) / 60000);
-                const s = Math.floor((diff % 60000) / 1000);
                 document.getElementById('winCountdown').textContent =
                     `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }
             update();
             setInterval(update, 1000);
+        }
+
+        // Single helper — shows the win overlay for any solved path
+        function showWinOverlay(timeMs) {
+            const totalSec = Math.floor(timeMs / 1000);
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            document.getElementById('winTime').textContent = `${mins}:${String(secs).padStart(2,'0')}`;
+            startCountdown();
+            document.getElementById('winOverlay').classList.add('visible');
         }
 
         async function initDailyPuzzle() {
@@ -2287,6 +2774,7 @@
                         tileValues     = progress.tileValues     || tileValues;
                         tileEdgeIds    = progress.tileEdgeIds    || tileEdgeIds;
                         tileHinted     = progress.tileHinted     || tileHinted;
+                        tileWasHinted  = progress.tileWasHinted  || tileWasHinted;
                         hintsRemaining = progress.hintsRemaining ?? hintsRemaining;
                         puzzleElapsed  = progress.elapsedMs      || 0;
                         puzzleSessionStart = performance.now(); // resume timer
@@ -2304,15 +2792,9 @@
                     }
                 }
 
-                // Already solved today — restore exact board state and show overlay
+                // Already solved today — restore exact board state and show win overlay
                 if (solved) {
                     puzzleSolved = true;
-
-                    const totalSec = Math.floor(solved.timeMs / 1000);
-                    const mins = Math.floor(totalSec / 60);
-                    const secs = totalSec % 60;
-                    document.getElementById('winTime').textContent =
-                        `${mins}:${String(secs).padStart(2,'0')}`;
 
                     // Restore tile numbers
                     const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
@@ -2327,8 +2809,7 @@
                         }
                     }
 
-                    // Restore colored edges — use saved coloredEdges if available,
-                    // otherwise fall back to tileEdgeIds + SLOT_COLORS
+                    // Restore colored edges
                     if (solved.coloredEdges && solved.coloredEdges.length) {
                         edgeList = solved.coloredEdges.map(e => ({ ...e, red: false }));
                     } else if (solved.tileEdgeIds) {
@@ -2345,20 +2826,114 @@
 
                     updateTiles();
                     playDraw();
-
-                    document.getElementById('winNextLabel').style.display = '';
-                    document.getElementById('winCountdown').style.display = '';
-                    startWinCountdown();
-                    document.getElementById('winOverlay').classList.add('visible');
+                    showWinOverlay(solved.timeMs);
                 }
             } catch (err) {
-                // No puzzle found — fall back to solved screen or setup
-                if (solved) {
-                    showSolvedScreen(dateStr, solved.timeMs);
-                } else {
-                    showScreen('screenSetup');
-                    setupDraw();
+                // No puzzle found — always fall back to setup
+                showScreen('screenSetup');
+                setActiveSlot(0);
+                setupDraw();
+            }
+        }
+
+        // ── Menu ─────────────────────────────────────────────────────────────────
+
+        function openMenu() {
+            const btn     = document.getElementById('menuBtn');
+            const menuBox = document.getElementById('menuBox');
+            const btnRect = btn.getBoundingClientRect();
+
+            // Position box so its top-right corner aligns with the button's bottom-right
+            const boxW = menuBox.offsetWidth || 160;
+            const top  = btnRect.bottom + 4;
+            const left = btnRect.right - boxW;
+
+            menuBox.style.top  = `${top}px`;
+            menuBox.style.left = `${Math.max(8, left)}px`;
+
+            document.getElementById('menuOverlay').classList.add('visible');
+        }
+        function closeMenu() {
+            document.getElementById('menuOverlay').classList.remove('visible');
+        }
+
+        document.getElementById('menuBtn').addEventListener('click', openMenu);
+        document.getElementById('menuOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('menuOverlay')) closeMenu();
+        });
+
+        document.getElementById('menuDonate').addEventListener('click', () => {
+            closeMenu();
+            window.open('https://ko-fi.com', '_blank'); // replace with real donate URL
+        });
+
+        document.getElementById('menuArchive').addEventListener('click', () => {
+            closeMenu();
+            openArchive();
+        });
+
+        // ── Archive ───────────────────────────────────────────────────────────────
+
+        document.getElementById('archiveBack').addEventListener('click', () => {
+            document.getElementById('archiveOverlay').classList.remove('visible');
+        });
+
+        async function openArchive() {
+            document.getElementById('archiveOverlay').classList.add('visible');
+            const list = document.getElementById('archiveList');
+            list.innerHTML = '<div id="archiveLoading">Loading puzzles...</div>';
+
+            let allPuzzles;
+            try {
+                const resp = await fetch(`${PUZZLE_BASE_URL}/puzzles.json`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                allPuzzles = await resp.json();
+            } catch (e) {
+                list.innerHTML = '<div id="archiveLoading">Could not load archive.</div>';
+                return;
+            }
+
+            // Sort newest first
+            allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
+
+            const today = todayStr();
+            list.innerHTML = '';
+
+            for (const puzzle of allPuzzles) {
+                const isToday   = puzzle.date === today;
+                const solved    = getSolvedData(puzzle.date);
+
+                const item = document.createElement('div');
+                item.className = 'archive-item' + (isToday ? ' is-today' : '');
+
+                const dateEl = document.createElement('div');
+                dateEl.className = 'archive-item-date';
+                // Format: "18 Mar 2026"
+                const [y, m, d] = puzzle.date.split('-');
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+
+                const badge = document.createElement('div');
+                badge.className = 'archive-item-badge ' + (solved ? 'solved' : 'unsolved');
+                badge.textContent = solved ? '✓ solved' : isToday ? 'today' : 'play →';
+
+                item.appendChild(dateEl);
+                item.appendChild(badge);
+
+                if (!isToday) {
+                    item.addEventListener('click', () => {
+                        document.getElementById('archiveOverlay').classList.remove('visible');
+                        document.getElementById('winOverlay').classList.remove('visible');
+                        loadPuzzle(puzzle);
+                        // If already solved, show the win overlay after board is drawn
+                        if (solved) {
+                            puzzleSolved = true;
+                            showWinOverlay(solved.timeMs);
+                        }
+                    });
                 }
+
+                list.appendChild(item);
             }
         }
 
@@ -2366,6 +2941,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('dev') === '1') {
             showScreen('screenSetup');
+            setActiveSlot(0);
             setupDraw();
         } else {
             initDailyPuzzle();
