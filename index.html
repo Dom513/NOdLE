@@ -2422,8 +2422,10 @@
             // Mark solved BEFORE updateTiles so slot colours are applied by updateTiles
             puzzleSolved = true;
             updateTiles();
-            clearProgress();
-            markSolved(todayStr(), elapsed);
+            // Save solve under the correct puzzle date (may be an archive puzzle, not today)
+            const solvedDateStr = currentPuzzleDate || todayStr();
+            if (solvedDateStr === todayStr()) clearProgress();
+            markSolved(solvedDateStr, elapsed);
 
             showWinOverlay(elapsed);
         }
