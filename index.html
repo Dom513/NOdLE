@@ -400,9 +400,9 @@
         .menu-item-btn {
             background: none; border: none; color: #aaa;
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(11px, 3vw, 13px);
+            font-size: clamp(13px, 4vw, 16px);
             letter-spacing: 0.08em;
-            text-align: left; padding: 10px 16px;
+            text-align: left; padding: 14px 20px;
             cursor: pointer; border-radius: var(--radius);
             transition: background 0.15s, color 0.15s;
             min-height: unset; white-space: nowrap;
@@ -468,6 +468,58 @@
             font-size: 12px; color: #555;
             text-align: center; padding: 40px 20px;
         }
+        /* ── Practice overlay ────────────────────────────────────────────── */
+        #practiceOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            flex-direction: column; align-items: center;
+        }
+        #practiceOverlay.visible { display: flex; }
+        #practiceBox {
+            width: 100%; max-width: 500px; height: 100%;
+            display: flex; flex-direction: column;
+            background: #1a1a1a;
+        }
+        #practiceHeader {
+            display: flex; align-items: center; gap: 12px;
+            padding: clamp(12px, 3vw, 20px) 16px;
+            border-bottom: 1px solid #333; flex-shrink: 0;
+        }
+        #practiceBack {
+            background: none; border: none; color: #666;
+            font-size: 20px; cursor: pointer;
+            padding: 4px 8px; transition: color 0.15s;
+            min-height: unset; line-height: 1;
+        }
+        #practiceBack:hover { color: #ccc; }
+        #practiceTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
+            color: #ccc; text-transform: uppercase;
+        }
+        #practiceList { overflow-y: auto; flex: 1; padding: 8px 0; }
+        .practice-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; border-bottom: 1px solid #222;
+            cursor: pointer; transition: background 0.12s;
+        }
+        .practice-item:hover { background: #242424; }
+        .practice-item-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(11px, 3vw, 13px); color: #888;
+            letter-spacing: 0.08em;
+        }
+        .practice-item-badge {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #444;
+        }
+
+        /* ── Info welcome buttons ────────────────────────────────────────── */
+        #infoBtns button { width: 100%; }
+
         #hintChoiceOverlay {
             display: none; position: fixed; inset: 0;
             z-index: 100;
@@ -560,6 +612,7 @@
     <div id="menuOverlay">
         <div id="menuBox">
             <button class="menu-item-btn" id="menuArchive">Archive</button>
+            <button class="menu-item-btn" id="menuPractice">Practice</button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
         </div>
     </div>
@@ -572,6 +625,17 @@
                 <div id="archiveTitle">Archive</div>
             </div>
             <div id="archiveList"></div>
+        </div>
+    </div>
+
+    <!-- ── Practice overlay ──────────────────────────────────────────────── -->
+    <div id="practiceOverlay">
+        <div id="practiceBox">
+            <div id="practiceHeader">
+                <button id="practiceBack">←</button>
+                <div id="practiceTitle">Practice</div>
+            </div>
+            <div id="practiceList"></div>
         </div>
     </div>
 
@@ -655,6 +719,10 @@
                     <p>Fill all five tiles so they add up to the target.</p>
                     <p>Use every line — none should be left on the board.</p>
                     <p>Tap a filled tile to put its number back on the board.</p>
+                </div>
+                <div id="infoBtns" style="display:none; flex-direction:column; gap:8px; margin-top:4px;">
+                    <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
+                    <button class="secondary" id="infoPlayTodayBtn">Play today's puzzle</button>
                 </div>
             </div>
         </div>
@@ -2476,15 +2544,16 @@
         });
 
         // ── Info popup ───────────────────────────────────────────────────────────
+        function closeInfo() {
+            document.getElementById('infoOverlay').classList.remove('visible');
+            document.getElementById('infoBtns').style.display = 'none';
+        }
         document.getElementById('infoBtn').addEventListener('click', () => {
             document.getElementById('infoOverlay').classList.add('visible');
         });
-        document.getElementById('infoClose').addEventListener('click', () => {
-            document.getElementById('infoOverlay').classList.remove('visible');
-        });
+        document.getElementById('infoClose').addEventListener('click', closeInfo);
         document.getElementById('infoOverlay').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('infoOverlay'))
-                document.getElementById('infoOverlay').classList.remove('visible');
+            if (e.target === document.getElementById('infoOverlay')) closeInfo();
         });
 
         // ── Rotate button ────────────────────────────────────────────────────────
@@ -2967,7 +3036,12 @@
                 // const puzzle = await resp.json();
                 // loadPuzzle(puzzle);
 
-                // Restore in-progress state if player left mid-game
+                // First-time visitor — show how-to-play overlay with welcome buttons
+                if (isFirstVisit()) {
+                    document.getElementById('infoBtns').style.display = 'flex';
+                    document.getElementById('infoOverlay').classList.add('visible');
+                    markVisited();
+                }
                 if (!solved) {
                     const progress = getProgressData(dateStr);
                     if (progress) {
@@ -3101,6 +3175,84 @@
 
                 list.appendChild(item);
             }
+        }
+
+        // ── Practice puzzles ──────────────────────────────────────────────────────
+
+        const PRACTICE_URL = 'puzzles/practice_puzzles.json';
+
+        document.getElementById('practiceBack').addEventListener('click', () => {
+            document.getElementById('practiceOverlay').classList.remove('visible');
+        });
+
+        async function openPractice() {
+            document.getElementById('practiceOverlay').classList.add('visible');
+            const list = document.getElementById('practiceList');
+            list.innerHTML = '<div id="archiveLoading">Loading practice puzzles...</div>';
+
+            let puzzles;
+            try {
+                const resp = await fetch(PRACTICE_URL);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                puzzles = await resp.json();
+            } catch(e) {
+                list.innerHTML = '<div id="archiveLoading">Could not load practice puzzles.</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            puzzles.forEach((puzzle, idx) => {
+                const item = document.createElement('div');
+                item.className = 'practice-item';
+
+                const titleEl = document.createElement('div');
+                titleEl.className = 'practice-item-title';
+                titleEl.textContent = puzzle.title || `Puzzle ${idx + 1}`;
+
+                const badge = document.createElement('div');
+                badge.className = 'practice-item-badge';
+                badge.textContent = 'play →';
+
+                item.appendChild(titleEl);
+                item.appendChild(badge);
+
+                item.addEventListener('click', () => {
+                    document.getElementById('practiceOverlay').classList.remove('visible');
+                    document.getElementById('winOverlay').classList.remove('visible');
+                    // Practice puzzles have no date — give them a synthetic one so
+                    // currentPuzzleDate doesn't collide with today's real puzzle
+                    loadPuzzle({ ...puzzle, date: `practice-${idx}` });
+                });
+
+                list.appendChild(item);
+            });
+        }
+
+        document.getElementById('menuPractice').addEventListener('click', () => {
+            closeMenu();
+            openPractice();
+        });
+
+        // ── Info overlay welcome buttons ──────────────────────────────────────────
+
+        document.getElementById('infoPracticeBtn').addEventListener('click', () => {
+            document.getElementById('infoOverlay').classList.remove('visible');
+            openPractice();
+        });
+
+        document.getElementById('infoPlayTodayBtn').addEventListener('click', () => {
+            document.getElementById('infoOverlay').classList.remove('visible');
+            localStorage.setItem('nodle_visited', '1');
+        });
+
+        // ── First-visit detection ─────────────────────────────────────────────────
+
+        function isFirstVisit() {
+            return !localStorage.getItem('nodle_visited');
+        }
+
+        function markVisited() {
+            localStorage.setItem('nodle_visited', '1');
         }
 
         // Dev mode: ?dev=1 in URL shows setup screen instead
