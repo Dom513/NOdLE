@@ -423,7 +423,6 @@
             transition: background 0.12s;
         }
         .archive-item:hover { background: #242424; }
-        .archive-item.is-today { opacity: 0.4; cursor: default; }
         .archive-item-date {
             font-family: 'Share Tech Mono', monospace;
             font-size: clamp(11px, 3vw, 13px); color: #888;
@@ -2893,45 +2892,42 @@
                 return;
             }
 
-            // Sort newest first
+            const today = todayStr();
+
+            // Exclude future puzzles, sort newest first
+            allPuzzles = allPuzzles.filter(p => p.date <= today);
             allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
 
-            const today = todayStr();
             list.innerHTML = '';
 
             for (const puzzle of allPuzzles) {
-                const isToday   = puzzle.date === today;
-                const solved    = getSolvedData(puzzle.date);
+                const isToday = puzzle.date === today;
+                const solved  = getSolvedData(puzzle.date);
 
                 const item = document.createElement('div');
-                item.className = 'archive-item' + (isToday ? ' is-today' : '');
+                item.className = 'archive-item';
 
                 const dateEl = document.createElement('div');
                 dateEl.className = 'archive-item-date';
-                // Format: "18 Mar 2026"
                 const [y, m, d] = puzzle.date.split('-');
                 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                dateEl.textContent = isToday
+                    ? `Today — ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
+                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
                 const badge = document.createElement('div');
                 badge.className = 'archive-item-badge ' + (solved ? 'solved' : 'unsolved');
-                badge.textContent = solved ? '✓ solved' : isToday ? 'today' : 'play →';
+                badge.textContent = solved ? '✓ solved' : 'play →';
 
                 item.appendChild(dateEl);
                 item.appendChild(badge);
 
-                if (!isToday) {
-                    item.addEventListener('click', () => {
-                        document.getElementById('archiveOverlay').classList.remove('visible');
-                        document.getElementById('winOverlay').classList.remove('visible');
-                        loadPuzzle(puzzle);
-                        // If already solved, show the win overlay after board is drawn
-                        if (solved) {
-                            puzzleSolved = true;
-                            showWinOverlay(solved.timeMs);
-                        }
-                    });
-                }
+                item.addEventListener('click', () => {
+                    document.getElementById('archiveOverlay').classList.remove('visible');
+                    document.getElementById('winOverlay').classList.remove('visible');
+                    loadPuzzle(puzzle);
+                    // Never auto-show the win overlay — let the player play or replay freely
+                });
 
                 list.appendChild(item);
             }
