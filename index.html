@@ -3093,27 +3093,43 @@
             showWinOverlay(solved.timeMs, solved.hintsUsed ?? null);
         }
 
-        document.getElementById('winShareBtn').addEventListener('click', () => {
+        document.getElementById('winShareBtn').addEventListener('click', async () => {
             const btn     = document.getElementById('winShareBtn');
             const timeStr = btn.dataset.time;
             const hints   = btn.dataset.hints;
-            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: dom513.github.io/NOdLE`;
-            navigator.clipboard.writeText(msg).then(() => {
-                const orig = btn.textContent;
+            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: nodle.fyi`;
+
+            // Use native share sheet if available (works on mobile)
+            if (navigator.share) {
+                try {
+                    await navigator.share({ text: msg });
+                } catch(e) { /* user cancelled or error — do nothing */ }
+                return;
+            }
+
+            // Fallback: copy to clipboard
+            const orig = btn.textContent;
+            try {
+                await navigator.clipboard.writeText(msg);
                 btn.textContent = 'Copied!';
                 setTimeout(() => { btn.textContent = orig; }, 2000);
-            }).catch(() => {
+            } catch(e) {
+                // Last resort: textarea trick
                 const ta = document.createElement('textarea');
                 ta.value = msg;
                 ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
                 document.body.appendChild(ta);
                 ta.focus(); ta.select();
-                try { document.execCommand('copy'); } catch(e) {}
+                try {
+                    document.execCommand('copy');
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = orig; }, 2000);
+                } catch(e2) {
+                    btn.textContent = 'Failed — copy manually';
+                    setTimeout(() => { btn.textContent = orig; }, 3000);
+                }
                 document.body.removeChild(ta);
-                const orig = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => { btn.textContent = orig; }, 2000);
-            });
+            }
         });
 
         document.getElementById('winPlayToday').addEventListener('click', async () => {
