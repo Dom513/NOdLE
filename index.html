@@ -3360,7 +3360,7 @@
 
         // ── Practice puzzles ──────────────────────────────────────────────────────
 
-        const PRACTICE_URL = 'puzzles/practice_puzzles.json';
+        const PRACTICE_URL = `${PUZZLE_BASE_URL}/practice_puzzles.json`;
 
         document.getElementById('practiceBack').addEventListener('click', () => {
             document.getElementById('practiceOverlay').classList.remove('visible');
@@ -3374,10 +3374,16 @@
             let puzzles;
             try {
                 const resp = await fetch(PRACTICE_URL);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                puzzles = await resp.json();
+                if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${PRACTICE_URL}`);
+                const text = await resp.text();
+                try {
+                    puzzles = JSON.parse(text);
+                } catch(parseErr) {
+                    list.innerHTML = `<div id="archiveLoading">JSON parse error: ${parseErr.message}<br><small>${text.slice(0, 120)}</small></div>`;
+                    return;
+                }
             } catch(e) {
-                list.innerHTML = '<div id="archiveLoading">Could not load practice puzzles.</div>';
+                list.innerHTML = `<div id="archiveLoading">Could not load: ${e.message}</div>`;
                 return;
             }
 
