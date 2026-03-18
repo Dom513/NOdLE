@@ -3201,7 +3201,7 @@
 
             // Fetch today's puzzle
             try {
-                const url = `${PUZZLE_BASE_URL}/puzzles.json`; 
+                const url = `${PUZZLE_BASE_URL}/puzzles.json?v=${Date.now()}`;
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
@@ -3310,7 +3310,7 @@
 
             let allPuzzles;
             try {
-                const resp = await fetch(`${PUZZLE_BASE_URL}/puzzles.json`);
+                const resp = await fetch(`${PUZZLE_BASE_URL}/puzzles.json?v=${Date.now()}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 allPuzzles = await resp.json();
             } catch (e) {
@@ -3373,7 +3373,7 @@
 
             let puzzles;
             try {
-                const resp = await fetch(PRACTICE_URL);
+                const resp = await fetch(`${PRACTICE_URL}?v=${Date.now()}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 puzzles = await resp.json();
             } catch(e) {
