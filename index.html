@@ -1275,27 +1275,34 @@
 
             const json = JSON.stringify({ date, target, solution, edges: flatEdges, solutionEdges });
 
-            navigator.clipboard.writeText(json).then(() => {
-                feedback.style.color = '#00e676';
-                feedback.textContent = '✓ JSON copied to clipboard!';
-                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
-            }).catch(() => {
+            const doFallbackCopy = () => {
                 const ta = document.createElement('textarea');
                 ta.value = json;
                 ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
                 document.body.appendChild(ta);
                 ta.focus(); ta.select();
-                try {
-                    document.execCommand('copy');
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+                if (ok) {
                     feedback.style.color = '#00e676';
                     feedback.textContent = '✓ JSON copied to clipboard!';
-                } catch(err) {
+                } else {
                     feedback.style.color = '#ff4444';
                     feedback.textContent = 'Copy failed — try a different browser.';
                 }
-                document.body.removeChild(ta);
                 setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
-            });
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(json).then(() => {
+                    feedback.style.color = '#00e676';
+                    feedback.textContent = '✓ JSON copied to clipboard!';
+                    setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
+                }).catch(() => doFallbackCopy());
+            } else {
+                doFallbackCopy();
+            }
         });
 
         let playSnapshot = []; // deep copy of edgeList when play started
@@ -1344,7 +1351,7 @@
             puzzleStartTime    = null;
             puzzleSolved       = false;
             puzzleElapsed      = 0;
-            puzzleSessionStart = performance.now();
+            puzzleSessionStart = null; // timer starts on first draw or hint
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             const val = document.getElementById('setupTarget').textContent.trim();
@@ -1516,6 +1523,11 @@
         let puzzleSessionStart = null; // performance.now() of current active session, null if paused
         let puzzleSolved      = false;
 
+        function startTimerIfNeeded() {
+            if (!puzzleSolved && puzzleSessionStart === null)
+                puzzleSessionStart = performance.now();
+        }
+
         function getElapsed() {
             if (puzzleSessionStart !== null)
                 return puzzleElapsed + (performance.now() - puzzleSessionStart);
@@ -1530,7 +1542,8 @@
         }
 
         function resumeTimer() {
-            if (!puzzleSolved && puzzleSessionStart === null)
+            // Only resume if timer was previously running (don't start it on visibility change)
+            if (!puzzleSolved && puzzleElapsed > 0 && puzzleSessionStart === null)
                 puzzleSessionStart = performance.now();
         }
 
@@ -1577,13 +1590,14 @@
                 );
                 const redSibling = siblings.find(e => e.id !== playPending.id && e.red);
                 if (redSibling) {
-                    // A sibling is already red — turn it off, don't turn this one on
                     redSibling.red = false;
                 } else {
                     playPending.red = !playPending.red;
+                    if (playPending.red) startTimerIfNeeded();
                 }
             } else {
                 resolveSegment();
+                startTimerIfNeeded();
             }
             playDown = false; playLastPos = null; playLastNode = -1; playOriginNode = -1;
             playHasDragged = false; playPending = null; playTouched = new Set();
@@ -2679,6 +2693,7 @@
         }
 
         function executeNumberHint() {
+            startTimerIfNeeded();
             const rem = hintRemaining();
             if (rem.length === 0) return;
             const num = rem[0];
@@ -2726,6 +2741,7 @@
         }
 
         function executePatternHint() {
+            startTimerIfNeeded();
             const slot = bestPatternSlot();
             if (slot === -1) return;
 
@@ -2865,7 +2881,7 @@
             puzzleStartTime  = null;
             puzzleSolved     = false;
             puzzleElapsed    = 0;
-            puzzleSessionStart = performance.now();
+            puzzleSessionStart = null; // timer starts on first draw or hint
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             setSolvedButtonState(false);
