@@ -284,6 +284,12 @@
             color: #888; line-height: 1.7; margin: 0;
         }
         #infoContent em { color: #aaa; font-style: normal; }
+        #infoPracticeIntro {
+            color: #bbb !important;
+            font-size: var(--fs-md) !important;
+            font-weight: 700;
+            margin-top: 4px;
+        }
 
         #winBox {
             position: relative;
@@ -366,7 +372,7 @@
             width: 100%; max-width: 460px;
             padding: clamp(8px, 2vw, 12px) clamp(8px, 3vw, 16px);
             font-family: 'Share Tech Mono', monospace;
-            font-size: var(--fs-sm); color: #666;
+            font-size: var(--fs-md); color: #666;
             line-height: 1.6; text-align: center;
         }
 
@@ -723,12 +729,11 @@
                 <button id="infoClose">✕</button>
                 <div id="infoTitle">How to play</div>
                 <div id="infoContent">
-                    <p>Tap a blue line to turn it red.</p>
-                    <p>Trace between nodes to highlight multiple lines at once.</p>
-                    <p>Select lines that form a number (1–9), then press <em>Submit number</em>.</p>
-                    <p>Fill all five tiles so they add up to the target.</p>
-                    <p>Use every line — none should be left on the board.</p>
-                    <p>Tap a filled tile to put its number back on the board.</p>
+                    <p>Trace along the lines to draw numbers and complete the sum!</p>
+                    <p>You need to use all of the lines, and find the five numbers that add up correctly.</p>
+                    <p>Tap a number in the sum to place it back on the board if you think you've made a mistake.</p>
+                    <p>You can click the question mark to get a hint.</p>
+                    <p id="infoPracticeIntro">To get used to what all of the numbers look like, try these practice puzzles:</p>
                 </div>
                 <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:4px; display:flex;">
                     <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
@@ -808,7 +813,7 @@
         }
 
         // ─── Parallel offset ────────────────────────────────────────────────────
-        const PARALLEL_GAP = 7; // px between parallel lines
+        const PARALLEL_GAP = 10; // px between parallel lines
 
         // Normalised direction of an edge: always returns one of 8 canonical directions
         // encoded as [dr, dc] with dc >= 0, or dc==0 and dr > 0.
@@ -970,14 +975,14 @@
         }
 
         function getNodeAt(mx, my) {
-            const radius = Math.max(18, spacing * 0.42);
+            const radius = Math.max(12, spacing * 0.28);
             for (let i = 0; i < nodes.length; i++)
                 if (Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
             return -1;
         }
 
         // Find the topmost edge (last drawn) near point, from the given list
-        function getEdgeNear(mx, my, list, threshold = 8) {
+        function getEdgeNear(mx, my, list, threshold = 12) {
             // Iterate in reverse so we hit the "top" drawn edge first
             for (let i = list.length - 1; i >= 0; i--) {
                 const edge = list[i];
@@ -1012,7 +1017,7 @@
             nodes.forEach((n, i) => {
                 const isActive    = i === activeNode;
                 const isConnected = connected === null || connected.has(i);
-                const radius = isActive ? 10 : isConnected ? 8 : 3.5;
+                const radius = isActive ? 11 : isConnected ? 9.5 : 3.5;
                 const fill   = isActive ? '#ffffff' : isConnected ? '#cccccc' : '#555555';
                 ctx.beginPath();
                 ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
@@ -1085,7 +1090,7 @@
             for (let s = 0; s < 5; s++) {
                 const isActive = s === activeSlot;
                 for (const edge of setupSlotEdges[s]) {
-                    drawEdge(setupCtx, edge, SLOT_COLORS[s], isActive ? 3.5 : 2);
+                    drawEdge(setupCtx, edge, SLOT_COLORS[s], isActive ? 5 : 3);
                 }
             }
 
@@ -1296,6 +1301,7 @@
         let puzzleSolution      = null; // solution numbers from puzzle JSON, if provided
         let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
         let currentPuzzleDate   = null; // date string of the currently loaded puzzle
+        let currentPuzzleTitle  = null; // title of the currently loaded puzzle (practice puzzles)
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             for (const e of edgeList) e.red = false;
@@ -1356,7 +1362,7 @@
             playCtx.clearRect(0, 0, W, H);
             for (const edge of edgeList) {
                 const color = edge.color || (edge.red ? '#ff4444' : '#4488ff');
-                const width = edge.red ? 4.5 : 3.5;
+                const width = edge.red ? 7 : 5;
                 drawEdge(playCtx, edge, color, width);
             }
             if (playLastPos) {
@@ -1370,7 +1376,7 @@
 
         function getConnectedNodeAt(mx, my) {
             const connected = connectedNodeSet();
-            const radius = Math.max(18, spacing * 0.42);
+            const radius = Math.max(12, spacing * 0.28);
             for (let i = 0; i < nodes.length; i++)
                 if (connected.has(i) && Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
             return -1;
@@ -1552,7 +1558,18 @@
         function playEnd(e) {
             e.preventDefault();
             if (!playHasDragged && playPending) {
-                playPending.red = !playPending.red;
+                const sa = Math.min(playPending.a, playPending.b);
+                const sb = Math.max(playPending.a, playPending.b);
+                const siblings = edgeList.filter(e =>
+                    Math.min(e.a, e.b) === sa && Math.max(e.a, e.b) === sb
+                );
+                const redSibling = siblings.find(e => e.id !== playPending.id && e.red);
+                if (redSibling) {
+                    // A sibling is already red — turn it off, don't turn this one on
+                    redSibling.red = false;
+                } else {
+                    playPending.red = !playPending.red;
+                }
             } else {
                 resolveSegment();
             }
@@ -2216,7 +2233,7 @@
                         animCtx.beginPath();
                         animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
                         animCtx.strokeStyle = color;
-                        animCtx.lineWidth = 4.5; animCtx.lineCap = 'round';
+                        animCtx.lineWidth = 7; animCtx.lineCap = 'round';
                         animCtx.stroke();
                     }
                     // Fade in number over second half of phase 1
@@ -2492,7 +2509,7 @@
                             animCtx.beginPath();
                             animCtx.moveTo(na.x, na.y); animCtx.lineTo(nb.x, nb.y);
                             animCtx.strokeStyle = '#4488ff';
-                            animCtx.lineWidth = 4.5; animCtx.lineCap = 'round';
+                            animCtx.lineWidth = 7; animCtx.lineCap = 'round';
                             animCtx.stroke();
                         }
                         animCtx.restore();
@@ -2819,6 +2836,7 @@
             puzzleSolution      = puzzleData.solution || null;
             puzzleSolutionEdges = puzzleData.solutionEdges || null;
             currentPuzzleDate   = puzzleData.date || null;
+            currentPuzzleTitle  = puzzleData.title || null;
             puzzleStartTime  = null;
             puzzleSolved     = false;
             puzzleElapsed    = 0;
@@ -2926,10 +2944,13 @@
                 hintsRow.style.display      = 'none';
             }
 
+            const isPractice = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
             const isToday = !currentPuzzleDate || currentPuzzleDate === todayStr();
 
             // Sub-text
-            if (isToday) {
+            if (isPractice && currentPuzzleTitle) {
+                document.getElementById('winSub').textContent = `you solved ${currentPuzzleTitle} in`;
+            } else if (isToday) {
                 document.getElementById('winSub').textContent = "you solved today's puzzle in";
             } else {
                 const [y, m, d] = currentPuzzleDate.split('-');
@@ -2941,7 +2962,7 @@
             // Countdown only for today's puzzle
             const nextLabel     = document.getElementById('winNextLabel');
             const nextCountdown = document.getElementById('winCountdown');
-            if (isToday) {
+            if (isToday && !isPractice) {
                 nextLabel.style.display     = '';
                 nextCountdown.style.display = '';
                 startCountdown();
@@ -2952,16 +2973,17 @@
 
             // Share button only for today's puzzle
             const shareBtn = document.getElementById('winShareBtn');
-            if (isToday && hintsUsed != null) {
-                shareBtn.style.display = '';
+            if (isToday && !isPractice && hintsUsed != null) {
+                shareBtn.style.display    = '';
                 shareBtn.dataset.time     = timeStr;
                 shareBtn.dataset.hints    = hintsUsed;
             } else {
                 shareBtn.style.display = 'none';
             }
 
-            // Archive action buttons only for non-today puzzles
-            document.getElementById('winArchiveBtns').style.display = isToday ? 'none' : '';
+            // Archive action buttons only for non-today, non-practice puzzles
+            document.getElementById('winArchiveBtns').style.display =
+                (!isToday && !isPractice) ? '' : 'none';
 
             document.getElementById('winOverlay').classList.add('visible');
         }
