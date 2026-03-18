@@ -2854,10 +2854,16 @@
             updateTiles();
             document.getElementById('play-target').textContent = puzzleData.target;
 
-            // Show description if the puzzle has one, hide otherwise
+            // Show description (practice), formatted date (archive), or nothing (today)
             const descEl = document.getElementById('puzzleDescription');
+            const isPracticeDate = puzzleData.date && puzzleData.date.startsWith('practice-');
             if (puzzleData.description) {
                 descEl.textContent = puzzleData.description;
+                descEl.style.display = '';
+            } else if (puzzleData.date && !isPracticeDate && puzzleData.date !== todayStr()) {
+                const [y, m, d] = puzzleData.date.split('-');
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                descEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
                 descEl.style.display = '';
             } else {
                 descEl.textContent = '';
