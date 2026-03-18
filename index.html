@@ -263,7 +263,7 @@
             background: #2a2a2a; border: 2px solid #444;
             border-radius: var(--radius-lg);
             padding: clamp(24px, 6vw, 36px) clamp(20px, 7vw, 40px) clamp(18px, 5vw, 28px);
-            max-width: 360px; width: 100%;
+            max-width: 420px; width: 100%;
             display: flex; flex-direction: column; gap: var(--gap-sm);
         }
         #infoClose {
@@ -276,7 +276,7 @@
         #infoTitle {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: clamp(14px, 4.5vw, 18px); letter-spacing: 0.1em; color: #ccc;
-            text-transform: uppercase; margin-bottom: 4px;
+            text-transform: uppercase; margin-bottom: 4px; text-align: center;
         }
         #infoContent p {
             font-family: 'Share Tech Mono', monospace;
@@ -290,7 +290,7 @@
             background: #2a2a2a; border: 2px solid #4488ff;
             border-radius: var(--radius-lg);
             padding: clamp(20px, 5vw, 32px);
-            text-align: center; width: 100%; max-width: 280px;
+            text-align: center; width: 100%; max-width: 340px;
             display: flex; flex-direction: column; align-items: center;
             gap: clamp(8px, 2vw, 12px);
         }
@@ -359,6 +359,15 @@
         #loadingMsg {
             font-family: 'Share Tech Mono', monospace; font-size: var(--fs-sm);
             color: #555; letter-spacing: 0.15em;
+        }
+
+        /* ── Puzzle description (practice puzzles) ───────────────────────── */
+        #puzzleDescription {
+            width: 100%; max-width: 460px;
+            padding: clamp(8px, 2vw, 12px) clamp(8px, 3vw, 16px);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-sm); color: #666;
+            line-height: 1.6; text-align: center;
         }
 
         /* ── Board-width footer (equation + buttons) ────────────────────── */
@@ -672,6 +681,7 @@
     </div>
 
     <div class="screen" id="screenPlay">
+        <div id="puzzleDescription" style="display:none;"></div>
         <div class="board-wrap">
         <div class="canvas-toolbar">
             <button class="toolbar-btn" id="infoBtn" title="How to play" style="font-size: 28px">ⓘ</button>
@@ -720,7 +730,7 @@
                     <p>Use every line — none should be left on the board.</p>
                     <p>Tap a filled tile to put its number back on the board.</p>
                 </div>
-                <div id="infoBtns" style="display:none; flex-direction:column; gap:8px; margin-top:4px;">
+                <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:4px; display:flex;">
                     <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
                     <button class="secondary" id="infoPlayTodayBtn">Play today's puzzle</button>
                 </div>
@@ -2546,7 +2556,6 @@
         // ── Info popup ───────────────────────────────────────────────────────────
         function closeInfo() {
             document.getElementById('infoOverlay').classList.remove('visible');
-            document.getElementById('infoBtns').style.display = 'none';
         }
         document.getElementById('infoBtn').addEventListener('click', () => {
             document.getElementById('infoOverlay').classList.add('visible');
@@ -2817,6 +2826,17 @@
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             document.getElementById('play-target').textContent = puzzleData.target;
+
+            // Show description if the puzzle has one, hide otherwise
+            const descEl = document.getElementById('puzzleDescription');
+            if (puzzleData.description) {
+                descEl.textContent = puzzleData.description;
+                descEl.style.display = '';
+            } else {
+                descEl.textContent = '';
+                descEl.style.display = 'none';
+            }
+
             showScreen('screenPlay');
             playDraw();
         }
@@ -3038,7 +3058,6 @@
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
                 if (isFirstVisit()) {
-                    document.getElementById('infoBtns').style.display = 'flex';
                     document.getElementById('infoOverlay').classList.add('visible');
                     markVisited();
                 }
