@@ -317,9 +317,18 @@
             font-size: var(--fs-xs); color: #555; letter-spacing: 0.2em;
             text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
         }
-        #winHints {
-            font-family: 'Share Tech Mono', monospace; font-size: var(--fs-xs);
-            color: #555; letter-spacing: 0.1em;
+        #winAndUsed { font-size: var(--fs-sm); color: #777; font-family: 'Share Tech Mono', monospace; }
+        #winHintsRow {
+            display: flex; align-items: baseline; gap: 8px;
+        }
+        #winHintsNumber {
+            font-family: 'Share Tech Mono', monospace; font-size: var(--fs-2xl);
+            color: #4488ff; letter-spacing: 0.1em; line-height: 1.4;
+        }
+        #winHintsLabel {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: var(--fs-md); color: #4488ff; letter-spacing: 0.15em;
+            text-transform: uppercase;
         }
         #winCountdown {
             font-family: 'Rajdhani', monospace; font-size: var(--fs-lg);
@@ -656,7 +665,11 @@
                 <div id="winTitle">Congratulations</div>
                 <div id="winSub"></div>
                 <div id="winTime"></div>
-                <div id="winHints"></div>
+                <div id="winAndUsed">and used</div>
+                <div id="winHintsRow">
+                    <div id="winHintsNumber"></div>
+                    <div id="winHintsLabel">Hints</div>
+                </div>
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
                 <button id="winShareBtn" class="secondary" style="display:none; width:100%; margin-top:4px;">Share result</button>
@@ -2167,6 +2180,10 @@
             requestAnimationFrame(frame);
         }
 
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('submitBtn').click();
+        });
+
         document.getElementById('submitBtn').addEventListener('click', () => {
             if (puzzleSolved) return;
             // Only truly full if every slot has a confirmed submitted value
@@ -2807,13 +2824,17 @@
             const timeStr = `${mins}:${String(secs).padStart(2,'0')}`;
             document.getElementById('winTime').textContent = timeStr;
 
-            // Hints used line
-            const hintsEl = document.getElementById('winHints');
+            // Hints used section
+            const andUsedEl  = document.getElementById('winAndUsed');
+            const hintsRow   = document.getElementById('winHintsRow');
+            const hintsNumEl = document.getElementById('winHintsNumber');
             if (hintsUsed != null) {
-                hintsEl.textContent = `${hintsUsed} of 5 hint${hintsUsed !== 1 ? 's' : ''} used`;
-                hintsEl.style.display = '';
+                hintsNumEl.textContent      = `${hintsUsed}/5`;
+                andUsedEl.style.display     = '';
+                hintsRow.style.display      = '';
             } else {
-                hintsEl.style.display = 'none';
+                andUsedEl.style.display     = 'none';
+                hintsRow.style.display      = 'none';
             }
 
             const isToday = !currentPuzzleDate || currentPuzzleDate === todayStr();
