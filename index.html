@@ -2994,8 +2994,8 @@
             const puzzleBtns = document.getElementById('winPuzzleBtns');
             if (!isToday) {
                 puzzleBtns.style.display = 'flex';
-                const hasPrev = currentPuzzleList && currentPuzzleIndex > 0;
-                const hasNext = currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1;
+                const hasPrev = currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1;
+                const hasNext = currentPuzzleList && currentPuzzleIndex > 0;
                 document.getElementById('winPrev').disabled = !hasPrev;
                 document.getElementById('winNext').disabled = !hasNext;
             } else {
@@ -3070,9 +3070,9 @@
         });
 
         document.getElementById('winPrev').addEventListener('click', () => {
-            if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
+            if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
             document.getElementById('winOverlay').classList.remove('visible');
-            currentPuzzleIndex--;
+            currentPuzzleIndex++;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
             loadPuzzle(puzzle);
@@ -3080,9 +3080,9 @@
         });
 
         document.getElementById('winNext').addEventListener('click', () => {
-            if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
+            if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
             document.getElementById('winOverlay').classList.remove('visible');
-            currentPuzzleIndex++;
+            currentPuzzleIndex--;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
             loadPuzzle(puzzle);
@@ -3217,14 +3217,13 @@
 
             const today = todayStr();
 
-            // Exclude future puzzles, sort newest first
-            allPuzzles = allPuzzles.filter(p => p.date <= today);
+            // Exclude today and future puzzles, sort newest first
+            allPuzzles = allPuzzles.filter(p => p.date < today);
             allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
 
             list.innerHTML = '';
 
             for (const puzzle of allPuzzles) {
-                const isToday = puzzle.date === today;
                 const solved  = getSolvedData(puzzle.date);
 
                 const item = document.createElement('div');
@@ -3234,9 +3233,7 @@
                 dateEl.className = 'archive-item-date';
                 const [y, m, d] = puzzle.date.split('-');
                 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                dateEl.textContent = isToday
-                    ? `Today — ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
-                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
                 const badge = document.createElement('div');
                 badge.className = 'archive-item-badge ' + (solved ? 'solved' : 'unsolved');
