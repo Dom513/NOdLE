@@ -113,7 +113,11 @@
             display: flex; align-items: center;
             gap: clamp(2px, 1.5cqw, 8px);
             margin-top: clamp(6px, 2cqw, 14px);
-            width: 100%; justify-content: center; flex-wrap: nowrap;
+            width: 100%; justify-content: space-between; flex-wrap: nowrap;
+        }
+        .equation-sum {
+            display: flex; align-items: center;
+            gap: clamp(2px, 1.5cqw, 8px); flex-wrap: nowrap;
         }
         .eq-op {
             color: #ccc; font-size: clamp(11px, 3.5cqw, 18px);
@@ -137,7 +141,25 @@
         }
         #play-target {
             background: none; border-color: transparent;
-            font-size: clamp(13px, 5cqw, 24px); color: #aaa;
+            font-size: clamp(16px, 6cqw, 30px); color: #fff;
+        }
+        #play-target-wrap {
+            display: flex; flex-direction: column; align-items: center;
+            flex-shrink: 0; gap: 0;
+        }
+        #play-target-label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(11px, 3cqw, 16px);
+            font-weight: 700;
+            color: #fff; letter-spacing: 0.12em; text-transform: uppercase;
+            line-height: 1; margin-bottom: -2px;
+        }
+        #play-total-wrap {
+            display: flex; align-items: center;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(13px, 5cqw, 24px);
+            flex-shrink: 0; color: #aaa;
+            min-width: clamp(16px, 5cqw, 28px); text-align: center;
         }
         #setup-target-wrap {
             background: none; border: none;
@@ -672,17 +694,19 @@
         <canvas id="setupCanvas" width="460" height="460"></canvas>
         <div class="board-footer">
             <div class="equation">
-                <div class="tile setup-slot" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
-                <span class="eq-op">+</span>
-                <div class="tile setup-slot" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
-                <span class="eq-op">+</span>
-                <div class="tile setup-slot" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
-                <span class="eq-op">+</span>
-                <div class="tile setup-slot" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
-                <span class="eq-op">+</span>
-                <div class="tile setup-slot" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
-                <span class="eq-equals">=</span>
-                <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
+                <div class="equation-sum">
+                    <div class="tile setup-slot" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile setup-slot" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile setup-slot" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile setup-slot" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile setup-slot" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
+                    <span class="eq-equals">=</span>
+                    <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
+                </div>
             </div>
             <div class="btn-row">
                 <button class="secondary" id="setupClearBtn">Clear all</button>
@@ -713,17 +737,25 @@
         </div>
         <div class="board-footer">
             <div class="equation">
-                <div class="tile" id="play-t0"></div>
-                <span class="eq-op">+</span>
-                <div class="tile" id="play-t1"></div>
-                <span class="eq-op">+</span>
-                <div class="tile" id="play-t2"></div>
-                <span class="eq-op">+</span>
-                <div class="tile" id="play-t3"></div>
-                <span class="eq-op">+</span>
-                <div class="tile" id="play-t4"></div>
-                <span class="eq-equals">=</span>
-                <div class="tile" id="play-target"></div>
+                <div class="equation-sum">
+                    <div class="tile" id="play-t0"></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile" id="play-t1"></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile" id="play-t2"></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile" id="play-t3"></div>
+                    <span class="eq-op">+</span>
+                    <div class="tile" id="play-t4"></div>
+                    <span class="eq-equals">=</span>
+                    <span id="play-total-wrap">
+                        <span id="play-total"></span>
+                    </span>
+                </div>
+                <div id="play-target-wrap">
+                    <span id="play-target-label">target</span>
+                    <div class="tile" id="play-target"></div>
+                </div>
             </div>
             <div class="btn-row">
                 <button class="secondary" id="playResetBtn">Clear</button>
@@ -1553,9 +1585,10 @@
         }
 
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) pauseTimer();
+            if (document.hidden) { pauseTimer(); saveProgress(); }
             else resumeTimer();
         });
+        window.addEventListener('pagehide', () => { saveProgress(); });
 
         function playStart(e) {
             if (puzzleSolved) return;
@@ -1688,9 +1721,13 @@
                 hintBtn.disabled = !canHint;
                 hintCount.textContent = `${hintsRemaining}/5`;
             }
+            // Update running total
+            const totalEl = document.getElementById('play-total');
+            if (totalEl) {
+                const sum = tileValues.reduce((acc, v) => acc + (v !== null ? v : 0), 0);
+                totalEl.textContent = sum;
+            }
         }
-
-        // ─── Number recognition ──────────────────────────────────────────────────
 
         function unitDir(r1, c1, r2, c2) {
             const dr = r2 - r1, dc = c2 - c1;
@@ -3005,6 +3042,7 @@
 
         function saveProgress() {
             if (puzzleSolved) return;
+            if (!currentPuzzleDate && edgeList.length === 0) return; // nothing loaded yet
             const dateStr = currentPuzzleDate || todayStr();
             localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
                 tileValues:    [...tileValues],
