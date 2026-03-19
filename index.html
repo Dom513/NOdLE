@@ -1888,50 +1888,47 @@
             }
             // ── 2 or 4: 3 strokes ────────────────────────────────────────────────
             if (strokes.length === 3) {
-                // 4 (star): two spokes are antiparallel (the stalk), third arm is perpendicular to stalk
-                if (strokeJunc !== undefined && strokeEnds.length === 3) {
-                    const jEdges = strokeAdj.get(strokeJunc);
-                    let found = false;
-                    for (let i = 0; i < 3 && !found; i++) {
-                        for (let j = i + 1; j < 3 && !found; j++) {
-                            const nA = jEdges[i].node, nB = jEdges[j].node;
-                            const drA = nodes[nA].r - nodes[strokeJunc].r, dcA = nodes[nA].c - nodes[strokeJunc].c;
-                            const drB = nodes[nB].r - nodes[strokeJunc].r, dcB = nodes[nB].c - nodes[strokeJunc].c;
-                            // antiparallel pair = stalk axis
-                            if (drA * dcB - dcA * drB === 0 && drA * drB + dcA * dcB < 0) {
-                                // arm is the remaining spoke
-                                const armIdx = [0,1,2].find(k => k !== i && k !== j);
-                                const nArm = jEdges[armIdx].node;
-                                const drArm = nodes[nArm].r - nodes[strokeJunc].r;
-                                const dcArm = nodes[nArm].c - nodes[strokeJunc].c;
-                                // arm must be perpendicular to stalk
-                                if (drA * drArm + dcA * dcArm === 0) found = true;
-                            }
-                        }
-                    }
-                    if (found) return { num: 4, ids: allStrokeIds() };
-                }
-
-                // 4 (chain): stalk is collinear with one triangle arm so they merge.
-                // Produces ends=2, mids=2. The stalk vertex becomes an INTERMEDIATE
-                // node of the merged stroke — detect this by checking if one chain
-                // endpoint is inside the other end's stroke.
+                // 4: chain topology — ends=2, mids=2
+                // Chain: [n0]--sA(stalk)--[n1]--sB(diagonal)--[n2]--sC(crossbar)--[n3]
+                // n3 must be an intermediate node of sA (crossbar meets stalk at its middle)
                 if (strokeEnds.length === 2 && strokeMids.length === 2) {
-                    const [end1, end2] = strokeEnds;
-                    for (const [tipEnd, checkEnd] of [[end1, end2], [end2, end1]]) {
-                        const entry = (strokeAdj.get(tipEnd) || [])[0];
-                        if (!entry) continue;
-                        const tipStroke = strokes[entry.strokeIdx];
-                        if (intermediateNodes(tipStroke.startNode, tipStroke.endNode).includes(checkEnd)) {
+                    const chain = walkStrokeChain(strokeEnds[0], 4);
+                    if (chain) {
+                        const chains = [chain, [...chain].reverse()];
+                        for (const ch of chains) {
+                            const [n0, n1, n2, n3] = ch;
+                            const sA = getStrokeBetween(n0, n1); // stalk
+                            const sB = getStrokeBetween(n1, n2); // diagonal
+                            const sC = getStrokeBetween(n2, n3); // crossbar
+                            if (!sA || !sB || !sC) continue;
+                            const dA = strokeDirFrom(sA, n0);
+                            const dB = strokeDirFrom(sB, n1);
+                            const dC = strokeDirFrom(sC, n2);
+                            // stalk and diagonal must be different types (one straight, one 45°)
+                            if (isStraight(dA) === isStraight(dB)) continue;
+                            // crossbar must be perpendicular to stalk (dot product = 0)
+                            if (dA[0]*dC[0] + dA[1]*dC[1] !== 0) continue;
+                            // crossbar must be the same type as the stalk
+                            if (isStraight(dA) !== isStraight(dC)) continue;
+                            // n3 (free end of crossbar) must lie on the stalk interior
+                            if (!intermediateNodes(n0, n1).includes(n3)) continue;
+                            // anti-mirroring: diagonal tip n2 must be "behind" n1 toward n0
+                            // i.e. projection of (n2−n1) onto stalk direction must be negative
+                            const proj = (nodes[n2].r - nodes[n1].r)*dA[0] + (nodes[n2].c - nodes[n1].c)*dA[1];
+                            if (proj >= 0) continue;
+                            // chirality: dA × dB (cross product) must be positive
+                            // (diagonal goes to the right when looking along the stalk from n0)
+                            const cross = dA[0]*dB[1] - dA[1]*dB[0];
+                            if (cross <= 0) continue;
                             return { num: 4, ids: allStrokeIds() };
                         }
                     }
 
-                    // 2: Z-pattern chain
-                    const chain = walkStrokeChain(strokeEnds[0], 4);
-                    if (!chain) return null;
-                    const chains = [chain, [...chain].reverse()];
-                    for (const ch of chains) {
+                    // 2: Z-pattern chain — all three strokes must be the same length
+                    const chain2 = walkStrokeChain(strokeEnds[0], 4);
+                    if (!chain2) return null;
+                    const chains2 = [chain2, [...chain2].reverse()];
+                    for (const ch of chains2) {
                         const s1 = getStrokeBetween(ch[0], ch[1]);
                         const s2 = getStrokeBetween(ch[1], ch[2]);
                         const s3 = getStrokeBetween(ch[2], ch[3]);
@@ -1947,6 +1944,11 @@
                         const vc = nodes[ch[2]].c - nodes[ch[1]].c;
                         const perpProj = (-d1[1])*vr + d1[0]*vc;
                         if (perpProj >= 0) continue;
+                        const len = s => Math.max(
+                            Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                            Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                        );
+                        if (len(s1) !== len(s2) || len(s2) !== len(s3)) continue;
                         return { num: 2, ids: allStrokeIds() };
                     }
                     return null;
@@ -2039,27 +2041,6 @@
                 }
             }
 
-            // ── 4 (triangle+stem): 4 strokes ────────────────────────────────────
-            if (strokes.length === 4 && strokeNodes.length === 4) {
-                const deg3n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 3);
-                const deg2n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 2);
-                const deg1n = strokeNodes.filter(n => (strokeAdj.get(n)||[]).length === 1);
-                if (deg3n.length !== 1 || deg2n.length !== 2 || deg1n.length !== 1) return null;
-                const junc = deg3n[0];
-                const jEdges = strokeAdj.get(junc);
-                let perpCount = 0;
-                for (let i = 0; i < 3; i++) {
-                    for (let j = i + 1; j < 3; j++) {
-                        const nA = jEdges[i].node, nB = jEdges[j].node;
-                        const drA = nodes[nA].r - nodes[junc].r, dcA = nodes[nA].c - nodes[junc].c;
-                        const drB = nodes[nB].r - nodes[junc].r, dcB = nodes[nB].c - nodes[junc].c;
-                        if (drA * drB + dcA * dcB === 0) perpCount++;
-                    }
-                }
-                if (perpCount === 1) return { num: 4, ids: allStrokeIds() };
-                return null;
-            }
-
             // ── 3: 4 strokes in chain ────────────────────────────────────────────
             if (strokes.length === 4 && strokeNodes.length === 5) {
                 if (strokeEnds.length !== 2 || strokeMids.length !== 3) {
@@ -2076,7 +2057,14 @@
                 if (isStraight(d1) === isStraight(d4) &&
                     isStraight(d2) === isStraight(d3) &&
                     isStraight(d1) !== isStraight(d2)) {
-                    return { num: 3, ids: allStrokeIds() };
+                    const len = s => Math.max(
+                        Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                        Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                    );
+                    // a and d must be the same length; b and c must be the same length
+                    if (len(s1) === len(s4) && len(s2) === len(s3) && len(s2) <= len(s1)) {
+                        return { num: 3, ids: allStrokeIds() };
+                    }
                 }}}}}
 
 
@@ -2119,7 +2107,20 @@
                                 });
                                 const loopNodes = [...loopDeg.keys()];
                                 if (loopNodes.length > 0 && loopNodes.every(n => loopDeg.get(n) === 2)) {
-                                    return { num: 6, ids: allStrokeIds() };
+                                    // The three parallel strokes (tail + loop strokes parallel to tail)
+                                    // must all be the same length
+                                    const len = s => Math.max(
+                                        Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                                        Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                                    );
+                                    const parallelStrokes = strokes.filter((s, i) => {
+                                        const d = strokeDirFrom(s, s.startNode);
+                                        return areParallel(d, dir2);
+                                    });
+                                    const parallelLens = parallelStrokes.map(len);
+                                    if (parallelLens.every(l => l === parallelLens[0])) {
+                                        return { num: 6, ids: allStrokeIds() };
+                                    }
                                 }
                             }
                         }
@@ -2162,7 +2163,18 @@
                         if (si === strokesInOrder.length - 1) return false;
                         return intermediateNodes(s.startNode, s.endNode).includes(lastNode);
                     });
-                    if (hasLoopClosure) return { num: 6, ids: allStrokeIds() };
+                    if (hasLoopClosure) {
+                        // The odd-indexed strokes (a, c, e — the parallel ones) must be same length
+                        const len = s => Math.max(
+                            Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                            Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                        );
+                        const l0 = len(strokesInOrder[0]);
+                        const allOddSame = strokesInOrder
+                            .filter((_, i) => i % 2 === 0)
+                            .every(s => len(s) === l0);
+                        if (allOddSame) return { num: 6, ids: allStrokeIds() };
+                    }
                 }
             }
 
@@ -2197,7 +2209,20 @@
                                     const allPos = crosses.every(c => c > 0);
                                     if (!allPos && crosses[0] > 0) {
                                         const dFirst = d[0], dLast = d[d.length - 1];
-                                        if (areParallel(dFirst, dLast)) return { num: 5, ids: allStrokeIds() };
+                                        if (areParallel(dFirst, dLast)) {
+                                            // For 5 strokes (a,b,c,d,e): a, c, e must be same length
+                                            if (strokes.length === 5) {
+                                                const len = s => Math.max(
+                                                    Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                                                    Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                                                );
+                                                const l0 = len(strokesInOrder[0]);
+                                                const l2 = len(strokesInOrder[2]);
+                                                const l4 = len(strokesInOrder[4]);
+                                                if (l0 !== l2 || l2 !== l4) continue;
+                                            }
+                                            return { num: 5, ids: allStrokeIds() };
+                                        }
                                     }
                                 }
                             }
