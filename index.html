@@ -1924,7 +1924,7 @@
                         }
                     }
 
-                    // 2: Z-pattern chain — all three strokes must be the same length
+                    // 2: Z-pattern — the 4 nodes must form an exact square
                     const chain2 = walkStrokeChain(strokeEnds[0], 4);
                     if (!chain2) return null;
                     const chains2 = [chain2, [...chain2].reverse()];
@@ -1933,22 +1933,18 @@
                         const s2 = getStrokeBetween(ch[1], ch[2]);
                         const s3 = getStrokeBetween(ch[2], ch[3]);
                         if (!s1 || !s2 || !s3) continue;
-                        const d1 = strokeDirFrom(s1, ch[0]);
-                        const d2 = strokeDirFrom(s2, ch[1]);
-                        const d3 = strokeDirFrom(s3, ch[2]);
-                        if (isStraight(d1) !== isStraight(d3)) continue;
-                        if (isStraight(d1) === isStraight(d2)) continue;
-                        const dot = d1[0]*d3[0] + d1[1]*d3[1];
-                        if (dot <= 0) continue;
-                        const vr = nodes[ch[2]].r - nodes[ch[1]].r;
-                        const vc = nodes[ch[2]].c - nodes[ch[1]].c;
-                        const perpProj = (-d1[1])*vr + d1[0]*vc;
-                        if (perpProj >= 0) continue;
-                        const len = s => Math.max(
-                            Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
-                            Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
-                        );
-                        if (len(s1) !== len(s2) || len(s2) !== len(s3)) continue;
+                        const v1r = nodes[ch[1]].r - nodes[ch[0]].r, v1c = nodes[ch[1]].c - nodes[ch[0]].c;
+                        const v2r = nodes[ch[2]].r - nodes[ch[1]].r, v2c = nodes[ch[2]].c - nodes[ch[1]].c;
+                        const v3r = nodes[ch[3]].r - nodes[ch[2]].r, v3c = nodes[ch[3]].c - nodes[ch[2]].c;
+                        const mag1sq = v1r*v1r + v1c*v1c;
+                        // s1 and s3 must be the same vector (parallelogram)
+                        if (v1r !== v3r || v1c !== v3c) continue;
+                        // perpendicular sides: v1·v2 = -|v1|²
+                        if (v1r*v2r + v1c*v2c !== -mag1sq) continue;
+                        // square (not rectangle): |v2|² = 2|v1|²
+                        if (v2r*v2r + v2c*v2c !== 2*mag1sq) continue;
+                        // orientation: cross product < 0 distinguishes 2 from reflected Z
+                        if (v1r*v2c - v1c*v2r >= 0) continue;
                         return { num: 2, ids: allStrokeIds() };
                     }
                     return null;
