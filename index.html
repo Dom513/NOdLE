@@ -2053,12 +2053,25 @@
                 if (isStraight(d1) === isStraight(d4) &&
                     isStraight(d2) === isStraight(d3) &&
                     isStraight(d1) !== isStraight(d2)) {
-                    const len = s => Math.max(
+                    const lenEuc = s => {
+                        const dr = nodes[s.endNode].r - nodes[s.startNode].r;
+                        const dc = nodes[s.endNode].c - nodes[s.startNode].c;
+                        return dr*dr + dc*dc;
+                    };
+                    const lenGrid = s => Math.max(
                         Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
                         Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
                     );
                     // a and d must be the same length; b and c must be the same length
-                    if (len(s1) === len(s4) && len(s2) === len(s3) && len(s2) <= len(s1)) {
+                    // if the connectors (b,c) are the 45° strokes, they must not exceed
+                    // the grid-step span of the outer (a,d) strokes
+                    const connectorsAreDiag = !isStraight(d2);
+                    const lenG = s => Math.max(
+                        Math.abs(nodes[s.endNode].r - nodes[s.startNode].r),
+                        Math.abs(nodes[s.endNode].c - nodes[s.startNode].c)
+                    );
+                    if (lenEuc(s1) === lenEuc(s4) && lenEuc(s2) === lenEuc(s3) &&
+                        (!connectorsAreDiag || lenG(s2) <= lenG(s1))) {
                         return { num: 3, ids: allStrokeIds() };
                     }
                 }}}}}
