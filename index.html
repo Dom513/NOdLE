@@ -1476,8 +1476,8 @@
             const allOnSegment = edgeList.filter(e =>
                 Math.min(e.a, e.b) === sa && Math.max(e.a, e.b) === sb
             );
-            // If any edge on this segment is already touched and red, don't touch another
-            if (allOnSegment.some(e => playTouched.has(e.id) && e.red)) return false;
+            // If any sibling edge is already red, don't turn another one red
+            if (allOnSegment.some(e => e.red)) return false;
 
             const candidates = allOnSegment.filter(e => !playTouched.has(e.id));
             if (candidates.length > 0) {
@@ -2982,17 +2982,11 @@
                 elapsedMs:     getElapsed(),
                 remainingEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b }))
             }));
-            // Track the most recently active puzzle so we can resume it on next visit
-            localStorage.setItem('nodle_last_active', dateStr);
         }
 
         function clearProgress() {
             const dateStr = currentPuzzleDate || todayStr();
             localStorage.removeItem(getProgressKey(dateStr));
-            // Only clear last_active if it points to this puzzle
-            if (localStorage.getItem('nodle_last_active') === dateStr) {
-                localStorage.removeItem('nodle_last_active');
-            }
         }
 
         function getProgressData(dateStr) {
@@ -3145,7 +3139,6 @@
 
             updateTiles();
             playDraw();
-            showWinOverlay(solved.timeMs, solved.hintsUsed ?? null);
         }
 
         document.getElementById('winShareBtn').addEventListener('click', async () => {
@@ -3189,7 +3182,7 @@
 
         document.getElementById('winPlayToday').addEventListener('click', async () => {
             document.getElementById('winOverlay').classList.remove('visible');
-            await initDailyPuzzle(true);
+            await initDailyPuzzle();
         });
 
         document.getElementById('winPlayAgain').addEventListener('click', () => {
@@ -3226,63 +3219,18 @@
             if (solved) restoreSolvedBoard(puzzle, solved);
         });
 
-        async function initDailyPuzzle(forceToday = false) {
+        async function initDailyPuzzle() {
             showScreen('screenLoading');
             currentPuzzleList  = null;
             currentPuzzleIndex = -1;
             const dateStr = todayStr();
             const solved  = getSolvedData(dateStr);
 
-            // Check if the user was mid-way through a non-today puzzle last session
-            // Only resume automatically on initial page load, not when explicitly navigating to today
-            const lastActive = localStorage.getItem('nodle_last_active');
-            const hasNonTodayProgress = !forceToday && lastActive && lastActive !== dateStr && getProgressData(lastActive);
-
-            // Fetch all puzzles (needed for today's puzzle and possibly for resuming)
             try {
                 const url = `${PUZZLE_BASE_URL}/puzzles.json?v=${Date.now()}`;
                 const resp = await fetch(url, { cache: 'no-store' });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
-
-                // Resume a non-today in-progress puzzle if one exists
-                if (hasNonTodayProgress) {
-                    const progress = getProgressData(lastActive);
-                    // Check if it's a practice puzzle
-                    if (lastActive.startsWith('practice-')) {
-                        try {
-                            const practResp = await fetch(`${PRACTICE_URL}?v=${Date.now()}`, { cache: 'no-store' });
-                            if (practResp.ok) {
-                                const practPuzzles = await practResp.json();
-                                const idx = parseInt(lastActive.split('-')[1]);
-                                const practPuzzle = practPuzzles[idx];
-                                if (practPuzzle) {
-                                    const annotated = practPuzzles.map((p, i) => ({ ...p, date: `practice-${i}` }));
-                                    currentPuzzleList  = annotated;
-                                    currentPuzzleIndex = idx;
-                                    loadPuzzle({ ...practPuzzle, date: lastActive });
-                                    restoreProgress(progress);
-                                    return;
-                                }
-                            }
-                        } catch(e) { /* fall through to today's puzzle */ }
-                    } else {
-                        // Archive puzzle
-                        const archivePuzzle = allPuzzles.find(p => p.date === lastActive);
-                        if (archivePuzzle) {
-                            const today = dateStr;
-                            const archiveList = allPuzzles
-                                .filter(p => p.date < today)
-                                .sort((a, b) => b.date.localeCompare(a.date));
-                            currentPuzzleList  = archiveList;
-                            currentPuzzleIndex = archiveList.findIndex(p => p.date === lastActive);
-                            loadPuzzle(archivePuzzle);
-                            restoreProgress(progress);
-                            return;
-                        }
-                    }
-                }
-
                 const puzzle = allPuzzles.find(p => p.date === dateStr);
                 loadPuzzle(puzzle);
 
@@ -3342,7 +3290,7 @@
 
         document.getElementById('menuToday').addEventListener('click', async () => {
             closeMenu();
-            await initDailyPuzzle(true);
+            await initDailyPuzzle();
         });
 
         document.getElementById('menuDonate').addEventListener('click', () => {
