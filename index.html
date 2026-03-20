@@ -3496,7 +3496,17 @@
             try {
                 allPuzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
             } catch(e) {
-                list.innerHTML = '<div id="archiveLoading">Could not load puzzles.</div>';
+                list.innerHTML = '';
+                const br = document.createElement('div');
+                br.className = 'archive-item';
+                br.style.color = '#555';
+                br.innerHTML = `<div class="archive-item-date">← Back</div>`;
+                br.addEventListener('click', showArchiveMonths);
+                list.appendChild(br);
+                const err = document.createElement('div');
+                err.id = 'archiveLoading';
+                err.textContent = `Could not load puzzles for ${label}.`;
+                list.appendChild(err);
                 return;
             }
 
@@ -3573,7 +3583,11 @@
             try {
                 items = await fetchJson(`${PRACTICE_BASE}/index.json`);
             } catch(e) {
-                list.innerHTML = '<div id="archiveLoading">Could not load practice puzzles.</div>';
+                list.innerHTML = '';
+                const err = document.createElement('div');
+                err.id = 'archiveLoading';
+                err.textContent = 'Could not load practice puzzles.';
+                list.appendChild(err);
                 return;
             }
 
@@ -3586,11 +3600,25 @@
             document.getElementById('practiceTitle').textContent = folderLabel || folderName;
             list.innerHTML = '<div id="archiveLoading">Loading...</div>';
 
+            const backRow = () => {
+                const br = document.createElement('div');
+                br.className = 'practice-item';
+                br.style.color = '#555';
+                br.innerHTML = `<div class="practice-item-title">← Back</div>`;
+                br.addEventListener('click', showPracticeRoot);
+                return br;
+            };
+
             let items;
             try {
                 items = await fetchJson(`${PRACTICE_BASE}/${folderName}/index.json`);
             } catch(e) {
-                list.innerHTML = '<div id="archiveLoading">Could not load puzzles.</div>';
+                list.innerHTML = '';
+                list.appendChild(backRow());
+                const err = document.createElement('div');
+                err.id = 'archiveLoading';
+                err.textContent = `Could not load puzzles (${folderName}).`;
+                list.appendChild(err);
                 return;
             }
 
@@ -3600,12 +3628,12 @@
             list.innerHTML = '';
 
             // Back button
-            const backRow = document.createElement('div');
-            backRow.className = 'practice-item';
-            backRow.style.color = '#555';
-            backRow.innerHTML = `<div class="practice-item-title">← Back</div>`;
-            backRow.addEventListener('click', showPracticeRoot);
-            list.appendChild(backRow);
+            const folderBackRow = document.createElement('div');
+            folderBackRow.className = 'practice-item';
+            folderBackRow.style.color = '#555';
+            folderBackRow.innerHTML = `<div class="practice-item-title">← Back</div>`;
+            folderBackRow.addEventListener('click', showPracticeRoot);
+            list.appendChild(folderBackRow);
 
             annotated.forEach((puzzle, idx) => {
                 const solved = getSolvedData(puzzle.date);
