@@ -18,12 +18,12 @@
          * canvas width exactly, not the viewport width.
          */
         :root {
-            --fs-xs:    clamp(9px,  2.2vw, 11px);
-            --fs-sm:    clamp(10px, 2.6vw, 12px);
-            --fs-md:    clamp(13px, 3.5vw, 16px);
-            --fs-lg:    clamp(16px, 4.5vw, 20px);
-            --fs-2xl:   clamp(22px, 6.5vw, 32px);
-            --fs-title: clamp(18px, 5vw,   28px);
+            --fs-xs:    clamp(11px, 2.6vw, 13px);
+            --fs-sm:    clamp(12px, 3vw,   14px);
+            --fs-md:    clamp(14px, 3.8vw, 17px);
+            --fs-lg:    clamp(17px, 4.8vw, 22px);
+            --fs-2xl:   clamp(24px, 7vw,   34px);
+            --fs-title: clamp(20px, 5.5vw, 30px);
 
             --logo-h:        clamp(42px, 9vw,  68px);
             --toolbar-icon:  clamp(20px, 6vw,  28px);
@@ -78,6 +78,16 @@
             display: flex; align-items: center; justify-content: center;
         }
         #menuBtn:hover { color: #ddd; }
+        #infoBtn {
+            position: absolute; left: 16px;
+            background: none; border: none;
+            color: #888; font-size: var(--toolbar-icon);
+            cursor: pointer; padding: 4px;
+            line-height: 1; transition: color 0.15s;
+            min-width: 44px; min-height: 44px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #infoBtn:hover { color: #ddd; }
 
         /* ── Screens ─────────────────────────────────────────────────────── */
         .screen {
@@ -121,14 +131,14 @@
             gap: clamp(2px, 1.5cqw, 8px); flex-wrap: nowrap;
         }
         .eq-op {
-            color: #ccc; font-size: clamp(11px, 3.5cqw, 18px);
+            color: #ccc; font-size: clamp(14px, 4.5cqw, 22px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             flex-shrink: 0;
         }
         .eq-equals {
-            color: #ccc; font-size: clamp(11px, 3.5cqw, 18px);
+            color: #ccc; font-size: clamp(14px, 4.5cqw, 22px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            margin: 0 clamp(1px, 1cqw, 10px); flex-shrink: 0;
+            margin: 0 clamp(1px, 0.5cqw, 4px); flex-shrink: 0;
         }
         .tile {
             width: clamp(24px, 9cqw, 46px);
@@ -137,7 +147,7 @@
             background: #222; border: 1px solid #3a3a3a;
             border-radius: clamp(3px, 1cqw, 6px);
             display: flex; align-items: center; justify-content: center;
-            font-size: clamp(12px, 4.5cqw, 22px);
+            font-size: clamp(15px, 5.5cqw, 26px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700; color: #333;
         }
         #play-target {
@@ -158,13 +168,13 @@
         #play-total-wrap {
             display: flex; align-items: center;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(13px, 5cqw, 24px);
+            font-size: clamp(16px, 6cqw, 28px);
             flex-shrink: 0; color: #aaa;
             min-width: clamp(16px, 5cqw, 28px); text-align: center;
         }
         #setup-target-wrap {
             background: none; border: none;
-            font-size: clamp(13px, 5cqw, 24px); color: #aaa; flex-shrink: 0;
+            font-size: clamp(16px, 6cqw, 28px); color: #aaa; flex-shrink: 0;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             min-width: clamp(24px, 9cqw, 46px); text-align: center;
         }
@@ -174,7 +184,7 @@
         .tile.editable:focus-within { border-color: #4488ff; }
         .tile input {
             width: 100%; height: 100%; background: transparent; border: none; outline: none;
-            text-align: center; font-size: clamp(12px, 4.5cqw, 22px);
+            text-align: center; font-size: clamp(15px, 5.5cqw, 26px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             color: #aaa; padding: 0;
             touch-action: auto; user-select: text;
@@ -199,7 +209,7 @@
         }
         button {
             padding: 8px 22px; background: transparent; border-radius: 4px;
-            font-family: 'Share Tech Mono', monospace; font-size: 12px;
+            font-family: 'Share Tech Mono', monospace; font-size: 14px;
             cursor: pointer; letter-spacing: 0.08em;
             transition: color 0.15s, border-color 0.15s, background 0.15s;
             min-height: 44px;
@@ -208,7 +218,7 @@
             padding: 8px clamp(10px, 3cqw, 22px); background: transparent;
             border-radius: clamp(3px, 1cqw, 6px);
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(10px, 2.8cqw, 12px);
+            font-size: clamp(12px, 3.2cqw, 15px);
             cursor: pointer; letter-spacing: 0.08em;
             transition: color 0.15s, border-color 0.15s, background 0.15s;
             min-height: clamp(34px, 9cqw, 44px); white-space: nowrap;
@@ -247,11 +257,11 @@
         /* ── Toolbar ─────────────────────────────────────────────────────── */
         .canvas-toolbar {
             display: flex; align-items: center;
-            width: 100%;
-            margin-bottom: clamp(4px, 1.5vw, 8px);
+            width: 100%; position: relative;
+            margin-bottom: 0;
         }
         .toolbar-btn {
-            background: none; border: none !important; color: #666;
+            background: none; border: none !important;
             font-size: clamp(22px, 6vw, 28px);
             cursor: pointer; padding: 4px 6px; letter-spacing: 0;
             transition: color 0.15s; line-height: 1; font-weight: 900;
@@ -261,10 +271,22 @@
             display: flex; align-items: center; justify-content: center;
             vertical-align: middle;
         }
-        #rotateBtn { font-size: clamp(30px, 8.5vw, 39px); }
-        #hintBtn   { font-size: clamp(28px, 8vw, 36px); font-weight: 900; position: relative; top: -2px; right: 2px; }
-        #hintCount { position: relative; right: 4px; }
+        #rotateBtn { font-size: clamp(34px, 9.5vw, 44px); font-family: 'Rajdhani', sans-serif; font-weight: 900; }
+        #hintBtn   { font-size: clamp(36px, 10vw, 46px); font-weight: 900; font-family: 'Rajdhani', sans-serif; line-height: 1; }
+        #hintCount { font-size: clamp(11px, 3vw, 14px); position: relative; right: 4px; align-self: center; color: #888; }
+        #hintWrap  { align-items: center; }
+        .toolbar-btn { color: #888; }
         .toolbar-btn:hover { color: #ddd; }
+        #gameTimerRow {
+            display: none;
+        }
+        #gameTimer {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(14px, 4vw, 18px);
+            color: #777; letter-spacing: 0.12em;
+            pointer-events: none; user-select: none;
+            position: absolute; left: 50%; transform: translateX(-50%);
+        }
 
         @keyframes rotateCW {
             from { transform: rotate(0deg); }
@@ -301,15 +323,17 @@
         #infoClose:hover { color: #ccc; }
         #infoTitle {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(14px, 4.5vw, 18px); letter-spacing: 0.1em; color: #ccc;
+            font-size: clamp(18px, 5vw, 24px); letter-spacing: 0.08em; color: #fff;
             text-transform: uppercase; margin-bottom: 4px; text-align: center;
         }
         #infoContent p {
             font-family: 'Share Tech Mono', monospace;
             font-size: var(--fs-sm);
-            color: #888; line-height: 1.7; margin: 0;
+            font-weight: 700;
+            color: #bbb; line-height: 1.5; margin: 0 0 var(--gap-sm) 0;
         }
-        #infoContent em { color: #aaa; font-style: normal; }
+        #infoContent p:last-child { margin-bottom: 0; }
+        #infoContent em { color: #ddd; font-style: normal; }
         #infoPracticeIntro {
             color: #bbb !important;
             font-size: var(--fs-sm) !important;
@@ -324,7 +348,7 @@
             padding: clamp(20px, 5vw, 32px);
             text-align: center; width: 100%; max-width: 340px;
             display: flex; flex-direction: column; align-items: center;
-            gap: clamp(8px, 2vw, 12px);
+            gap: clamp(4px, 1vw, 8px);
         }
         #winClose {
             position: absolute; top: 10px; right: 10px;
@@ -340,22 +364,22 @@
             font-size: var(--fs-title); letter-spacing: 0.08em; color: #fff;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
         }
-        #winSub { font-size: var(--fs-sm); color: #777; font-family: 'Share Tech Mono', monospace; }
+        #winSub { font-size: var(--fs-md); color: #888; font-family: 'Share Tech Mono', monospace; }
         #winTime {
             font-family: 'Share Tech Mono', monospace; font-size: var(--fs-2xl);
-            color: #4488ff; letter-spacing: 0.1em; line-height: 1.4;
+            color: #4488ff; letter-spacing: 0.1em; line-height: 1.2;
         }
         #winTimelabel {
             font-size: var(--fs-xs); color: #555; letter-spacing: 0.2em;
             text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
         }
-        #winAndUsed { font-size: var(--fs-sm); color: #777; font-family: 'Share Tech Mono', monospace; }
+        #winAndUsed { font-size: var(--fs-md); color: #888; font-family: 'Share Tech Mono', monospace; }
         #winHintsRow {
             display: flex; align-items: baseline; gap: 8px;
         }
         #winHintsNumber {
             font-family: 'Share Tech Mono', monospace; font-size: var(--fs-2xl);
-            color: #4488ff; letter-spacing: 0.1em; line-height: 1.4;
+            color: #4488ff; letter-spacing: 0.1em; line-height: 1.2;
         }
         #winHintsLabel {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
@@ -420,7 +444,7 @@
         #hintCount {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: var(--hint-icon);
-            color: #555; letter-spacing: 0.05em; white-space: nowrap; line-height: 1;
+            color: #888; letter-spacing: 0.05em; white-space: nowrap; line-height: 1;
         }
         #hintBtn:disabled { opacity: 0.3; cursor: default; }
 
@@ -649,6 +673,7 @@
 <body>
 
     <div id="topBar">
+        <button id="infoBtn" title="How to play">ⓘ</button>
         <img src="nodle_logo.png" alt="NodLe" id="topLogo">
         <button id="menuBtn" title="Menu">☰</button>
     </div>
@@ -723,14 +748,12 @@
         <div id="puzzleDescription" style="display:none;"></div>
         <div class="board-wrap">
         <div class="canvas-toolbar">
-            <button class="toolbar-btn" id="infoBtn" title="How to play">ⓘ</button>
-            <div style="flex:1"></div>
             <div id="hintWrap" style="display:flex;align-items:center;gap:6px;">
                 <button class="toolbar-btn" id="hintBtn" title="Hint">?</button>
                 <span id="hintCount"></span>
             </div>
-            <div style="flex:1"></div>
-            <button class="toolbar-btn" id="rotateBtn" title="Rotate 90°">↻</button>
+            <span id="gameTimer">0:00</span>
+            <button class="toolbar-btn" id="rotateBtn" title="Rotate 90°" style="margin-left:auto;">↻</button>
         </div>
         <div id="canvasWrapper">
             <canvas id="playCanvas" width="460" height="460"></canvas>
@@ -760,7 +783,7 @@
             </div>
             <div class="btn-row">
                 <button class="secondary" id="playResetBtn">Clear</button>
-                <button class="secondary" id="submitBtn">Submit number</button>
+                <button class="primary" id="submitBtn">Submit number</button>
                 <button class="primary" id="showResultsBtn" style="display:none; width:100%;">Show results</button>
             </div>
         </div>
@@ -769,12 +792,12 @@
         <div id="infoOverlay">
             <div id="infoBox">
                 <button id="infoClose">✕</button>
-                <div id="infoTitle">How to play</div>
+                <div id="infoTitle">How to Play NOdLE</div>
                 <div id="infoContent">
-                    <p>Trace along the lines to draw numbers and complete the sum!</p>
-                    <p>You need to use all of the lines, and find the five numbers that add up correctly.</p>
-                    <p>Tap a number in the sum to place it back on the board if you think you've made a mistake.</p>
-                    <p>You can click the question mark to get a hint.</p>
+                    <p style="font-weight:400;">Trace along the lines to draw the five numbers that complete the sum!</p>
+                    <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
+                    <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
+                    <p style="font-weight:400;">Click the question mark to get a hint.</p>
                     <p id="infoPracticeIntro">To get used to what all of the numbers look like, try these practice puzzles:</p>
                 </div>
                 <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:4px; display:flex;">
@@ -859,7 +882,7 @@
         }
 
         // ─── Parallel offset ────────────────────────────────────────────────────
-        const PARALLEL_GAP = 10; // px between parallel lines
+        const PARALLEL_GAP = 8; // px between parallel lines
 
         // Normalised direction of an edge: always returns one of 8 canonical directions
         // encoded as [dr, dc] with dc >= 0, or dc==0 and dr > 0.
@@ -1063,7 +1086,7 @@
             nodes.forEach((n, i) => {
                 const isActive    = i === activeNode;
                 const isConnected = connected === null || connected.has(i);
-                const radius = isActive ? 11 : isConnected ? 9.5 : 3.5;
+                const radius = isActive ? 12 : isConnected ? 11.5 : 3.5;
                 const fill   = isActive ? '#ffffff' : isConnected ? '#cccccc' : '#555555';
                 ctx.beginPath();
                 ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
@@ -1390,6 +1413,8 @@
             puzzleSolved       = false;
             puzzleElapsed      = 0;
             puzzleSessionStart = null; // timer starts on first draw or hint
+            const setupTimerEl = document.getElementById('gameTimer');
+            if (setupTimerEl) setupTimerEl.textContent = '0:00';
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             const val = document.getElementById('setupTarget').textContent.trim();
@@ -1562,8 +1587,9 @@
         let puzzleSolved      = false;
 
         function startTimerIfNeeded() {
-            if (!puzzleSolved && puzzleSessionStart === null)
+            if (!puzzleSolved && puzzleSessionStart === null) {
                 puzzleSessionStart = performance.now();
+            }
         }
 
         function getElapsed() {
@@ -1591,6 +1617,17 @@
         });
         window.addEventListener('pagehide', () => { saveProgress(); });
 
+        // Live timer display — only updates text, never shows/hides (that's startTimerIfNeeded's job)
+        setInterval(() => {
+            const el = document.getElementById('gameTimer');
+            if (!el || puzzleSolved || puzzleSessionStart === null) return;
+            const ms = getElapsed();
+            const totalSec = Math.floor(ms / 1000);
+            const m = Math.floor(totalSec / 60);
+            const s = totalSec % 60;
+            el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        }, 500);
+
         function playStart(e) {
             if (puzzleSolved) return;
             const pos  = getPos(playCanvas, e);
@@ -1599,6 +1636,7 @@
             // Only capture the touch if it hits something interactive
             if (node === -1 && !edge) return;
             e.preventDefault();
+            startTimerIfNeeded();
             playDown       = true;
             playLastPos    = pos;
             playHasDragged = false;
@@ -1632,11 +1670,9 @@
                     redSibling.red = false;
                 } else {
                     playPending.red = !playPending.red;
-                    if (playPending.red) startTimerIfNeeded();
                 }
             } else {
                 resolveSegment();
-                startTimerIfNeeded();
             }
             playDown = false; playLastPos = null; playLastNode = -1; playOriginNode = -1;
             playHasDragged = false; playPending = null; playTouched = new Set();
@@ -2653,7 +2689,9 @@
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
             const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
-            document.getElementById('winTime').textContent = timeStr;
+            // Sync the live display to the exact same value
+            const timerEl = document.getElementById('gameTimer');
+            if (timerEl) timerEl.textContent = timeStr;
 
             // Restore all edges with their slot colour
             for (let slot = 0; slot < 5; slot++) {
@@ -2962,6 +3000,8 @@
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
             updateTiles();
             setSolvedButtonState(false);
+            const timerEl = document.getElementById('gameTimer');
+            if (timerEl) timerEl.textContent = '0:00';
             document.getElementById('play-target').textContent = puzzleData.target;
 
             // Show description (practice), formatted date (archive), or nothing (today)
