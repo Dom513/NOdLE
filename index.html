@@ -3436,8 +3436,13 @@
 
         // ── Archive ───────────────────────────────────────────────────────────────
 
+        let archiveLevel = 'months'; // 'months' or 'puzzles'
         document.getElementById('archiveBack').addEventListener('click', () => {
-            document.getElementById('archiveOverlay').classList.remove('visible');
+            if (archiveLevel === 'puzzles') {
+                showArchiveMonths();
+            } else {
+                document.getElementById('archiveOverlay').classList.remove('visible');
+            }
         });
 
         async function openArchive() {
@@ -3446,6 +3451,7 @@
         }
 
         async function showArchiveMonths() {
+            archiveLevel = 'months';
             const list = document.getElementById('archiveList');
             const titleEl = document.getElementById('archiveTitle');
             titleEl.textContent = 'Archive';
@@ -3487,6 +3493,7 @@
         }
 
         async function showArchiveMonth(folder, label) {
+            archiveLevel = 'puzzles';
             const list = document.getElementById('archiveList');
             const titleEl = document.getElementById('archiveTitle');
             titleEl.textContent = label;
@@ -3497,12 +3504,6 @@
                 allPuzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
             } catch(e) {
                 list.innerHTML = '';
-                const br = document.createElement('div');
-                br.className = 'archive-item';
-                br.style.color = '#555';
-                br.innerHTML = `<div class="archive-item-date">← Back</div>`;
-                br.addEventListener('click', showArchiveMonths);
-                list.appendChild(br);
                 const err = document.createElement('div');
                 err.id = 'archiveLoading';
                 err.textContent = `Could not load puzzles for ${label}.`;
@@ -3515,14 +3516,6 @@
             allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
 
             list.innerHTML = '';
-
-            // Back button row
-            const backRow = document.createElement('div');
-            backRow.className = 'archive-item';
-            backRow.style.color = '#555';
-            backRow.innerHTML = `<div class="archive-item-date">← Back</div>`;
-            backRow.addEventListener('click', showArchiveMonths);
-            list.appendChild(backRow);
 
             for (const puzzle of allPuzzles) {
                 const solved = getSolvedData(puzzle.date);
@@ -3564,9 +3557,14 @@
 
         // ── Practice puzzles ──────────────────────────────────────────────────────
 
+        let practiceLevel = 'root'; // 'root' or 'folder'
         document.getElementById('practiceBack').addEventListener('click', () => {
-            document.getElementById('practiceOverlay').classList.remove('visible');
-            document.getElementById('practiceTitle').textContent = 'Practice';
+            if (practiceLevel === 'folder') {
+                showPracticeRoot();
+            } else {
+                document.getElementById('practiceOverlay').classList.remove('visible');
+                document.getElementById('practiceTitle').textContent = 'Practice';
+            }
         });
 
         async function openPractice() {
@@ -3575,6 +3573,7 @@
         }
 
         async function showPracticeRoot() {
+            practiceLevel = 'root';
             const list = document.getElementById('practiceList');
             document.getElementById('practiceTitle').textContent = 'Practice';
             list.innerHTML = '<div id="archiveLoading">Loading practice puzzles...</div>';
@@ -3596,25 +3595,16 @@
         }
 
         async function showPracticeFolder(folderName, folderLabel) {
+            practiceLevel = 'folder';
             const list = document.getElementById('practiceList');
             document.getElementById('practiceTitle').textContent = folderLabel || folderName;
             list.innerHTML = '<div id="archiveLoading">Loading...</div>';
-
-            const backRow = () => {
-                const br = document.createElement('div');
-                br.className = 'practice-item';
-                br.style.color = '#555';
-                br.innerHTML = `<div class="practice-item-title">← Back</div>`;
-                br.addEventListener('click', showPracticeRoot);
-                return br;
-            };
 
             let items;
             try {
                 items = await fetchJson(`${PRACTICE_BASE}/${folderName}/index.json`);
             } catch(e) {
                 list.innerHTML = '';
-                list.appendChild(backRow());
                 const err = document.createElement('div');
                 err.id = 'archiveLoading';
                 err.textContent = `Could not load puzzles (${folderName}).`;
@@ -3626,14 +3616,6 @@
             const annotated = items.map((p, i) => ({ ...p, date: `practice-${folderName}-${i}` }));
 
             list.innerHTML = '';
-
-            // Back button
-            const folderBackRow = document.createElement('div');
-            folderBackRow.className = 'practice-item';
-            folderBackRow.style.color = '#555';
-            folderBackRow.innerHTML = `<div class="practice-item-title">← Back</div>`;
-            folderBackRow.addEventListener('click', showPracticeRoot);
-            list.appendChild(folderBackRow);
 
             annotated.forEach((puzzle, idx) => {
                 const solved = getSolvedData(puzzle.date);
