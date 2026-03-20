@@ -3215,6 +3215,12 @@
             puzzleElapsed     = progress.elapsedMs         || 0;
             puzzleSessionStart = performance.now();
 
+            // Show restored elapsed time on the display timer
+            const restoredSec = Math.floor(puzzleElapsed / 1000);
+            const rm = Math.floor(restoredSec / 60), rs = restoredSec % 60;
+            const timerEl = document.getElementById('gameTimer');
+            if (timerEl) timerEl.textContent = `${rm}:${String(rs).padStart(2,'0')}`;
+
             if (progress.remainingEdges) {
                 edgeList = progress.remainingEdges.map(re => {
                     const snap = playSnapshot.find(e => e.id === re.id);
@@ -3252,6 +3258,15 @@
 
             updateTiles();
             playDraw();
+
+            // For today's puzzle, show the solve time on the in-game timer
+            const isPracticeOrArchive = currentPuzzleDate && (currentPuzzleDate !== todayStr());
+            if (!isPracticeOrArchive && solved.timeMs) {
+                const totalSec = Math.floor(solved.timeMs / 1000);
+                const m = Math.floor(totalSec / 60), s = totalSec % 60;
+                const timerEl = document.getElementById('gameTimer');
+                if (timerEl) timerEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
+            }
         }
 
         document.getElementById('winShareBtn').addEventListener('click', async () => {
