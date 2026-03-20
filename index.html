@@ -363,6 +363,7 @@
         #winTitle {
             font-size: var(--fs-title); letter-spacing: 0.08em; color: #fff;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            margin-bottom: clamp(6px, 1.5vw, 12px);
         }
         #winSub { font-size: var(--fs-md); color: #888; font-family: 'Share Tech Mono', monospace; }
         #winTime {
@@ -824,8 +825,8 @@
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
                     <div style="display:flex; gap:8px;">
-                        <button class="secondary" id="winPrev" style="flex:1;">← Previous</button>
-                        <button class="secondary" id="winNext" style="flex:1;">Next →</button>
+                        <button class="secondary" id="winPrev" style="flex:1; padding-left:6px; padding-right:6px;">← Previous</button>
+                        <button class="secondary" id="winNext" style="flex:1; padding-left:6px; padding-right:6px;">Next →</button>
                     </div>
                 </div>
             </div>
@@ -1418,7 +1419,7 @@
             updateTiles();
             const val = document.getElementById('setupTarget').textContent.trim();
             document.getElementById('play-target').textContent = val === '?' ? '' : val;
-            document.getElementById('infoOverlay').classList.remove('visible');
+            closeOverlay('infoOverlay');
             showScreen('screenPlay');
             playDraw();
         });
@@ -1608,6 +1609,15 @@
             // Only resume if timer was previously running (don't start it on visibility change)
             if (!puzzleSolved && puzzleElapsed > 0 && puzzleSessionStart === null)
                 puzzleSessionStart = performance.now();
+        }
+
+        function openOverlay(id) {
+            pauseTimer();
+            document.getElementById(id).classList.add('visible');
+        }
+        function closeOverlay(id) {
+            document.getElementById(id).classList.remove('visible');
+            resumeTimer();
         }
 
         document.addEventListener('visibilitychange', () => {
@@ -2720,15 +2730,15 @@
         }
 
         document.getElementById('winClose').addEventListener('click', () => {
-            document.getElementById('winOverlay').classList.remove('visible');
+            closeOverlay('winOverlay');
         });
 
         // ── Info popup ───────────────────────────────────────────────────────────
         function closeInfo() {
-            document.getElementById('infoOverlay').classList.remove('visible');
+            closeOverlay('infoOverlay');
         }
         document.getElementById('infoBtn').addEventListener('click', () => {
-            document.getElementById('infoOverlay').classList.add('visible');
+            openOverlay('infoOverlay');
         });
         document.getElementById('infoClose').addEventListener('click', closeInfo);
         document.getElementById('infoOverlay').addEventListener('click', (e) => {
@@ -3208,7 +3218,7 @@
                 puzzleBtns.style.display = 'none';
             }
 
-            document.getElementById('winOverlay').classList.add('visible');
+            openOverlay('winOverlay');
         }
 
         // Restore the full colored solved board state from saved data, then show win overlay
@@ -3315,12 +3325,12 @@
         });
 
         document.getElementById('winPlayToday').addEventListener('click', async () => {
-            document.getElementById('winOverlay').classList.remove('visible');
+            closeOverlay('winOverlay');
             await initDailyPuzzle();
         });
 
         document.getElementById('winPlayAgain').addEventListener('click', () => {
-            document.getElementById('winOverlay').classList.remove('visible');
+            closeOverlay('winOverlay');
             if (currentPuzzleList && currentPuzzleIndex >= 0) {
                 const puzzle = currentPuzzleList[currentPuzzleIndex];
                 loadPuzzle(puzzle);
@@ -3332,7 +3342,7 @@
             const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
             const nextIdx = isPrac ? currentPuzzleIndex - 1 : currentPuzzleIndex + 1;
             if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
-            document.getElementById('winOverlay').classList.remove('visible');
+            closeOverlay('winOverlay');
             currentPuzzleIndex = nextIdx;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
@@ -3345,7 +3355,7 @@
             const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
             const nextIdx = isPrac ? currentPuzzleIndex + 1 : currentPuzzleIndex - 1;
             if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
-            document.getElementById('winOverlay').classList.remove('visible');
+            closeOverlay('winOverlay');
             currentPuzzleIndex = nextIdx;
             const puzzle = currentPuzzleList[currentPuzzleIndex];
             const solved = getSolvedData(puzzle.date);
@@ -3373,7 +3383,7 @@
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
                 if (isFirstVisit()) {
-                    document.getElementById('infoOverlay').classList.add('visible');
+                    openOverlay('infoOverlay');
                     markVisited();
                 }
                 if (!solved) {
@@ -3441,12 +3451,12 @@
             if (archiveLevel === 'puzzles') {
                 showArchiveMonths();
             } else {
-                document.getElementById('archiveOverlay').classList.remove('visible');
+                closeOverlay('archiveOverlay');
             }
         });
 
         async function openArchive() {
-            document.getElementById('archiveOverlay').classList.add('visible');
+            openOverlay('archiveOverlay');
             showArchiveMonths();
         }
 
@@ -3536,8 +3546,8 @@
                 item.appendChild(badge);
 
                 item.addEventListener('click', () => {
-                    document.getElementById('archiveOverlay').classList.remove('visible');
-                    document.getElementById('winOverlay').classList.remove('visible');
+                    closeOverlay('archiveOverlay');
+                    closeOverlay('winOverlay');
                     currentPuzzleList  = allPuzzles;
                     currentPuzzleIndex = allPuzzles.indexOf(puzzle);
                     loadPuzzle(puzzle);
@@ -3562,13 +3572,13 @@
             if (practiceLevel === 'folder') {
                 showPracticeRoot();
             } else {
-                document.getElementById('practiceOverlay').classList.remove('visible');
+                closeOverlay('practiceOverlay');
                 document.getElementById('practiceTitle').textContent = 'Practice';
             }
         });
 
         async function openPractice() {
-            document.getElementById('practiceOverlay').classList.add('visible');
+            openOverlay('practiceOverlay');
             showPracticeRoot();
         }
 
@@ -3607,7 +3617,7 @@
                 list.innerHTML = '';
                 const err = document.createElement('div');
                 err.id = 'archiveLoading';
-                err.textContent = `Could not load puzzles (${folderName}).`;
+                err.textContent = `Could not load puzzles (${folderName}): ${e.message}`;
                 list.appendChild(err);
                 return;
             }
@@ -3635,8 +3645,8 @@
                 row.appendChild(badge);
 
                 row.addEventListener('click', () => {
-                    document.getElementById('practiceOverlay').classList.remove('visible');
-                    document.getElementById('winOverlay').classList.remove('visible');
+                    closeOverlay('practiceOverlay');
+                    closeOverlay('winOverlay');
                     currentPuzzleList  = annotated;
                     currentPuzzleIndex = idx;
                     loadPuzzle(puzzle);
@@ -3691,8 +3701,8 @@
                     row.appendChild(badge);
 
                     row.addEventListener('click', () => {
-                        document.getElementById('practiceOverlay').classList.remove('visible');
-                        document.getElementById('winOverlay').classList.remove('visible');
+                        closeOverlay('practiceOverlay');
+                        closeOverlay('winOverlay');
                         currentPuzzleList  = annotated;
                         currentPuzzleIndex = pIdx;
                         loadPuzzle(puzzle);
@@ -3712,7 +3722,7 @@
         // ── Info overlay welcome buttons ──────────────────────────────────────────
 
         document.getElementById('infoPracticeBtn').addEventListener('click', () => {
-            document.getElementById('infoOverlay').classList.remove('visible');
+            closeOverlay('infoOverlay');
             openPractice();
         });
 
