@@ -798,11 +798,10 @@
                     <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
                     <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
                     <p style="font-weight:400;">Click the question mark to get a hint.</p>
-                    <p id="infoPracticeIntro">To get used to what all of the numbers look like, try these practice puzzles:</p>
+                    <p id="infoPracticeIntro">Before you get started, try some of these tutorial puzzles to get used to what all of the numbers look like:</p>
                 </div>
                 <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:4px; display:flex;">
                     <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
-                    <button class="secondary" id="infoPlayTodayBtn">Play today's puzzle</button>
                 </div>
             </div>
         </div>
@@ -2968,7 +2967,15 @@
 
         // Set this to the base URL of your puzzles folder on GitHub Pages
         // e.g. 'https://yourusername.github.io/your-repo/puzzles'
-        const PUZZLE_BASE_URL = 'puzzles';
+        const PUZZLE_BASE_URL   = 'puzzles';
+        const DAILY_BASE        = `${PUZZLE_BASE_URL}/daily_puzzles`;
+        const PRACTICE_BASE     = `${PUZZLE_BASE_URL}/practice_puzzles`;
+
+        async function fetchJson(url) {
+            const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        }
 
         function todayStr() {
             const d = new Date();
@@ -3259,9 +3266,8 @@
             updateTiles();
             playDraw();
 
-            // For today's puzzle, show the solve time on the in-game timer
-            const isPracticeOrArchive = currentPuzzleDate && (currentPuzzleDate !== todayStr());
-            if (!isPracticeOrArchive && solved.timeMs) {
+            // Show the solve time on the in-game timer for any completed puzzle
+            if (solved.timeMs) {
                 const totalSec = Math.floor(solved.timeMs / 1000);
                 const m = Math.floor(totalSec / 60), s = totalSec % 60;
                 const timerEl = document.getElementById('gameTimer');
@@ -3355,18 +3361,15 @@
             const solved  = getSolvedData(dateStr);
 
             try {
-                const url = `${PUZZLE_BASE_URL}/puzzles.json?v=${Date.now()}`;
-                const resp = await fetch(url, { cache: 'no-store' });
+                // Derive month file from today's date e.g. 2026_03_puzzles.json
+                const [dy, dm] = dateStr.split('-');
+                const monthFile = `${dy}_${dm}_puzzles.json`;
+                const url = `${DAILY_BASE}/${monthFile}`;
+                const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
                 const puzzle = allPuzzles.find(p => p.date === dateStr);
                 loadPuzzle(puzzle);
-
-                // const url = `${PUZZLE_BASE_URL}/${dateStr}.json`;
-                // const resp = await fetch(url);
-                // if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                // const puzzle = await resp.json();
-                // loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
                 if (isFirstVisit()) {
@@ -3439,30 +3442,80 @@
 
         async function openArchive() {
             document.getElementById('archiveOverlay').classList.add('visible');
-            const list = document.getElementById('archiveList');
-            list.innerHTML = '<div id="archiveLoading">Loading puzzles...</div>';
+            showArchiveMonths();
+        }
 
-            let allPuzzles;
+        async function showArchiveMonths() {
+            const list = document.getElementById('archiveList');
+            const titleEl = document.getElementById('archiveTitle');
+            titleEl.textContent = 'Archive';
+            list.innerHTML = '<div id="archiveLoading">Loading...</div>';
+
+            let months;
             try {
-                const resp = await fetch(`${PUZZLE_BASE_URL}/puzzles.json?v=${Date.now()}`, { cache: 'no-store' });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                allPuzzles = await resp.json();
-            } catch (e) {
+                months = await fetchJson(`${DAILY_BASE}/index.json`);
+            } catch(e) {
                 list.innerHTML = '<div id="archiveLoading">Could not load archive.</div>';
                 return;
             }
 
-            const today = todayStr();
+            // Sort newest first (folder names are YYYY_MM)
+            months = [...months].sort((a, b) => b.localeCompare(a));
 
-            // Exclude today and future puzzles, sort newest first
+            list.innerHTML = '';
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            for (const folder of months) {
+                const [y, m] = folder.split('_');
+                const label = `${monthNames[parseInt(m)-1]} ${y}`;
+
+                const item = document.createElement('div');
+                item.className = 'archive-item';
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'archive-item-date';
+                nameEl.textContent = label;
+
+                const arrow = document.createElement('div');
+                arrow.className = 'archive-item-badge unsolved';
+                arrow.textContent = '→';
+
+                item.appendChild(nameEl);
+                item.appendChild(arrow);
+                item.addEventListener('click', () => showArchiveMonth(folder, label));
+                list.appendChild(item);
+            }
+        }
+
+        async function showArchiveMonth(folder, label) {
+            const list = document.getElementById('archiveList');
+            const titleEl = document.getElementById('archiveTitle');
+            titleEl.textContent = label;
+            list.innerHTML = '<div id="archiveLoading">Loading...</div>';
+
+            let allPuzzles;
+            try {
+                allPuzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
+            } catch(e) {
+                list.innerHTML = '<div id="archiveLoading">Could not load puzzles.</div>';
+                return;
+            }
+
+            const today = todayStr();
             allPuzzles = allPuzzles.filter(p => p.date < today);
             allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
 
             list.innerHTML = '';
 
-            for (const puzzle of allPuzzles) {
-                const solved  = getSolvedData(puzzle.date);
+            // Back button row
+            const backRow = document.createElement('div');
+            backRow.className = 'archive-item';
+            backRow.style.color = '#555';
+            backRow.innerHTML = `<div class="archive-item-date">← Back</div>`;
+            backRow.addEventListener('click', showArchiveMonths);
+            list.appendChild(backRow);
 
+            for (const puzzle of allPuzzles) {
+                const solved = getSolvedData(puzzle.date);
                 const item = document.createElement('div');
                 item.className = 'archive-item';
 
@@ -3488,41 +3541,77 @@
                     if (solved) restoreSolvedBoard(puzzle, solved);
                 });
 
+                // Build description arrows
+                const descEl = document.getElementById('puzzleDescription');
+                if (descEl) {
+                    item._archiveMonth = folder;
+                    item._archivePuzzleList = allPuzzles;
+                }
+
                 list.appendChild(item);
             }
         }
 
         // ── Practice puzzles ──────────────────────────────────────────────────────
 
-        const PRACTICE_URL = `${PUZZLE_BASE_URL}/practice_puzzles.json`;
-
         document.getElementById('practiceBack').addEventListener('click', () => {
             document.getElementById('practiceOverlay').classList.remove('visible');
+            document.getElementById('practiceTitle').textContent = 'Practice';
         });
 
         async function openPractice() {
             document.getElementById('practiceOverlay').classList.add('visible');
+            showPracticeRoot();
+        }
+
+        async function showPracticeRoot() {
             const list = document.getElementById('practiceList');
+            document.getElementById('practiceTitle').textContent = 'Practice';
             list.innerHTML = '<div id="archiveLoading">Loading practice puzzles...</div>';
 
-            let puzzles;
+            let items;
             try {
-                const resp = await fetch(`${PRACTICE_URL}?v=${Date.now()}`, { cache: 'no-store' });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                puzzles = await resp.json();
+                items = await fetchJson(`${PRACTICE_BASE}/index.json`);
             } catch(e) {
                 list.innerHTML = '<div id="archiveLoading">Could not load practice puzzles.</div>';
                 return;
             }
 
             list.innerHTML = '';
-            // Build the annotated list once so prev/next can reference it
-            const annotatedPuzzles = puzzles.map((p, i) => ({ ...p, date: `practice-${i}` }));
-            annotatedPuzzles.forEach((puzzle, idx) => {
+            renderPracticeItems(list, items, null);
+        }
+
+        async function showPracticeFolder(folderName, folderLabel) {
+            const list = document.getElementById('practiceList');
+            document.getElementById('practiceTitle').textContent = folderLabel || folderName;
+            list.innerHTML = '<div id="archiveLoading">Loading...</div>';
+
+            let items;
+            try {
+                items = await fetchJson(`${PRACTICE_BASE}/${folderName}/index.json`);
+            } catch(e) {
+                list.innerHTML = '<div id="archiveLoading">Could not load puzzles.</div>';
+                return;
+            }
+
+            // Subfolder puzzles are plain objects — annotate with folder-scoped keys
+            const annotated = items.map((p, i) => ({ ...p, date: `practice-${folderName}-${i}` }));
+
+            list.innerHTML = '';
+
+            // Back button
+            const backRow = document.createElement('div');
+            backRow.className = 'practice-item';
+            backRow.style.color = '#555';
+            backRow.innerHTML = `<div class="practice-item-title">← Back</div>`;
+            backRow.addEventListener('click', showPracticeRoot);
+            list.appendChild(backRow);
+
+            annotated.forEach((puzzle, idx) => {
                 const solved = getSolvedData(puzzle.date);
 
-                const item = document.createElement('div');
-                item.className = 'practice-item';
+                const row = document.createElement('div');
+                row.className = 'practice-item';
 
                 const titleEl = document.createElement('div');
                 titleEl.className = 'practice-item-title';
@@ -3532,19 +3621,76 @@
                 badge.className = 'practice-item-badge ' + (solved ? 'solved' : 'unsolved');
                 badge.textContent = solved ? '✓ solved' : 'play →';
 
-                item.appendChild(titleEl);
-                item.appendChild(badge);
+                row.appendChild(titleEl);
+                row.appendChild(badge);
 
-                item.addEventListener('click', () => {
+                row.addEventListener('click', () => {
                     document.getElementById('practiceOverlay').classList.remove('visible');
                     document.getElementById('winOverlay').classList.remove('visible');
-                    currentPuzzleList  = annotatedPuzzles;
+                    currentPuzzleList  = annotated;
                     currentPuzzleIndex = idx;
                     loadPuzzle(puzzle);
                     if (solved) restoreSolvedBoard(puzzle, solved);
                 });
 
-                list.appendChild(item);
+                list.appendChild(row);
+            });
+        }
+
+        function renderPracticeItems(list, items, parentFolder) {
+            // Root index.json has items with type: 'puzzle' or type: 'folder'
+            // Build flat puzzle list for prev/next
+            const puzzleItems = items.filter(it => it.type !== 'folder');
+            const annotated = puzzleItems.map((p, i) => ({ ...p, date: `practice-root-${i}` }));
+
+            items.forEach(item => {
+                if (item.type === 'folder') {
+                    const row = document.createElement('div');
+                    row.className = 'practice-item';
+
+                    const nameEl = document.createElement('div');
+                    nameEl.className = 'practice-item-title';
+                    nameEl.textContent = item.label || item.name;
+
+                    const arrow = document.createElement('div');
+                    arrow.className = 'practice-item-badge unsolved';
+                    arrow.textContent = '→';
+
+                    row.appendChild(nameEl);
+                    row.appendChild(arrow);
+                    row.addEventListener('click', () => showPracticeFolder(item.name, item.label));
+                    list.appendChild(row);
+                } else {
+                    const pIdx = annotated.findIndex(a => a.date === `practice-root-${puzzleItems.indexOf(item)}`);
+                    const puzzle = annotated[pIdx];
+                    if (!puzzle) return;
+                    const solved = getSolvedData(puzzle.date);
+
+                    const row = document.createElement('div');
+                    row.className = 'practice-item';
+
+                    const titleEl = document.createElement('div');
+                    titleEl.className = 'practice-item-title';
+                    titleEl.textContent = puzzle.title || `Puzzle ${pIdx + 1}`;
+
+                    const badge = document.createElement('div');
+                    badge.className = 'practice-item-badge ' + (solved ? 'solved' : 'unsolved');
+                    badge.textContent = solved ? '✓ solved' : 'play →';
+
+                    row.appendChild(titleEl);
+                    row.appendChild(badge);
+
+                    row.addEventListener('click', () => {
+                        document.getElementById('practiceOverlay').classList.remove('visible');
+                        document.getElementById('winOverlay').classList.remove('visible');
+                        currentPuzzleList  = annotated;
+                        currentPuzzleIndex = pIdx;
+                        loadPuzzle(puzzle);
+                        if (solved) restoreSolvedBoard(puzzle, solved);
+                    });
+
+                    list.appendChild(row);
+                }
             });
         }
 
@@ -3560,10 +3706,6 @@
             openPractice();
         });
 
-        document.getElementById('infoPlayTodayBtn').addEventListener('click', () => {
-            document.getElementById('infoOverlay').classList.remove('visible');
-            localStorage.setItem('nodle_visited', '1');
-        });
 
         // ── First-visit detection ─────────────────────────────────────────────────
 
