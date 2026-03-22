@@ -3387,6 +3387,9 @@
             puzzleSolved = true;
             setSolvedButtonState(true);
 
+            // Restore hints remaining so the x/5 display is correct
+            if (solved.hintsUsed != null) hintsRemaining = 5 - solved.hintsUsed;
+
             const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
                 ? solved.tileValues
                 : (puzzle && puzzle.solution ? [...puzzle.solution] : null);
