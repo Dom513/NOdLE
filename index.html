@@ -286,6 +286,7 @@
             color: #777; letter-spacing: 0.12em;
             pointer-events: none; user-select: none;
             position: absolute; left: 50%; transform: translateX(-50%);
+            bottom: 12px;
         }
 
         @keyframes rotateCW {
@@ -536,6 +537,57 @@
             font-size: 12px; color: #555;
             text-align: center; padding: 40px 20px;
         }
+        /* ── Stats overlay ───────────────────────────────────────────────── */
+        #statsOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 200; flex-direction: column; align-items: center;
+        }
+        #statsOverlay.visible { display: flex; }
+        #statsBox {
+            width: 100%; max-width: 500px; height: 100%;
+            display: flex; flex-direction: column; background: #1a1a1a;
+        }
+        #statsHeader {
+            display: flex; align-items: center; gap: 12px;
+            padding: clamp(12px, 3vw, 20px) 16px;
+            border-bottom: 1px solid #333; flex-shrink: 0;
+        }
+        #statsBack {
+            background: none; border: none; color: #666;
+            font-size: 20px; cursor: pointer;
+            padding: 4px 8px; transition: color 0.15s;
+            min-height: unset; line-height: 1;
+        }
+        #statsBack:hover { color: #ccc; }
+        #statsTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
+            color: #ccc; text-transform: uppercase;
+        }
+        #statsContent {
+            padding: clamp(20px, 5vw, 32px) 24px;
+            display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
+        }
+        .stat-row {
+            display: flex; flex-direction: column; gap: 4px;
+            border-bottom: 1px solid #222; padding-bottom: 16px;
+        }
+        .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .stat-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-sm); color: #555; letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .stat-value {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: var(--fs-2xl); color: #4488ff; letter-spacing: 0.05em;
+        }
+        .stat-sub {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-xs); color: #444;
+        }
+
         /* ── Practice overlay ────────────────────────────────────────────── */
         #practiceOverlay {
             display: none; position: fixed; inset: 0;
@@ -683,6 +735,7 @@
     <div id="menuOverlay">
         <div id="menuBox">
             <button class="menu-item-btn" id="menuToday">Today's puzzle</button>
+            <button class="menu-item-btn" id="menuStats">Stats</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
             <button class="menu-item-btn" id="menuPractice">Practice</button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
@@ -697,6 +750,17 @@
                 <div id="archiveTitle">Archive</div>
             </div>
             <div id="archiveList"></div>
+        </div>
+    </div>
+
+    <!-- ── Stats overlay ────────────────────────────────────────────────────── -->
+    <div id="statsOverlay">
+        <div id="statsBox">
+            <div id="statsHeader">
+                <button id="statsBack">←</button>
+                <div id="statsTitle">Stats</div>
+            </div>
+            <div id="statsContent"></div>
         </div>
     </div>
 
@@ -1765,6 +1829,7 @@
                     bestPatternSlot() !== -1;
                 const canHint = canNumber || canPattern;
                 hintBtn.disabled = !canHint;
+                if (puzzleSolved) hintBtn.disabled = false;
                 hintCount.textContent = `${hintsRemaining}/5`;
             }
             // Update running total
@@ -2052,11 +2117,64 @@
             const dedAllDiag     = deduped.every(d => isDiagonal(unitDir(nodes[d.a].r, nodes[d.a].c, nodes[d.b].r, nodes[d.b].c)));
 
             // ── 8: hourglass ─────────────────────────────────────────────────────
+            // One degree-4 centre, all other nodes degree 1 or 2.
+            // Every deduped edge must connect to the centre (no cross edges between tips).
+            // The four direct neighbours of centre form two antiparallel pairs.
             {
                 const dedD4 = dedNodesTopo.filter(n => dedDeg(n) === 4);
-                if (dedD4.length === 1 && dedD1.length === 0 &&
-                    dedD2.length === dedNodesTopo.length - 1) {
-                    return { num: 8, ids: deduped.flatMap(d => d.ids) };
+                if (dedD4.length === 1) {
+                    const centre = dedD4[0];
+                    const centreArms = [...(dedAdjTopo.get(centre) || new Set())];
+                    if (centreArms.length === 4 &&
+                        dedNodesTopo.every(n => dedDeg(n) === 1 || dedDeg(n) === 2 || dedDeg(n) === 4)) {
+                        const dists = centreArms.map(a =>
+                            Math.hypot(nodes[a].r - nodes[centre].r, nodes[a].c - nodes[centre].c)
+                        );
+                        const allEqual = dists.every(d => Math.abs(d - dists[0]) < 0.01);
+                        if (allEqual) {
+                            const dirs = centreArms.map(tip =>
+                                unitDir(nodes[centre].r, nodes[centre].c, nodes[tip].r, nodes[tip].c)
+                            );
+                            let antiParallelPairs = 0;
+                            const used = new Array(4).fill(false);
+                            for (let i = 0; i < 4; i++) {
+                                if (used[i]) continue;
+                                for (let j = i + 1; j < 4; j++) {
+                                    if (used[j]) continue;
+                                    if (dirs[i][0] + dirs[j][0] === 0 && dirs[i][1] + dirs[j][1] === 0) {
+                                        antiParallelPairs++;
+                                        used[i] = used[j] = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (antiParallelPairs === 2) {
+                                return { num: 8, ids: deduped.flatMap(d => d.ids) };
+                            }
+                        }
+                    }
+                }
+            }
+            // ── 8 Case B: drawn as 2 strokes passing through a shared intermediate node
+            if (strokes.length === 2) {
+                const [sA, sB] = strokes;
+                const midsA = intermediateNodes(sA.startNode, sA.endNode);
+                const midsB = intermediateNodes(sB.startNode, sB.endNode);
+                const crossings = midsA.filter(n => midsB.includes(n));
+                if (crossings.length === 1) {
+                    const cx = crossings[0];
+                    const dA = unitDir(nodes[sA.startNode].r, nodes[sA.startNode].c, nodes[sA.endNode].r, nodes[sA.endNode].c);
+                    const dB = unitDir(nodes[sB.startNode].r, nodes[sB.startNode].c, nodes[sB.endNode].r, nodes[sB.endNode].c);
+                    const dot = dA[0]*dB[0] + dA[1]*dB[1];
+                    if (Math.abs(dot) !== 1) {
+                        const lenAa = Math.hypot(nodes[cx].r - nodes[sA.startNode].r, nodes[cx].c - nodes[sA.startNode].c);
+                        const lenAb = Math.hypot(nodes[sA.endNode].r - nodes[cx].r, nodes[sA.endNode].c - nodes[cx].c);
+                        const lenBa = Math.hypot(nodes[cx].r - nodes[sB.startNode].r, nodes[cx].c - nodes[sB.startNode].c);
+                        const lenBb = Math.hypot(nodes[sB.endNode].r - nodes[cx].r, nodes[sB.endNode].c - nodes[cx].c);
+                        if (Math.abs(lenAa - lenAb) < 0.01 && Math.abs(lenBa - lenBb) < 0.01) {
+                            return { num: 8, ids: allStrokeIds() };
+                        }
+                    }
                 }
             }
 
@@ -2574,29 +2692,44 @@
                 tileHinted[i]  = restoreHint ? num : null;
                 // tileWasHinted[i] stays true — slot remains "was hinted"
 
-                // Compact only truly-empty slots (no value, no hint).
-                // Hinted slots stay pinned — filled values queue up and fill
-                // the first available non-hinted, non-filled slot from the left.
+                // Compact: gather all filled or hinted slots (value+metadata) left-to-right,
+                // then re-fill all slots left-to-right preserving hint state.
                 const queue = [];
                 for (let j = 0; j < 5; j++) {
-                    if (tileValues[j] !== null) queue.push({ val: tileValues[j], ids: tileEdgeIds[j], wasHinted: tileWasHinted[j] });
-                }
-                // Clear all filled slots first, leaving hinted-only slots intact
-                for (let j = 0; j < 5; j++) {
                     if (tileValues[j] !== null) {
-                        tileValues[j]    = null;
-                        tileEdgeIds[j]   = null;
-                        tileWasHinted[j] = false;
+                        queue.push({
+                            val:           tileValues[j],
+                            ids:           tileEdgeIds[j],
+                            hinted:        tileHinted[j],
+                            wasHinted:     tileWasHinted[j],
+                            patternHinted: tilePatternHinted[j]
+                        });
+                    } else if (tileHinted[j] !== null) {
+                        queue.push({
+                            val:           null,
+                            ids:           null,
+                            hinted:        tileHinted[j],
+                            wasHinted:     true,
+                            patternHinted: false
+                        });
                     }
                 }
-                // Re-fill into slots that have no hint
+                // Clear all slots
+                for (let j = 0; j < 5; j++) {
+                    tileValues[j]        = null;
+                    tileEdgeIds[j]       = null;
+                    tileHinted[j]        = null;
+                    tileWasHinted[j]     = false;
+                    tilePatternHinted[j] = false;
+                }
+                // Re-fill left-to-right with all queued entries
                 for (let j = 0; j < 5 && queue.length; j++) {
-                    if (tileHinted[j] === null) {
-                        const entry = queue.shift();
-                        tileValues[j]    = entry.val;
-                        tileEdgeIds[j]   = entry.ids;
-                        tileWasHinted[j] = entry.wasHinted;
-                    }
+                    const entry = queue.shift();
+                    tileValues[j]        = entry.val;
+                    tileEdgeIds[j]       = entry.ids;
+                    tileHinted[j]        = entry.hinted;
+                    tileWasHinted[j]     = entry.wasHinted;
+                    tilePatternHinted[j] = entry.patternHinted;
                 }
 
                 updateTiles();
@@ -3289,7 +3422,7 @@
             const btn     = document.getElementById('winShareBtn');
             const timeStr = btn.dataset.time;
             const hints   = btn.dataset.hints;
-            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: nodle.fyi`;
+            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: www.nodle.fyi`;
 
             // Use native share sheet if available (works on mobile)
             if (navigator.share) {
@@ -3434,9 +3567,14 @@
             await initDailyPuzzle();
         });
 
+        document.getElementById('menuStats').addEventListener('click', () => {
+            closeMenu();
+            openStats();
+        });
+
         document.getElementById('menuDonate').addEventListener('click', () => {
             closeMenu();
-            window.open('https://ko-fi.com', '_blank'); // replace with real donate URL
+            window.open('https://ko-fi.com/nodlefyi', '_blank'); // replace with real donate URL
         });
 
         document.getElementById('menuArchive').addEventListener('click', () => {
@@ -3447,6 +3585,86 @@
         // ── Archive ───────────────────────────────────────────────────────────────
 
         let archiveLevel = 'months'; // 'months' or 'puzzles'
+        // ── Stats ─────────────────────────────────────────────────────────────────
+
+        document.getElementById('statsBack').addEventListener('click', () => {
+            closeOverlay('statsOverlay');
+        });
+
+        function openStats() {
+            openOverlay('statsOverlay');
+            const content = document.getElementById('statsContent');
+            content.innerHTML = '';
+
+            // Gather all solved daily puzzle dates from localStorage
+            const allSolved = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key.startsWith('gridlines_solved_')) continue;
+                const dateStr = key.replace('gridlines_solved_', '');
+                // Only count real dates (not practice- keys)
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    if (data) allSolved.push({ date: dateStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0 });
+                } catch(e) {}
+            }
+            allSolved.sort((a, b) => a.date.localeCompare(b.date));
+
+            const played = allSolved.length;
+            const avgMs = played ? allSolved.reduce((s, d) => s + d.timeMs, 0) / played : 0;
+            const avgHints = played ? allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played : 0;
+
+            // Streak calculation — consecutive days up to today
+            const today = todayStr();
+            let currentStreak = 0, longestStreak = 0, streak = 0;
+            const dateSet = new Set(allSolved.map(d => d.date));
+
+            // Walk all solved dates forward to find streaks
+            for (let k = 0; k < allSolved.length; k++) {
+                if (k === 0) {
+                    streak = 1;
+                } else {
+                    const prev = new Date(allSolved[k-1].date);
+                    const curr = new Date(allSolved[k].date);
+                    const diff = (curr - prev) / 86400000;
+                    streak = diff === 1 ? streak + 1 : 1;
+                }
+                longestStreak = Math.max(longestStreak, streak);
+            }
+            // Current streak: count backwards from today
+            let d = new Date(today);
+            currentStreak = 0;
+            while (true) {
+                const ds = d.toISOString().split('T')[0];
+                if (!dateSet.has(ds)) break;
+                currentStreak++;
+                d.setDate(d.getDate() - 1);
+            }
+
+            const fmtTime = ms => {
+                const s = Math.floor(ms / 1000);
+                return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+            };
+
+            const stats = [
+                { label: 'Puzzles Solved', value: played, sub: 'daily puzzles only' },
+                { label: 'Average Time', value: played ? fmtTime(avgMs) : '—', sub: 'per puzzle' },
+                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle' },
+                { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'day' : 'days in a row' },
+                { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'day' : 'days in a row' },
+            ];
+
+            for (const s of stats) {
+                const row = document.createElement('div');
+                row.className = 'stat-row';
+                row.innerHTML = `<div class="stat-label">${s.label}</div>
+                    <div class="stat-value">${s.value}</div>
+                    <div class="stat-sub">${s.sub}</div>`;
+                content.appendChild(row);
+            }
+        }
+
         document.getElementById('archiveBack').addEventListener('click', () => {
             if (archiveLevel === 'puzzles') {
                 showArchiveMonths();
