@@ -2909,14 +2909,18 @@
         }
 
         function applyRotation() {
-            // Rotate setupSlotEdges — the authoritative edge store
-            setupSlotEdges = setupSlotEdges.map(slot =>
-                slot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }))
-            );
-            // Rebuild edgeList from the rotated slots
-            rebuildEdgeList();
-            // Keep playSnapshot in sync so going back to play after rotating in
-            // setup doesn't reset the board to an unrotated state
+            // In dev mode, setupSlotEdges is the source of truth — rotate it and
+            // rebuild edgeList from it so copyJson and setup canvas stay in sync
+            if (isDevMode) {
+                setupSlotEdges = setupSlotEdges.map(slot =>
+                    slot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }))
+                );
+                rebuildEdgeList();
+            } else {
+                // In normal play mode, setupSlotEdges is empty — rotate edgeList directly
+                edgeList = edgeList.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
+            }
+            // Always keep playSnapshot in sync
             playSnapshot = playSnapshot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
         }
 
