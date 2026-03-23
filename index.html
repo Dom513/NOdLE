@@ -1487,6 +1487,9 @@
             puzzleSolved       = false;
             puzzleElapsed      = 0;
             puzzleSessionStart = null; // timer starts on first draw or hint
+            // In dev mode, use a special date key so progress is never saved
+            // under today's real date — preventing dev puzzles polluting the live game
+            currentPuzzleDate = (urlParams.get('dev') === '1') ? 'dev' : null;
             const setupTimerEl = document.getElementById('gameTimer');
             if (setupTimerEl) setupTimerEl.textContent = '0:00';
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
