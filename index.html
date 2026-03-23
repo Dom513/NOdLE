@@ -929,6 +929,7 @@
 
     <script>
         // ─── Grid geometry ──────────────────────────────────────────────────────
+        const isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
         const gridSize = 7;
         const W = 460, H = 460;
         const padding = 40;
@@ -1489,7 +1490,7 @@
             puzzleSessionStart = null; // timer starts on first draw or hint
             // In dev mode, use a special date key so progress is never saved
             // under today's real date — preventing dev puzzles polluting the live game
-            currentPuzzleDate = (urlParams.get('dev') === '1') ? 'dev' : null;
+            currentPuzzleDate = isDevMode ? 'dev' : null;
             const setupTimerEl = document.getElementById('gameTimer');
             if (setupTimerEl) setupTimerEl.textContent = '0:00';
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
@@ -2872,7 +2873,7 @@
             if (solvedDateStr === todayStr()) clearProgress();
             markSolved(solvedDateStr, elapsed);
 
-            showWinOverlay(elapsed, 5 - hintsRemaining);
+            if (!isDevMode) showWinOverlay(elapsed, 5 - hintsRemaining);
         }
 
         document.getElementById('winClose').addEventListener('click', () => {
@@ -3246,6 +3247,7 @@
         function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
 
         function markSolved(dateStr, timeMs) {
+            if (isDevMode) return; // dev mode — never write to localStorage
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
                 hintsUsed: 5 - hintsRemaining,
@@ -3265,6 +3267,7 @@
         function getProgressKey(dateStr) { return `gridlines_progress_${dateStr}`; }
 
         function saveProgress() {
+            if (isDevMode) return; // dev mode — never write to localStorage
             if (puzzleSolved) return;
             if (!currentPuzzleDate && edgeList.length === 0) return; // nothing loaded yet
             const dateStr = currentPuzzleDate || todayStr();
@@ -4009,8 +4012,7 @@
         }
 
         // Dev mode: ?dev=1 in URL shows setup screen instead
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('dev') === '1') {
+        if (isDevMode) {
             showScreen('screenSetup');
             setActiveSlot(0);
             setupDraw();
