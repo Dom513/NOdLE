@@ -810,6 +810,7 @@
             </div>
             <div class="btn-row">
                 <button class="secondary" id="setupClearBtn">Clear all</button>
+                <button class="secondary" id="setupRotateBtn" title="Rotate 90°">↻</button>
                 <button class="secondary" id="copyJsonBtn">Copy JSON</button>
                 <button class="primary"   id="goPlayBtn">Play →</button>
             </div>
@@ -2887,10 +2888,30 @@
             if (e.target === document.getElementById('infoOverlay')) closeInfo();
         });
 
-        // ── Rotate button ────────────────────────────────────────────────────────
+        // ── Rotate ───────────────────────────────────────────────────────────────
+        // Single source-of-truth rotation: always transforms setupSlotEdges so
+        // that copyJson, setup canvas and play canvas all stay in sync.
         const canvasWrapper = document.getElementById('canvasWrapper');
         let isRotating = false;
 
+        function rotateNodeIdx(idx) {
+            const r = nodes[idx].r, c = nodes[idx].c;
+            return c * gridSize + (gridSize - 1 - r);
+        }
+
+        function applyRotation() {
+            // Rotate setupSlotEdges — the authoritative edge store
+            setupSlotEdges = setupSlotEdges.map(slot =>
+                slot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }))
+            );
+            // Rebuild edgeList from the rotated slots
+            rebuildEdgeList();
+            // Keep playSnapshot in sync so going back to play after rotating in
+            // setup doesn't reset the board to an unrotated state
+            playSnapshot = playSnapshot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
+        }
+
+        // Rotate button in play mode — rotates with canvas animation
         document.getElementById('rotateBtn').addEventListener('click', () => {
             if (isRotating) return;
             isRotating = true;
@@ -2900,16 +2921,16 @@
             canvasWrapper.addEventListener('animationend', function handler() {
                 canvasWrapper.removeEventListener('animationend', handler);
                 canvasWrapper.classList.remove('rotating');
-
-                function rotateNodeIdx(idx) {
-                    const r = nodes[idx].r, c = nodes[idx].c;
-                    return c * gridSize + (gridSize - 1 - r);
-                }
-                edgeList     = edgeList.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
-                playSnapshot = playSnapshot.map(e => ({ ...e, a: rotateNodeIdx(e.a), b: rotateNodeIdx(e.b) }));
+                applyRotation();
                 playDraw();
                 isRotating = false;
             }, { once: true });
+        });
+
+        // Rotate button in setup mode — no animation, just rotates and redraws
+        document.getElementById('setupRotateBtn').addEventListener('click', () => {
+            applyRotation();
+            setupDraw();
         });
 
         function showScreen(name) {
