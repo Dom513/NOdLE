@@ -1457,6 +1457,10 @@
         let currentPuzzleIndex  = -1;  // index of current puzzle in currentPuzzleList
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
+            // Always rebuild edgeList fresh from setupSlotEdges so that a second
+            // play-through gets the full original board, not the modified post-play state
+            rebuildEdgeList();
+            closeOverlay('winOverlay');
             for (const e of edgeList) e.red = false;
             playSnapshot = edgeList.map(e => ({ ...e }));
             tileValues   = [null, null, null, null, null];
@@ -1491,6 +1495,7 @@
             // In dev mode, use a special date key so progress is never saved
             // under today's real date — preventing dev puzzles polluting the live game
             currentPuzzleDate = isDevMode ? 'dev' : null;
+            setSolvedButtonState(false);
             const setupTimerEl = document.getElementById('gameTimer');
             if (setupTimerEl) setupTimerEl.textContent = '0:00';
             for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
