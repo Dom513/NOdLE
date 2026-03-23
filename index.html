@@ -3708,6 +3708,23 @@
             // Sort newest first (folder names are YYYY_MM)
             months = [...months].sort((a, b) => b.localeCompare(a));
 
+            // Filter out the current month and any future months —
+            // a month only appears once it has fully passed (so April won't
+            // show on the 1st of April, only from May onwards)
+            const now = new Date();
+            const todayYear  = now.getFullYear();
+            const todayMonth = now.getMonth() + 1; // 1-based
+            const todayDay   = now.getDate();
+            months = months.filter(folder => {
+                const [y, m] = folder.split('_').map(Number);
+                // Past months always show
+                if (y < todayYear || (y === todayYear && m < todayMonth)) return true;
+                // Current month only shows from the 2nd onwards (so at least 1 archive puzzle exists)
+                if (y === todayYear && m === todayMonth) return todayDay >= 2;
+                // Future months never show
+                return false;
+            });
+
             list.innerHTML = '';
             const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             for (const folder of months) {
