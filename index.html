@@ -3990,6 +3990,18 @@
             showScreen('screenSetup');
             setActiveSlot(0);
             setupDraw();
+
+            // In dev mode, replace the info button with a back arrow
+            // so you can return to setup from play at any time
+            const infoBtn = document.getElementById('infoBtn');
+            infoBtn.textContent = '←';
+            infoBtn.title = 'Back to Setup';
+            infoBtn.replaceWith(infoBtn.cloneNode(true)); // strip existing listener
+            document.getElementById('infoBtn').addEventListener('click', () => {
+                showScreen('screenSetup');
+                setActiveSlot(0);
+                setupDraw();
+            });
         } else {
             initDailyPuzzle();
         }
