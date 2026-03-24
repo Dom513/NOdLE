@@ -596,6 +596,37 @@
             font-family: 'Share Tech Mono', monospace;
             font-size: var(--fs-xs); color: #444;
         }
+        .stat-with-histogram {
+            display: flex; align-items: flex-start; gap: 28px;
+        }
+        .stat-with-histogram .stat-left {
+            display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+        }
+        .stat-histogram {
+            flex: 1; min-width: 0; display: flex; flex-direction: column;
+            gap: 4px; padding-top: 2px;
+        }
+        .hist-row {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .hist-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 11px); color: #555;
+            width: 44px; text-align: right; flex-shrink: 0;
+        }
+        .hist-bar-wrap {
+            flex: 1; height: 10px; background: #222;
+            border-radius: 3px; overflow: hidden;
+        }
+        .hist-bar {
+            height: 100%; background: #4488ff;
+            border-radius: 3px; transition: width 0.4s ease;
+        }
+        .hist-count {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 11px); color: #555;
+            width: 18px; flex-shrink: 0;
+        }
 
         /* ── Practice overlay ────────────────────────────────────────────── */
         #practiceOverlay {
@@ -894,7 +925,7 @@
                 </div>
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
-                <button id="winShareBtn" class="secondary" style="display:none; width:100%; margin-top:4px;">Share result</button>
+                <button id="winShareBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Share result</button>
                 <div id="winPuzzleBtns" style="display:none; flex-direction:column; gap:8px; width:100%;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
@@ -3695,20 +3726,71 @@
                 return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
             };
 
+            // Time buckets: <1, 1-2, 2-3, 3-4, 4-5, 5+ mins
+            const timeBuckets = [
+                { label: '<1m',  count: 0 },
+                { label: '1-2m', count: 0 },
+                { label: '2-3m', count: 0 },
+                { label: '3-4m', count: 0 },
+                { label: '4-5m', count: 0 },
+                { label: '5m+',  count: 0 },
+            ];
+            // Hints buckets: 0, 1, 2, 3, 4, 5
+            const hintBuckets = [0,1,2,3,4,5].map(n => ({ label: `${n}`, count: 0 }));
+
+            for (const d of allSolved) {
+                const mins = d.timeMs / 60000;
+                if      (mins < 1) timeBuckets[0].count++;
+                else if (mins < 2) timeBuckets[1].count++;
+                else if (mins < 3) timeBuckets[2].count++;
+                else if (mins < 4) timeBuckets[3].count++;
+                else if (mins < 5) timeBuckets[4].count++;
+                else               timeBuckets[5].count++;
+                const hi = Math.min(d.hintsUsed ?? 0, 5);
+                hintBuckets[hi].count++;
+            }
+
+            function makeHistogram(buckets) {
+                const maxCount = Math.max(...buckets.map(b => b.count), 1);
+                const wrap = document.createElement('div');
+                wrap.className = 'stat-histogram';
+                for (const b of buckets) {
+                    const pct = Math.round((b.count / maxCount) * 100);
+                    wrap.innerHTML += `<div class="hist-row">
+                        <div class="hist-label">${b.label}</div>
+                        <div class="hist-bar-wrap"><div class="hist-bar" style="width:${pct}%"></div></div>
+                        <div class="hist-count">${b.count}</div>
+                    </div>`;
+                }
+                return wrap;
+            }
+
             const stats = [
-                { label: 'Puzzles Solved', value: played, sub: 'daily puzzles only' },
-                { label: 'Average Time', value: played ? fmtTime(avgMs) : '—', sub: 'per puzzle' },
-                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle' },
-                { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'day' : 'days in a row' },
-                { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'day' : 'days in a row' },
+                { label: 'Puzzles Solved', value: played, sub: 'daily puzzles only', histogram: null },
+                { label: 'Average Time', value: played ? fmtTime(avgMs) : '—', sub: 'per puzzle', histogram: played ? makeHistogram(timeBuckets) : null },
+                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle', histogram: played ? makeHistogram(hintBuckets) : null },
+                { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'day' : 'days in a row', histogram: null },
+                { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'day' : 'days in a row', histogram: null },
             ];
 
             for (const s of stats) {
                 const row = document.createElement('div');
                 row.className = 'stat-row';
-                row.innerHTML = `<div class="stat-label">${s.label}</div>
-                    <div class="stat-value">${s.value}</div>
-                    <div class="stat-sub">${s.sub}</div>`;
+                if (s.histogram) {
+                    const mid = document.createElement('div');
+                    mid.className = 'stat-with-histogram';
+                    mid.innerHTML = `<div class="stat-left">
+                        <div class="stat-label">${s.label}</div>
+                        <div class="stat-value">${s.value}</div>
+                        <div class="stat-sub">${s.sub}</div>
+                    </div>`;
+                    mid.appendChild(s.histogram);
+                    row.appendChild(mid);
+                } else {
+                    row.innerHTML = `<div class="stat-label">${s.label}</div>
+                        <div class="stat-value">${s.value}</div>
+                        <div class="stat-sub">${s.sub}</div>`;
+                }
                 content.appendChild(row);
             }
         }
