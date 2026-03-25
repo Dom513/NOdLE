@@ -575,18 +575,18 @@
             color: #ccc; text-transform: uppercase;
         }
         #statsContent {
-            padding: clamp(20px, 5vw, 32px) 24px;
-            display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
+            padding: clamp(14px, 4vw, 24px) 24px;
+            display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
         }
         .stat-row {
             display: flex; flex-direction: column; gap: 4px;
-            border-bottom: 1px solid #222; padding-bottom: 16px;
+            border-bottom: 1px solid #222; padding-bottom: 11px;
         }
         .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
         .stat-label {
             font-family: 'Share Tech Mono', monospace;
-            font-size: var(--fs-sm); color: #555; letter-spacing: 0.08em;
-            text-transform: uppercase;
+            font-size: var(--fs-sm); color: #6e6e6e; letter-spacing: 0.08em;
+            text-transform: uppercase; font-weight: 700;
         }
         .stat-value {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
@@ -594,16 +594,16 @@
         }
         .stat-sub {
             font-family: 'Share Tech Mono', monospace;
-            font-size: var(--fs-xs); color: #444;
+            font-size: var(--fs-xs); color: #5e5e5e;
         }
         .stat-with-histogram {
             display: flex; align-items: flex-start; gap: 28px;
         }
         .stat-with-histogram .stat-left {
-            display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+            display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;
         }
         .stat-histogram {
-            flex: 1; min-width: 0; display: flex; flex-direction: column;
+            flex: 1.7; min-width: 0; display: flex; flex-direction: column;
             gap: 4px; padding-top: 2px;
         }
         .hist-row {
@@ -611,7 +611,7 @@
         }
         .hist-label {
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(9px, 2.2vw, 11px); color: #555;
+            font-size: clamp(9px, 2.2vw, 11px); color: #6e6e6e;
             width: 44px; text-align: right; flex-shrink: 0;
         }
         .hist-bar-wrap {
@@ -624,7 +624,7 @@
         }
         .hist-count {
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(9px, 2.2vw, 11px); color: #555;
+            font-size: clamp(9px, 2.2vw, 11px); color: #6e6e6e;
             width: 18px; flex-shrink: 0;
         }
 
@@ -779,6 +779,7 @@
             <button class="menu-item-btn" id="menuArchive">Archive</button>
             <button class="menu-item-btn" id="menuPractice">Practice</button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
+            <button class="menu-item-btn" id="menuDownload">Download the app</button>
         </div>
     </div>
 
@@ -804,7 +805,19 @@
         </div>
     </div>
 
-    <!-- ── Practice overlay ──────────────────────────────────────────────── -->
+    <!-- ── Download overlay ──────────────────────────────────────────────── -->
+    <div id="downloadOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
+        <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
+            <div style="display:flex; align-items:center; gap:12px; padding:clamp(12px,3vw,20px) 16px; border-bottom:1px solid #333; flex-shrink:0;">
+                <button id="downloadClose" style="background:none; border:none; color:#666; font-size:20px; cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset; line-height:1;">←</button>
+                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Download the App</div>
+            </div>
+            <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
+                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="mailto:dominicwilde3@gmail.com" style="color:#4488ff; text-decoration:none;">dominicwilde3@gmail.com</a></div>
+            </div>
+        </div>
+    </div>
     <div id="practiceOverlay">
         <div id="practiceBox">
             <div id="practiceHeader">
@@ -3653,7 +3666,20 @@
 
         document.getElementById('menuDonate').addEventListener('click', () => {
             closeMenu();
-            window.open('https://ko-fi.com/nodlefyi', '_blank'); // replace with real donate URL
+            window.open('https://ko-fi.com/nodlefyi', '_blank');
+        });
+
+        document.getElementById('menuDownload').addEventListener('click', () => {
+            closeMenu();
+            document.getElementById('downloadOverlay').style.display = 'flex';
+        });
+
+        document.getElementById('downloadClose').addEventListener('click', () => {
+            document.getElementById('downloadOverlay').style.display = 'none';
+        });
+        document.getElementById('downloadOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('downloadOverlay'))
+                document.getElementById('downloadOverlay').style.display = 'none';
         });
 
         document.getElementById('menuArchive').addEventListener('click', () => {
