@@ -3627,10 +3627,8 @@
                     // We don't need to check hasSavedState; if the fingerprint is different, 
                     // we want to ensure any possible state is gone.
                 }
-                localStorage.setItem(fingerprintKey, freshFingerprint);
 
                 // Read solved state AFTER the fingerprint check so stale state is already gone
-                const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
