@@ -3612,23 +3612,26 @@
 
                 // If the puzzle content has changed since the user last loaded it,
                 // wipe their saved progress and solved state so they start fresh.
-                // 1. Get the exact keys for today's puzzle
+                // 1. Get the keys
                 const solvedKey = getSolvedKey(dateStr);
                 const progressKey = getProgressKey(dateStr);
+                const fingerprintKey = `gridlines_fingerprint_${dateStr}`; // Dedicated key for structure check
 
-                // 2. Fetch whatever is currently sitting in localStorage for today's progress or solved state
-                const storedFingerprint = localStorage.getItem(solvedKey) || localStorage.getItem(progressKey);
+                // 2. Create the fingerprint of the NEW puzzle
                 const freshFingerprint = JSON.stringify(puzzle.edges);
-                // 2. Check for mismatch
+                const storedFingerprint = localStorage.getItem(fingerprintKey);
+
+                // 3. Only wipe if we have a record of an OLD puzzle structure that doesn't match the NEW one
                 if (storedFingerprint && storedFingerprint !== freshFingerprint) {
-                    // The puzzle has changed! Force a hard reset for this date.
-                    localStorage.removeItem(getProgressKey(dateStr));
-                    localStorage.removeItem(getSolvedKey(dateStr));
-                    // We don't need to check hasSavedState; if the fingerprint is different, 
-                    // we want to ensure any possible state is gone.
+                    console.warn("Puzzle structure changed. Resetting state.");
+                    localStorage.removeItem(progressKey);
+                    localStorage.removeItem(solvedKey);
                 }
 
-                // Read solved state AFTER the fingerprint check so stale state is already gone
+                // 4. Update the fingerprint so it matches on the next refresh
+                localStorage.setItem(fingerprintKey, freshFingerprint);
+
+                // 5. Now proceed to load data normally
                 const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
