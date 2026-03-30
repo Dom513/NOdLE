@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'nodle-v2';
+const CACHE_VERSION = 'nodle-v3';
 
 const STATIC_ASSETS = [
     './',
