@@ -3612,9 +3612,13 @@
 
                 // If the puzzle content has changed since the user last loaded it,
                 // wipe their saved progress and solved state so they start fresh.
-                const fingerprintKey = `gridlines_puzzle_${dateStr}`;
+                // 1. Get the exact keys for today's puzzle
+                const solvedKey = getSolvedKey(dateStr);
+                const progressKey = getProgressKey(dateStr);
+
+                // 2. Fetch whatever is currently sitting in localStorage for today's progress or solved state
+                const storedFingerprint = localStorage.getItem(solvedKey) || localStorage.getItem(progressKey);
                 const freshFingerprint = JSON.stringify(puzzle.edges);
-                const storedFingerprint = localStorage.getItem(fingerprintKey);
                 // 2. Check for mismatch
                 if (storedFingerprint && storedFingerprint !== freshFingerprint) {
                     // The puzzle has changed! Force a hard reset for this date.
