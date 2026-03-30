@@ -3615,9 +3615,13 @@
                 const fingerprintKey = `gridlines_puzzle_${dateStr}`;
                 const freshFingerprint = JSON.stringify(puzzle.edges);
                 const storedFingerprint = localStorage.getItem(fingerprintKey);
-                if (storedFingerprint !== null && storedFingerprint !== freshFingerprint) {
+                // Also wipe when there is saved state but no fingerprint on record
+                // (e.g. the puzzle was solved before fingerprinting was introduced).
+                const hasSavedState = getSolvedData(dateStr) || getProgressData(dateStr);
+                if (hasSavedState && storedFingerprint !== freshFingerprint) {
                     localStorage.removeItem(getProgressKey(dateStr));
                     localStorage.removeItem(getSolvedKey(dateStr));
+                    localStorage.removeItem(fingerprintKey);
                 }
                 localStorage.setItem(fingerprintKey, freshFingerprint);
 
