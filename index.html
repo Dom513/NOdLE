@@ -814,7 +814,7 @@
             </div>
             <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="mailto:dominicwilde3@gmail.com" style="color:#4488ff; text-decoration:none;">dominicwilde3@gmail.com</a></div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#9bfff4f6f2f5f2f8ecf2f7fffea8dbfcf6faf2f7b5f8f4f6" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="2d4942404443444e5a444149481e6d4a404c4441034e4240">[email&#160;protected]</span></a></div>
             </div>
         </div>
     </div>
@@ -971,7 +971,7 @@
         </div>
     </div>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // ─── Grid geometry ──────────────────────────────────────────────────────
         const isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
         const gridSize = 7;
@@ -2189,7 +2189,7 @@
                     const centre = dedD4[0];
                     const centreArms = [...(dedAdjTopo.get(centre) || new Set())];
                     if (centreArms.length === 4 &&
-                        dedNodesTopo.every(n => dedDeg(n) === 1 || dedDeg(n) === 2 || dedDeg(n) === 4)) {
+                        dedNodesTopo.every(n => dedDeg(n) === 2 || dedDeg(n) === 4)) {
                         const dists = centreArms.map(a =>
                             Math.hypot(nodes[a].r - nodes[centre].r, nodes[a].c - nodes[centre].c)
                         );
@@ -2235,7 +2235,9 @@
                         const lenBa = Math.hypot(nodes[cx].r - nodes[sB.startNode].r, nodes[cx].c - nodes[sB.startNode].c);
                         const lenBb = Math.hypot(nodes[sB.endNode].r - nodes[cx].r, nodes[sB.endNode].c - nodes[cx].c);
                         if (Math.abs(lenAa - lenAb) < 0.01 && Math.abs(lenBa - lenBb) < 0.01) {
-                            return { num: 8, ids: allStrokeIds() };
+                            // Reject incomplete 8s: every node must have degree >= 2.
+                            const all8deg2 = [...dedAdjTopo.keys()].every(n => dedAdjTopo.get(n).size >= 2);
+                            if (all8deg2) return { num: 8, ids: allStrokeIds() };
                         }
                     }
                 }
@@ -2365,7 +2367,10 @@
                         const dir1 = strokeDirFrom(s1, tip);
                         const dir2 = strokeDirFrom(s2, bend);
                         const perp = dir1[0]*dir2[0] + dir1[1]*dir2[1] === 0;
-                        if (perp) {
+                        // Chirality: cross(dir1, dir2) > 0 for a standard 6 (L-bend turns right).
+                        // A mirrored 6 has cross <= 0 — reject it.
+                        const cross6A = dir1[0]*dir2[1] - dir1[1]*dir2[0];
+                        if (perp && cross6A > 0) {
                             const loopEdgesAtJunc = (strokeAdj.get(junc)||[]).filter(e => e.node !== bend);
                             const tailParallel = loopEdgesAtJunc.some(e =>
                                 areParallel(dir2, strokeDirFrom(strokes[e.strokeIdx], junc))
@@ -2425,7 +2430,8 @@
                     const crosses = [];
                     for (let i = 0; i < dirs.length - 1; i++)
                         crosses.push(dirs[i][0]*dirs[i+1][1] - dirs[i][1]*dirs[i+1][0]);
-                    if (!crosses.every(c => c > 0) && !crosses.every(c => c < 0)) continue;
+                    // Only accept all-positive turns (standard 6). All-negative = mirrored 6 — reject.
+                    if (!crosses.every(c => c > 0)) continue;
                     // First and last directions must be identical (spiral closes)
                     if (dirs[0][0] !== dirs[dirs.length-1][0] ||
                         dirs[0][1] !== dirs[dirs.length-1][1]) continue;
