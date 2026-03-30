@@ -3599,7 +3599,6 @@
             currentPuzzleList  = null;
             currentPuzzleIndex = -1;
             const dateStr = todayStr();
-            const solved  = getSolvedData(dateStr);
 
             try {
                 // Derive month file from today's date e.g. 2026_03_puzzles.json
@@ -3610,6 +3609,20 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
                 const puzzle = allPuzzles.find(p => p.date === dateStr);
+
+                // If the puzzle content has changed since the user last loaded it,
+                // wipe their saved progress and solved state so they start fresh.
+                const fingerprintKey = `gridlines_puzzle_${dateStr}`;
+                const freshFingerprint = JSON.stringify(puzzle.edges);
+                const storedFingerprint = localStorage.getItem(fingerprintKey);
+                if (storedFingerprint !== null && storedFingerprint !== freshFingerprint) {
+                    localStorage.removeItem(getProgressKey(dateStr));
+                    localStorage.removeItem(getSolvedKey(dateStr));
+                }
+                localStorage.setItem(fingerprintKey, freshFingerprint);
+
+                // Read solved state AFTER the fingerprint check so stale state is already gone
+                const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
