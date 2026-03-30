@@ -3629,6 +3629,7 @@
                 }
 
                 // Read solved state AFTER the fingerprint check so stale state is already gone
+                const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
