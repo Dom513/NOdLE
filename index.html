@@ -3599,6 +3599,7 @@
             currentPuzzleList  = null;
             currentPuzzleIndex = -1;
             const dateStr = todayStr();
+            const solved  = getSolvedData(dateStr);
 
             try {
                 // Derive month file from today's date e.g. 2026_03_puzzles.json
@@ -3609,30 +3610,6 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
                 const puzzle = allPuzzles.find(p => p.date === dateStr);
-
-                // If the puzzle content has changed since the user last loaded it,
-                // wipe their saved progress and solved state so they start fresh.
-                // 1. Get the keys
-                const solvedKey = getSolvedKey(dateStr);
-                const progressKey = getProgressKey(dateStr);
-                const fingerprintKey = `gridlines_fingerprint_${dateStr}`; // Dedicated key for structure check
-
-                // 2. Create the fingerprint of the NEW puzzle
-                const freshFingerprint = JSON.stringify(puzzle.edges);
-                const storedFingerprint = localStorage.getItem(fingerprintKey);
-
-                // 3. Only wipe if we have a record of an OLD puzzle structure that doesn't match the NEW one
-                if (storedFingerprint && storedFingerprint !== freshFingerprint) {
-                    console.warn("Puzzle structure changed. Resetting state.");
-                    localStorage.removeItem(progressKey);
-                    localStorage.removeItem(solvedKey);
-                }
-
-                // 4. Update the fingerprint so it matches on the next refresh
-                localStorage.setItem(fingerprintKey, freshFingerprint);
-
-                // 5. Now proceed to load data normally
-                const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
