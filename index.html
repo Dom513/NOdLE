@@ -966,6 +966,9 @@
                         <span class="hint-choice-desc">Scores the largest number for you</span>
                     </button>
                 </div>
+                <div id="hintPatternWarning" style="display:none; font-family:'Share Tech Mono',monospace; font-size:clamp(9px,2.2vw,10px); color:#ff8844; text-align:center; line-height:1.4;">
+                    No available patterns to reveal — return some numbers to the grid then try again
+                </div>
                 <div id="hintChoiceRemaining"></div>
             </div>
         </div>
@@ -2922,7 +2925,16 @@
             if (solvedDateStr === todayStr()) clearProgress();
             markSolved(solvedDateStr, elapsed);
 
-            if (!isDevMode) showWinOverlay(elapsed, 5 - hintsRemaining);
+            // Always display the first-solve scores, not the current replay's scores.
+            // markSolved() only writes on the very first solve, so reading back from
+            // storage here guarantees we show the original time/hints on every replay.
+            if (!isDevMode) {
+                const storedSolve = getSolvedData(solvedDateStr);
+                showWinOverlay(
+                    storedSolve ? storedSolve.timeMs    : elapsed,
+                    storedSolve ? storedSolve.hintsUsed : 5 - hintsRemaining
+                );
+            }
         }
 
         document.getElementById('winClose').addEventListener('click', () => {
@@ -3144,10 +3156,13 @@
 
             const canNumber  = hintsRemaining >= 1 &&
                 tileValues.some((v, i) => v === null && tileHinted[i] === null);
-            const canPattern = hintsRemaining >= 3 && puzzleSolutionEdges && bestPatternSlot() !== -1;
+            const canPattern = hintsRemaining >= 3 && puzzleSolutionEdges;
 
             document.getElementById('hintRevealNumber').disabled  = !canNumber;
-            document.getElementById('hintRevealPattern').disabled = !canPattern;
+            // Reveal Pattern is never disabled due to missing lines — that case shows
+            // a warning message instead. Only disable if the player can't afford it.
+            document.getElementById('hintRevealPattern').disabled = hintsRemaining < 3;
+            document.getElementById('hintPatternWarning').style.display = 'none';
             document.getElementById('hintChoiceRemaining').textContent =
                 `${hintsRemaining} hint${hintsRemaining !== 1 ? 's' : ''} remaining`;
 
@@ -3181,6 +3196,12 @@
         });
 
         document.getElementById('hintRevealPattern').addEventListener('click', () => {
+            // If no pattern is currently revealable (lines missing from board),
+            // show a warning in the bubble rather than silently failing.
+            if (bestPatternSlot() === -1) {
+                document.getElementById('hintPatternWarning').style.display = '';
+                return; // keep the bubble open so the user can read the message
+            }
             document.getElementById('hintChoiceOverlay').classList.remove('visible');
             executePatternHint();
         });
