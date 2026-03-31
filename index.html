@@ -814,7 +814,7 @@
             </div>
             <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#9bfff4f6f2f5f2f8ecf2f7fffea8dbfcf6faf2f7b5f8f4f6" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="2d4942404443444e5a444149481e6d4a404c4441034e4240">[email&#160;protected]</span></a></div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#5f3b30323631363c2836333b3a6c1f38323e3633713c3032" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="c1a5aeaca8afa8a2b6a8ada5a4f281a6aca0a8adefa2aeac">[email&#160;protected]</span></a></div>
             </div>
         </div>
     </div>
@@ -2189,7 +2189,7 @@
                     const centre = dedD4[0];
                     const centreArms = [...(dedAdjTopo.get(centre) || new Set())];
                     if (centreArms.length === 4 &&
-                        dedNodesTopo.every(n => dedDeg(n) === 2 || dedDeg(n) === 4)) {
+                        dedNodesTopo.every(n => dedDeg(n) === 1 || dedDeg(n) === 2 || dedDeg(n) === 4)) {
                         const dists = centreArms.map(a =>
                             Math.hypot(nodes[a].r - nodes[centre].r, nodes[a].c - nodes[centre].c)
                         );
@@ -2235,9 +2235,7 @@
                         const lenBa = Math.hypot(nodes[cx].r - nodes[sB.startNode].r, nodes[cx].c - nodes[sB.startNode].c);
                         const lenBb = Math.hypot(nodes[sB.endNode].r - nodes[cx].r, nodes[sB.endNode].c - nodes[cx].c);
                         if (Math.abs(lenAa - lenAb) < 0.01 && Math.abs(lenBa - lenBb) < 0.01) {
-                            // Reject incomplete 8s: every node must have degree >= 2.
-                            const all8deg2 = [...dedAdjTopo.keys()].every(n => dedAdjTopo.get(n).size >= 2);
-                            if (all8deg2) return { num: 8, ids: allStrokeIds() };
+                            return { num: 8, ids: allStrokeIds() };
                         }
                     }
                 }
@@ -2367,10 +2365,7 @@
                         const dir1 = strokeDirFrom(s1, tip);
                         const dir2 = strokeDirFrom(s2, bend);
                         const perp = dir1[0]*dir2[0] + dir1[1]*dir2[1] === 0;
-                        // Chirality: cross(dir1, dir2) > 0 for a standard 6 (L-bend turns right).
-                        // A mirrored 6 has cross <= 0 — reject it.
-                        const cross6A = dir1[0]*dir2[1] - dir1[1]*dir2[0];
-                        if (perp && cross6A > 0) {
+                        if (perp) {
                             const loopEdgesAtJunc = (strokeAdj.get(junc)||[]).filter(e => e.node !== bend);
                             const tailParallel = loopEdgesAtJunc.some(e =>
                                 areParallel(dir2, strokeDirFrom(strokes[e.strokeIdx], junc))
@@ -2430,8 +2425,7 @@
                     const crosses = [];
                     for (let i = 0; i < dirs.length - 1; i++)
                         crosses.push(dirs[i][0]*dirs[i+1][1] - dirs[i][1]*dirs[i+1][0]);
-                    // Only accept all-positive turns (standard 6). All-negative = mirrored 6 — reject.
-                    if (!crosses.every(c => c > 0)) continue;
+                    if (!crosses.every(c => c > 0) && !crosses.every(c => c < 0)) continue;
                     // First and last directions must be identical (spiral closes)
                     if (dirs[0][0] !== dirs[dirs.length-1][0] ||
                         dirs[0][1] !== dirs[dirs.length-1][1]) continue;
@@ -3307,6 +3301,7 @@
 
         function markSolved(dateStr, timeMs) {
             if (isDevMode) return; // dev mode — never write to localStorage
+            if (getSolvedData(dateStr)) return; // first solve only — never overwrite
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
                 hintsUsed: 5 - hintsRemaining,
@@ -3330,6 +3325,9 @@
             if (puzzleSolved) return;
             if (!currentPuzzleDate && edgeList.length === 0) return; // nothing loaded yet
             const dateStr = currentPuzzleDate || todayStr();
+            // Don't cache progress for archive puzzles — only today's and practice puzzles
+            const isArchive = dateStr !== todayStr() && !dateStr.startsWith('practice-');
+            if (isArchive) return;
             localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
                 tileValues:    [...tileValues],
                 tileEdgeIds:   tileEdgeIds.map(ids => ids ? [...ids] : null),
@@ -3599,7 +3597,6 @@
             currentPuzzleList  = null;
             currentPuzzleIndex = -1;
             const dateStr = todayStr();
-            const solved  = getSolvedData(dateStr);
 
             try {
                 // Derive month file from today's date e.g. 2026_03_puzzles.json
@@ -3610,6 +3607,20 @@
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const allPuzzles = await resp.json();
                 const puzzle = allPuzzles.find(p => p.date === dateStr);
+
+                // If the puzzle content has changed since the user last loaded it,
+                // wipe their saved progress and solved state so they start fresh.
+                const fingerprintKey = `gridlines_puzzle_${dateStr}`;
+                const freshFingerprint = JSON.stringify(puzzle.edges);
+                const storedFingerprint = localStorage.getItem(fingerprintKey);
+                if (storedFingerprint !== null && storedFingerprint !== freshFingerprint) {
+                    localStorage.removeItem(getProgressKey(dateStr));
+                    localStorage.removeItem(getSolvedKey(dateStr));
+                }
+                localStorage.setItem(fingerprintKey, freshFingerprint);
+
+                // Read solved state AFTER the fingerprint check so stale state is already gone
+                const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
                 // First-time visitor — show how-to-play overlay with welcome buttons
