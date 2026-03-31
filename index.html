@@ -1891,8 +1891,7 @@
                 }
                 const canNumber  = puzzleSolution && hintsRemaining >= 1 && remaining.length > 0 &&
                     tileValues.some((v, i) => v === null && tileHinted[i] === null);
-                const canPattern = puzzleSolution && hintsRemaining >= 3 && puzzleSolutionEdges &&
-                    bestPatternSlot() !== -1;
+                const canPattern = puzzleSolution && hintsRemaining >= 3 && puzzleSolutionEdges;
                 const canHint = canNumber || canPattern;
                 hintBtn.disabled = !canHint;
                 if (puzzleSolved) hintBtn.disabled = false;
@@ -2935,10 +2934,9 @@
             // markSolved() only writes on the very first solve, so reading back from
             // storage here guarantees we show the original time/hints on every replay.
             if (!isDevMode) {
-                const storedSolve = getSolvedData(solvedDateStr);
                 showWinOverlay(
-                    storedSolve ? storedSolve.timeMs    : elapsed,
-                    storedSolve ? storedSolve.hintsUsed : 5 - hintsRemaining
+                    elapsed,
+                    5 - hintsRemaining
                 );
             }
         }
@@ -3204,9 +3202,32 @@
         document.getElementById('hintRevealPattern').addEventListener('click', () => {
             // If no pattern is currently revealable (lines missing from board),
             // show a warning in the bubble rather than silently failing.
-            if (bestPatternSlot() === -1) {
-                document.getElementById('hintPatternWarning').style.display = '';
-                return; // keep the bubble open so the user can read the message
+            const slot = bestPatternSlot();
+
+            if (slot === -1) {
+                // Check special case:
+                // Only one number remaining AND the current board forms a valid number
+                const remaining = hintRemaining();
+
+                if (remaining.length === 1) {
+                    const patternEdges = edgeList.filter(e => e.red || true); // all current edges
+                    const result = recogniseNumber(patternEdges);
+
+                    if (result && result.num === remaining[0]) {
+                        // Allow pattern hint to proceed even without a valid solution slot
+                        document.getElementById('hintChoiceOverlay').classList.remove('visible');
+                        executePatternHint();
+                        return;
+                    }
+                }
+
+                // Otherwise show normal warning
+                const warning = document.getElementById('hintPatternWarning');
+                warning.style.display = 'block';
+                setTimeout(() => {
+                    warning.style.display = 'none';
+                }, 3000);
+                return;
             }
             document.getElementById('hintChoiceOverlay').classList.remove('visible');
             executePatternHint();
