@@ -3105,9 +3105,9 @@
 
         function executePatternHint() {
             startTimerIfNeeded();
-            const slot = bestPatternSlot();
-            const isAlternativeSolution = false;
-            const AlternativeResults = null;
+            let slot = bestPatternSlot();
+            let isAlternativeSolution = false;
+            let AlternativeResult = null;
             // Check for the "flexible" fallback: 
             // If no intended pattern is found, check if exactly one number is left 
             // and the board already forms that required number.
