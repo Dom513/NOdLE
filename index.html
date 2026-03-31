@@ -3103,6 +3103,16 @@
         function executePatternHint() {
             startTimerIfNeeded();
             const slot = bestPatternSlot();
+            // Special fallback: one remaining number and board already forms it
+            if (slot === -1) {
+                const remaining = hintRemaining();
+                if (remaining.length === 1) {
+                    const result = recogniseNumber(edgeList);
+                    if (result && result.num === remaining[0]) {
+                        slot = puzzleSolution.findIndex(n => n === result.num && !tileValues.includes(n));
+                    }
+                }
+            }
             if (slot === -1) return;
 
             const PATTERN_COLOR = '#00e676';
