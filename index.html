@@ -1502,6 +1502,7 @@
         let currentPuzzleTitle  = null; // title of the currently loaded puzzle (practice puzzles)
         let currentPuzzleList   = null; // full ordered list of puzzles for prev/next nav
         let currentPuzzleIndex  = -1;  // index of current puzzle in currentPuzzleList
+        let replayResult = null; //stores any newly replayed puzzle scores
 
         document.getElementById('goPlayBtn').addEventListener('click', () => {
             // Always rebuild edgeList fresh from setupSlotEdges so that a second
@@ -2934,10 +2935,12 @@
             // markSolved() only writes on the very first solve, so reading back from
             // storage here guarantees we show the original time/hints on every replay.
             if (!isDevMode) {
-                showWinOverlay(
-                    elapsed,
-                    5 - hintsRemaining
-                );
+                replayResult = {
+                    timeMs: elapsed,
+                    hintsUsed: 5 - hintsRemaining
+                };
+
+                showWinOverlay(elapsed, 5 - hintsRemaining);
             }
         }
 
@@ -3220,8 +3223,7 @@
                 const remaining = hintRemaining();
 
                 if (remaining.length === 1) {
-                    const patternEdges = edgeList.filter(e => e.red || true); // all current edges
-                    const result = recogniseNumber(patternEdges);
+                    const result = recogniseNumber(edgeList);
 
                     if (result && result.num === remaining[0]) {
                         // Allow pattern hint to proceed even without a valid solution slot
@@ -3283,6 +3285,7 @@
             tileWasHinted = [false, false, false, false, false];
             tilePatternHinted = [false, false, false, false, false];
             hintsRemaining = 5;
+            replayResult = null;
             hintAnimating.clear();
             puzzleSolution      = puzzleData.solution || null;
             puzzleSolutionEdges = puzzleData.solutionEdges || null;
@@ -3429,6 +3432,17 @@
 
         // Single helper — shows the win overlay for any solved path
         function showWinOverlay(timeMs, hintsUsed) {
+            // If we have a replay result, always use it
+            if (replayResult) {
+                timeMs = replayResult.timeMs;
+                hintsUsed = replayResult.hintsUsed;
+            } else {
+                const storedSolve = getSolvedData(currentPuzzleDate);
+                if (storedSolve) {
+                    timeMs = storedSolve.timeMs;
+                    hintsUsed = storedSolve.hintsUsed;
+                }
+            }
             const totalSec = Math.floor(timeMs / 1000);
             const mins = Math.floor(totalSec / 60);
             const secs = totalSec % 60;
