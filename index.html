@@ -3106,16 +3106,23 @@
         function executePatternHint() {
             startTimerIfNeeded();
             const slot = bestPatternSlot();
-            // Special fallback: one remaining number and board already forms it
+            const isAlternativeSolution = false;
+            const AlternativeResults = null;
+            // Check for the "flexible" fallback: 
+            // If no intended pattern is found, check if exactly one number is left 
+            // and the board already forms that required number.
             if (slot === -1) {
                 const remaining = hintRemaining();
                 if (remaining.length === 1) {
-                    const result = recogniseNumber(edgeList);
-                    if (result && result.num === remaining[0]) {
-                        slot = puzzleSolution.findIndex(n => n === result.num && !tileValues.includes(n));
+                    alternativeResult = recogniseNumber(edgeList);
+                    if (alternativeResult && alternativeResult.num === remaining[0]) {
+                        // Find the first empty slot to put this number into
+                        slot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+                        isAlternativeSolution = true;
                     }
                 }
             }
+
             if (slot === -1) return;
 
             const PATTERN_COLOR = '#00e676';
@@ -3123,13 +3130,24 @@
             hintsRemaining -= 3;
             updateTiles();
 
-            // Mark all edges for this slot green (briefly, before submitting)
-            const indices = puzzleSolutionEdges[slot];
-            for (const idx of indices) {
-                const snap = playSnapshot[idx];
-                if (!snap) continue;
-                const edge = edgeList.find(e => e.id === snap.id);
-                if (edge) { edge.red = true; edge.color = PATTERN_COLOR; }
+            if (isAlternativeSolution && alternativeResult) {
+                // FLEXIBLE MODE: Mark all current lines as the "pattern" to be scored
+                for (const edge of edgeList) {
+                    edge.red = true;
+                    edge.color = PATTERN_COLOR;
+                }
+            } else {
+                // INTENDED MODE: Mark only the specific lines from the solution JSON
+                const indices = puzzleSolutionEdges[slot];
+                for (const idx of indices) {
+                    const snap = playSnapshot[idx];
+                    if (!snap) continue;
+                    const edge = edgeList.find(e => e.id === snap.id);
+                    if (edge) {
+                        edge.red = true;
+                        edge.color = PATTERN_COLOR;
+                    }
+                }
             }
             playDraw();
 
@@ -3138,22 +3156,21 @@
                 const result = recogniseNumber(patternEdges);
                 if (!result) return;
 
+                // Determine which slot this number belongs in
                 const hintedSlot = tileHinted.findIndex(h => h === result.num);
-                const freeSlot   = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
-                const targetSlot = hintedSlot !== -1 ? hintedSlot : freeSlot;
+                const targetSlot = hintedSlot !== -1 ? hintedSlot : slot;
 
+                // Remove the lines from the board
                 edgeList = edgeList.filter(e => !result.ids.includes(e.id));
                 playDraw();
 
-                const matchedEdges = playSnapshot
-                    .filter(e => result.ids.includes(e.id))
-                    .map(e => ({ ...e }));
-
+                // Animate the number flying into the slot
+                const matchedEdges = patternEdges.map(e => ({ ...e }));
                 if (targetSlot !== -1) {
                     animateNumberToTile(matchedEdges, result.num, targetSlot, () => {
-                        tileValues[targetSlot]       = result.num;
-                        tileEdgeIds[targetSlot]      = result.ids;
-                        tilePatternHinted[targetSlot] = true; // lock this slot
+                        tileValues[targetSlot] = result.num;
+                        tileEdgeIds[targetSlot] = result.ids;
+                        tilePatternHinted[targetSlot] = true;
                         if (hintedSlot !== -1) tileHinted[hintedSlot] = null;
                         updateTiles();
                         saveProgress();
@@ -3213,34 +3230,22 @@
         });
 
         document.getElementById('hintRevealPattern').addEventListener('click', () => {
-            // If no pattern is currently revealable (lines missing from board),
-            // show a warning in the bubble rather than silently failing.
             const slot = bestPatternSlot();
+            
+            // Check for the flexible fallback condition
+            const remaining = hintRemaining();
+            const isFlexibleCase = (slot === -1 && remaining.length === 1);
+            const flexibleResult = isFlexibleCase ? recogniseNumber(edgeList) : null;
+            const isFlexibleValid = flexibleResult && flexibleResult.num === remaining[0];
 
-            if (slot === -1) {
-                // Check special case:
-                // Only one number remaining AND the current board forms a valid number
-                const remaining = hintRemaining();
-
-                if (remaining.length === 1) {
-                    const result = recogniseNumber(edgeList);
-
-                    if (result && result.num === remaining[0]) {
-                        // Allow pattern hint to proceed even without a valid solution slot
-                        document.getElementById('hintChoiceOverlay').classList.remove('visible');
-                        executePatternHint();
-                        return;
-                    }
-                }
-
-                // Otherwise show normal warning
+            // If neither the intended pattern nor a valid flexible pattern is present, show warning
+            if (slot === -1 && !isFlexibleValid) {
                 const warning = document.getElementById('hintPatternWarning');
                 warning.style.display = 'block';
-                setTimeout(() => {
-                    warning.style.display = 'none';
-                }, 3000);
+                setTimeout(() => { warning.style.display = 'none'; }, 3000);
                 return;
             }
+
             document.getElementById('hintChoiceOverlay').classList.remove('visible');
             executePatternHint();
         });
