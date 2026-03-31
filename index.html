@@ -3156,9 +3156,11 @@
                 const result = recogniseNumber(patternEdges);
                 if (!result) return;
 
-                // Determine which slot this number belongs in
+                // Check if the submitted number matches a hinted slot
                 const hintedSlot = tileHinted.findIndex(h => h === result.num);
-                const targetSlot = hintedSlot !== -1 ? hintedSlot : slot;
+                // Otherwise use the first empty non-hinted slot
+                const freeSlot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+                const targetSlot = hintedSlot !== -1 ? hintedSlot : freeSlot;
 
                 // Remove the lines from the board
                 edgeList = edgeList.filter(e => !result.ids.includes(e.id));
@@ -3229,8 +3231,7 @@
             executeNumberHint();
         });
 
-        document.getElementById('hintRevealPattern').addEventListener('click', () => {
-            const slot = bestPatternSlot();
+        document.getElementById('hintRevealPattern').addEventListener('click', () => {            const slot = bestPatternSlot();
             
             // Check for the flexible fallback condition
             const remaining = hintRemaining();
