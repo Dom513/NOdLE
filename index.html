@@ -452,6 +452,7 @@
         button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
         button.primary:hover { background: #66aaff; border-color: #66aaff; }
 
+
         #hintCount {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: var(--hint-icon);
@@ -901,6 +902,7 @@
                 </div>
             </div>
             <div class="btn-row">
+                <button class="secondary" id="playRestartBtn" title="Restore all lines and clear submitted numbers">Restart</button>
                 <button class="secondary" id="playResetBtn">Clear</button>
                 <button class="primary" id="submitBtn">Submit number</button>
                 <button class="primary" id="showResultsBtn" style="display:none; width:100%;">Show results</button>
@@ -1829,9 +1831,10 @@
         playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
 
         function setSolvedButtonState(solved) {
-            document.getElementById('playResetBtn').style.display  = solved ? 'none' : '';
-            document.getElementById('submitBtn').style.display     = solved ? 'none' : '';
-            document.getElementById('showResultsBtn').style.display = solved ? '' : 'none';
+            document.getElementById('playResetBtn').style.display    = solved ? 'none' : '';
+            document.getElementById('playRestartBtn').style.display  = solved ? 'none' : '';
+            document.getElementById('submitBtn').style.display       = solved ? 'none' : '';
+            document.getElementById('showResultsBtn').style.display  = solved ? '' : 'none';
         }
 
         document.getElementById('showResultsBtn').addEventListener('click', () => {
@@ -1845,6 +1848,99 @@
             if (puzzleSolved) return;
             for (const e of edgeList) e.red = false;
             playDraw();
+        });
+
+        // ─── Robust Restart ─────────────────────────────────────────────────────
+        // Restores every line from the original puzzle JSON, removes all submitted
+        // numbers from tile gaps, BUT:
+        //   • keeps grey (number-hint) values, compacting them left if needed
+        //   • keeps green (pattern-hint) values locked in their slots
+        //   • pattern-hint lines are NOT restored to the board
+
+        let restartConfirmTimer = null; // two-tap safety
+
+        function robustRestart() {
+            if (puzzleSolved) return;
+
+            // Cancel any in-flight animations so state is clean
+            reservedSlots.clear();
+            hintAnimating.clear();
+
+            // 1. Collect edge IDs that belong to pattern-hinted slots.
+            //    These lines were permanently consumed and must stay off the board.
+            const patternHintedEdgeIds = new Set();
+            for (let i = 0; i < 5; i++) {
+                if (tilePatternHinted[i] && tileEdgeIds[i]) {
+                    for (const id of tileEdgeIds[i]) patternHintedEdgeIds.add(id);
+                }
+            }
+
+            // 2. Restore edges: everything in playSnapshot except pattern-hinted edges.
+            //    playSnapshot is a deep copy of the original puzzle edges, never mutated.
+            edgeList = playSnapshot
+                .filter(e => !patternHintedEdgeIds.has(e.id))
+                .map(e => ({ ...e, red: false, color: undefined }));
+
+            // 3. Collect all surviving hint values in order, preserving their type.
+            //    Both grey (number hints) and green (pattern hints) shift left together.
+            const surviving = [];
+            for (let i = 0; i < 5; i++) {
+                if (tilePatternHinted[i]) {
+                    // Green locked-in number — keep value, edgeIds, and patternHinted flag
+                    surviving.push({ value: tileValues[i], edgeIds: tileEdgeIds[i], patternHinted: true });
+                } else if (tileHinted[i] !== null) {
+                    // Grey number hint
+                    surviving.push({ hintedValue: tileHinted[i], patternHinted: false });
+                }
+            }
+
+            // 4. Clear all slots completely.
+            for (let i = 0; i < 5; i++) {
+                tileValues[i]        = null;
+                tileEdgeIds[i]       = null;
+                tileHinted[i]        = null;
+                tilePatternHinted[i] = false;
+                tileWasHinted[i]     = tileWasHinted[i]; // preserve hint-use accounting
+            }
+
+            // 5. Re-place surviving values left-to-right.
+            for (let i = 0; i < surviving.length; i++) {
+                const s = surviving[i];
+                if (s.patternHinted) {
+                    tileValues[i]        = s.value;
+                    tileEdgeIds[i]       = s.edgeIds;
+                    tilePatternHinted[i] = true;
+                } else {
+                    tileHinted[i] = s.hintedValue;
+                }
+            }
+
+            updateTiles();
+            saveProgress();
+            playDraw();
+        }
+
+        document.getElementById('playRestartBtn').addEventListener('click', () => {
+            if (puzzleSolved) return;
+            const btn = document.getElementById('playRestartBtn');
+
+            if (restartConfirmTimer) {
+                // Second tap — execute restart
+                clearTimeout(restartConfirmTimer);
+                restartConfirmTimer = null;
+                btn.classList.remove('confirm-pending');
+                btn.textContent = 'Restart';
+                robustRestart();
+            } else {
+                // First tap — arm confirmation state
+                btn.classList.add('confirm-pending');
+                btn.textContent = 'Sure?';
+                restartConfirmTimer = setTimeout(() => {
+                    restartConfirmTimer = null;
+                    btn.classList.remove('confirm-pending');
+                    btn.textContent = 'Restart';
+                }, 2500);
+            }
         });
 
         // ─── Tile state ─────────────────────────────────────────────────────────
@@ -2631,7 +2727,7 @@
         });
 
         // Tracks tile slots that are currently mid-animation so a second quick
-        // submit doesn't land in the same gap before onComplete fires.
+        // submit does not land in the same gap before onComplete fires.
         const reservedSlots = new Set();
 
         document.getElementById('submitBtn').addEventListener('click', () => {
@@ -2662,8 +2758,8 @@
             );
             const slot = hintedSlot !== -1 ? hintedSlot : freeSlot;
 
-            // Fix: if there's nowhere to put this number, show the error and
-            // leave the drawn pattern intact — don't silently erase it.
+            // If there is nowhere to put this number, show the error and leave
+            // the drawn pattern intact — do not silently erase it.
             if (slot === -1) {
                 showError('All tiles full — tap a number to remove it');
                 return;
