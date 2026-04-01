@@ -814,7 +814,7 @@
             </div>
             <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="mailto:dominicwilde3@gmail.com" style="color:#4488ff; text-decoration:none;">dominicwilde3@gmail.com</a></div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#afcbc0c2c6c1c6ccd8c6c3cbca9cefc8c2cec6c381ccc0c2" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="caaea5a7a3a4a3a9bda3a6aeaff98aada7aba3a6e4a9a5a7">[email&#160;protected]</span></a></div>
             </div>
         </div>
     </div>
@@ -974,7 +974,7 @@
         </div>
     </div>
 
-    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // ─── Grid geometry ──────────────────────────────────────────────────────
         const isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
         const gridSize = 7;
@@ -2630,10 +2630,14 @@
             if (e.key === 'Enter') document.getElementById('submitBtn').click();
         });
 
+        // Tracks tile slots that are currently mid-animation so a second quick
+        // submit doesn't land in the same gap before onComplete fires.
+        const reservedSlots = new Set();
+
         document.getElementById('submitBtn').addEventListener('click', () => {
             if (puzzleSolved) return;
-            // Only truly full if every slot has a confirmed submitted value
-            const allFull = tileValues.every(v => v !== null);
+            // All confirmed slots full (also count in-flight animations as full)
+            const allFull = tileValues.every((v, i) => v !== null || reservedSlots.has(i));
             if (allFull) {
                 showError('All tiles full — tap a number to remove it');
                 return;
@@ -2652,9 +2656,21 @@
 
             // Check if the submitted number matches a hinted slot
             const hintedSlot = tileHinted.findIndex(h => h === result.num);
-            // Otherwise use the first empty non-hinted slot
-            const freeSlot = tileValues.findIndex((v, i) => v === null && tileHinted[i] === null);
+            // Otherwise use the first empty non-hinted, non-reserved slot
+            const freeSlot = tileValues.findIndex(
+                (v, i) => v === null && tileHinted[i] === null && !reservedSlots.has(i)
+            );
             const slot = hintedSlot !== -1 ? hintedSlot : freeSlot;
+
+            // Fix: if there's nowhere to put this number, show the error and
+            // leave the drawn pattern intact — don't silently erase it.
+            if (slot === -1) {
+                showError('All tiles full — tap a number to remove it');
+                return;
+            }
+
+            // Reserve the slot immediately so rapid submits pick different slots.
+            reservedSlots.add(slot);
 
             edgeList = edgeList.filter(e => !result.ids.includes(e.id));
             playDraw();
@@ -2663,18 +2679,15 @@
                 .filter(e => result.ids.includes(e.id))
                 .map(e => ({ ...e }));
 
-            if (slot !== -1) {
-                animateNumberToTile(matchedEdges, result.num, slot, () => {
-                    tileValues[slot] = result.num;
-                    tileEdgeIds[slot] = result.ids;
-                    if (hintedSlot !== -1) tileHinted[hintedSlot] = null; // hint earned
-                    updateTiles();
-                    saveProgress();
-                    checkWin();
-                });
-            } else {
+            animateNumberToTile(matchedEdges, result.num, slot, () => {
+                reservedSlots.delete(slot);
+                tileValues[slot] = result.num;
+                tileEdgeIds[slot] = result.ids;
+                if (hintedSlot !== -1) tileHinted[hintedSlot] = null; // hint earned
+                updateTiles();
+                saveProgress();
                 checkWin();
-            }
+            });
         });
 
         function checkWin() {
@@ -3716,10 +3729,20 @@
                     restoreSolvedBoard(puzzle, solved);
                 }
             } catch (err) {
-                // No puzzle found — always fall back to setup
-                showScreen('screenSetup');
-                setActiveSlot(0);
-                setupDraw();
+                // Fall back to setup when running locally (fetch fails instantly with a
+                // network error because there's no server). On the live site a fetch
+                // failure shows a friendly message instead — setup is dev-only there.
+                const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname)
+                    || window.location.protocol === 'file:';
+                if (isDevMode || isLocal) {
+                    showScreen('screenSetup');
+                    setActiveSlot(0);
+                    setupDraw();
+                } else {
+                    showScreen('screenLoading');
+                    document.getElementById('loadingMsg').textContent =
+                        "Couldn't load today's puzzle. Check your connection and try again.";
+                }
             }
         }
 
