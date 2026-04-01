@@ -320,7 +320,7 @@
             position: relative;
             background: #2a2a2a; border: 2px solid #444;
             border-radius: var(--radius-lg);
-            padding: clamp(24px, 6vw, 36px) clamp(20px, 7vw, 40px) clamp(18px, 5vw, 28px);
+            padding: clamp(16px, 4vw, 24px) clamp(20px, 7vw, 40px) clamp(18px, 5vw, 28px);
             max-width: 420px; width: 100%;
             display: flex; flex-direction: column; gap: var(--gap-sm);
         }
@@ -328,6 +328,7 @@
             position: absolute; top: 10px; right: 14px;
             background: none; border: none; color: #555;
             font-size: clamp(14px, 4vw, 18px);
+            font-weight: 700;
             cursor: pointer; padding: 4px 8px; transition: color 0.15s;
         }
         #infoClose:hover { color: #ccc; }
@@ -336,6 +337,7 @@
             font-size: clamp(18px, 5vw, 24px); letter-spacing: 0.08em; color: #fff;
             text-transform: uppercase; margin-bottom: 4px; text-align: center;
         }
+        #infoContent { margin-top: clamp(10px, 3vw, 16px); }
         #infoContent p {
             font-family: 'Share Tech Mono', monospace;
             font-size: var(--fs-sm);
@@ -349,6 +351,35 @@
             font-size: var(--fs-sm) !important;
             font-weight: 700;
             margin-top: 4px;
+        }
+        #infoGuideBack {
+            position: absolute; top: 10px; left: 14px;
+            background: none; border: none; color: #555;
+            font-size: clamp(26px, 7.6vw, 34px);
+            font-weight: 700;
+            cursor: pointer; padding: 4px 8px; transition: color 0.15s;
+        }
+        #infoGuideBack:hover { color: #ccc; }
+        #infoBox.guide-mode { /* height locked by JS */ }
+        #infoGuide {
+            display: none;
+            flex: 1; flex-direction: column;
+            gap: var(--gap-sm);
+            min-height: 0; overflow: hidden;
+        }
+        #infoGuide.visible { display: flex; }
+        #infoGuideTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(18px, 5vw, 24px); letter-spacing: 0.08em; color: #fff;
+            text-transform: uppercase; text-align: center; flex-shrink: 0;
+        }
+        #infoGuideImgWrap {
+            flex: 1; min-height: 0; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            margin-top: clamp(8px, 2vw, 12px);
+        }
+        #infoGuideImgWrap img {
+            width: 100%; height: 100%; object-fit: contain; display: block;
         }
 
         #winBox {
@@ -913,16 +944,28 @@
         <div id="infoOverlay">
             <div id="infoBox">
                 <button id="infoClose">✕</button>
-                <div id="infoTitle">How to Play NOdLE</div>
-                <div id="infoContent">
-                    <p style="font-weight:400;">Trace along the lines to draw the five numbers that complete the sum!</p>
-                    <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
-                    <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
-                    <p style="font-weight:400;">Click the question mark to get a hint.</p>
-                    <p id="infoPracticeIntro">Before you get started, try some of these tutorial puzzles to get used to what all of the numbers look like:</p>
+                <button id="infoGuideBack" style="display:none;">&#8592;</button>
+                <!-- How to play view -->
+                <div id="infoHowToPlay">
+                    <div id="infoTitle">How to Play NOdLE</div>
+                    <div id="infoContent">
+                        <p style="font-weight:400;">Trace along the lines to draw the five numbers that complete the sum!</p>
+                        <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
+                        <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
+                        <p style="font-weight:400;">Click the question mark to get a hint.</p>
+                        <p id="infoPracticeIntro">Before you get started, try some tutorial puzzles or click "Number Guide" to get used to what all of the numbers look like:</p>
+                    </div>
+                    <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:clamp(10px,2.5vw,16px); display:flex;">
+                        <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
+                        <button class="secondary" id="infoSeeNumbersBtn">Number Guide</button>
+                    </div>
                 </div>
-                <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:4px; display:flex;">
-                    <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
+                <!-- Number guide view -->
+                <div id="infoGuide">
+                    <div id="infoGuideTitle">Number Guide</div>
+                    <div id="infoGuideImgWrap">
+                        <img src="number_guide.png" alt="Number guide">
+                    </div>
                 </div>
             </div>
         </div>
@@ -1587,9 +1630,8 @@
             drawNodes(playCtx, playLastNode, connectedNodeSet());
         }
 
-        function getConnectedNodeAt(mx, my) {
+        function getConnectedNodeAt(mx, my, radius = Math.max(12, spacing * 0.28)) {
             const connected = connectedNodeSet();
-            const radius = Math.max(12, spacing * 0.28);
             for (let i = 0; i < nodes.length; i++)
                 if (connected.has(i) && Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
             return -1;
@@ -1774,7 +1816,9 @@
             if (puzzleSolved) return;
             const pos  = getPos(playCanvas, e);
             const node = getConnectedNodeAt(pos.x, pos.y);
-            const edge = node === -1 ? getEdgeNear(pos.x, pos.y, edgeList) : null;
+            // Always check for a nearby edge, even when a node is also hit.
+            // Edge takes priority for tap intent; dragging recovers the node in playMove.
+            const edge = getEdgeNear(pos.x, pos.y, edgeList);
             // Only capture the touch if it hits something interactive
             if (node === -1 && !edge) return;
             e.preventDefault();
@@ -1782,10 +1826,12 @@
             playDown       = true;
             playLastPos    = pos;
             playHasDragged = false;
+            // If an edge is nearby, treat this as a potential edge-tap start.
+            // playMove will set playLastNode on the first node it crosses so drag still works.
             playPending    = edge;
             playTouched    = new Set();
-            playLastNode   = node;
-            playOriginNode = node;
+            playLastNode   = edge ? -1 : node;
+            playOriginNode = edge ? -1 : node;
             playDraw();
         }
 
@@ -1794,7 +1840,7 @@
             e.preventDefault();
             const pos  = getPos(playCanvas, e);
             playLastPos = pos;
-            const node = getConnectedNodeAt(pos.x, pos.y);
+            const node = getConnectedNodeAt(pos.x, pos.y, Math.max(20, spacing * 0.45));
             if (node !== -1 && node !== playLastNode) handleNodeEntry(node);
             playDraw();
         }
@@ -3063,12 +3109,30 @@
 
         // ── Info popup ───────────────────────────────────────────────────────────
         function closeInfo() {
+            showInfoHowToPlay(); // always reset to how-to-play when closing
             closeOverlay('infoOverlay');
+        }
+        function showInfoHowToPlay() {
+            const box = document.getElementById('infoBox');
+            box.style.height = ''; // release fixed height so content determines size
+            document.getElementById('infoHowToPlay').style.display = '';
+            document.getElementById('infoGuide').classList.remove('visible');
+            document.getElementById('infoGuideBack').style.display = 'none';
+        }
+        function showInfoNumberGuide() {
+            const box = document.getElementById('infoBox');
+            // Lock box to its current how-to-play height before swapping content
+            box.style.height = box.offsetHeight + 'px';
+            document.getElementById('infoHowToPlay').style.display = 'none';
+            document.getElementById('infoGuide').classList.add('visible');
+            document.getElementById('infoGuideBack').style.display = '';
         }
         document.getElementById('infoBtn').addEventListener('click', () => {
             openOverlay('infoOverlay');
         });
         document.getElementById('infoClose').addEventListener('click', closeInfo);
+        document.getElementById('infoGuideBack').addEventListener('click', showInfoHowToPlay);
+        document.getElementById('infoSeeNumbersBtn').addEventListener('click', showInfoNumberGuide);
         document.getElementById('infoOverlay').addEventListener('click', (e) => {
             if (e.target === document.getElementById('infoOverlay')) closeInfo();
         });
