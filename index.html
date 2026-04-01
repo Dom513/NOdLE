@@ -1883,14 +1883,18 @@
 
             // 3. Collect all surviving hint values in order, preserving their type.
             //    Both grey (number hints) and green (pattern hints) shift left together.
+            //    A slot that was hinted and then earned (red) also reverts to grey.
             const surviving = [];
             for (let i = 0; i < 5; i++) {
                 if (tilePatternHinted[i]) {
                     // Green locked-in number — keep value, edgeIds, and patternHinted flag
                     surviving.push({ value: tileValues[i], edgeIds: tileEdgeIds[i], patternHinted: true });
                 } else if (tileHinted[i] !== null) {
-                    // Grey number hint
+                    // Grey number hint still pending
                     surviving.push({ hintedValue: tileHinted[i], patternHinted: false });
+                } else if (tileWasHinted[i] && tileValues[i] !== null) {
+                    // Was hinted then earned (submitted as red) — restore to grey
+                    surviving.push({ hintedValue: tileValues[i], patternHinted: false });
                 }
             }
 
