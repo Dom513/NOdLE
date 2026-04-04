@@ -846,7 +846,7 @@
             </div>
             <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#afcbc0c2c6c1c6ccd8c6c3cbca9cefc8c2cec6c381ccc0c2" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="caaea5a7a3a4a3a9bda3a6aeaff98aada7aba3a6e4a9a5a7">[email&#160;protected]</span></a></div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email dominicwilde3@gmail.com</div>
             </div>
         </div>
     </div>
@@ -887,11 +887,57 @@
             <div class="btn-row">
                 <button class="secondary" id="setupClearBtn">Clear all</button>
                 <button class="secondary" id="setupRotateBtn" title="Rotate 90°">↻</button>
+                <button class="secondary" id="pasteJsonBtn">Paste JSON</button>
                 <button class="secondary" id="copyJsonBtn">Copy JSON</button>
                 <button class="primary"   id="goPlayBtn">Play →</button>
             </div>
             <div id="copyFeedback" style="margin-top:8px; font-size:11px; color:#555; font-family:'Share Tech Mono',monospace; min-height:16px;"></div>
         </div>
+        </div>
+    </div>
+
+    <!-- ── Paste JSON overlay ────────────────────────────────────────────── -->
+    <div id="pasteJsonOverlay" style="
+        display:none; position:fixed; inset:0;
+        background:rgba(0,0,0,0.80);
+        align-items:center; justify-content:center;
+        z-index:150; padding:16px;">
+        <div id="pasteJsonBox" style="
+            position:relative;
+            background:#2a2a2a; border:2px solid #444;
+            border-radius:var(--radius-lg);
+            padding:clamp(20px,5vw,32px) clamp(16px,5vw,28px) clamp(16px,4vw,24px);
+            max-width:440px; width:100%;
+            display:flex; flex-direction:column; gap:12px;">
+            <button id="pasteJsonClose" style="
+                position:absolute; top:10px; right:14px;
+                background:none; border:none; color:#555;
+                font-size:clamp(14px,4vw,18px); font-weight:700;
+                cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset;">✕</button>
+            <div style="
+                font-family:'Rajdhani',sans-serif; font-weight:700;
+                font-size:clamp(16px,4.5vw,22px); letter-spacing:0.08em;
+                color:#fff; text-transform:uppercase;">Paste JSON</div>
+            <div style="
+                font-family:'Share Tech Mono',monospace;
+                font-size:clamp(11px,2.8vw,13px); color:#666; line-height:1.5;">
+                Paste a puzzle JSON to load it into the setup canvas with each number coloured by slot.</div>
+            <textarea id="pasteJsonInput" spellcheck="false" style="
+                width:100%; height:120px; resize:vertical;
+                background:#1a1a1a; border:1px solid #3a3a3a; border-radius:var(--radius);
+                color:#ccc; font-family:'Share Tech Mono',monospace;
+                font-size:clamp(11px,2.8vw,12px); padding:10px;
+                outline:none; line-height:1.5;
+                transition:border-color 0.15s;"
+                placeholder='{"date":"...","solution":[...],"edges":[...],"solutionEdges":[...]}'></textarea>
+            <div id="pasteJsonError" style="
+                font-family:'Share Tech Mono',monospace;
+                font-size:clamp(10px,2.5vw,12px); color:#ff4444;
+                min-height:16px; line-height:1.4;"></div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button class="secondary" id="pasteJsonCancelBtn" style="min-height:38px; padding:6px 18px;">Cancel</button>
+                <button class="primary"   id="pasteJsonLoadBtn"   style="min-height:38px; padding:6px 22px;">Load puzzle</button>
+            </div>
         </div>
     </div>
 
@@ -1352,12 +1398,23 @@
             drawNodes(setupCtx, setupLastNode !== -1 && setupDown ? setupLastNode : -1, connectedNodeSet());
         }
 
+        // Larger hit targets in setup mode for easier drawing and removal
+        const SETUP_NODE_RADIUS_BONUS = 8;  // extra px added to node hit radius
+        const SETUP_EDGE_THRESHOLD    = 20; // px tap-to-remove threshold (vs 12 in play)
+
+        function getNodeAtSetup(mx, my) {
+            const radius = Math.max(12, spacing * 0.28) + SETUP_NODE_RADIUS_BONUS;
+            for (let i = 0; i < nodes.length; i++)
+                if (Math.hypot(nodes[i].x - mx, nodes[i].y - my) < radius) return i;
+            return -1;
+        }
+
         function setupStart(e) {
             e.preventDefault();
             const pos = getPos(setupCanvas, e);
             setupDown      = true;
             setupDragMoved = false;
-            setupLastNode  = getNodeAt(pos.x, pos.y);
+            setupLastNode  = getNodeAtSetup(pos.x, pos.y);
             setupStartNode = setupLastNode;
             setupDraw(-1, pos);
         }
@@ -1366,7 +1423,7 @@
             e.preventDefault();
             if (!setupDown) return;
             const pos  = getPos(setupCanvas, e);
-            const node = getNodeAt(pos.x, pos.y);
+            const node = getNodeAtSetup(pos.x, pos.y);
             const snapNode = (node !== -1 && node !== setupLastNode && setupLastNode !== -1 && validDirection(setupLastNode, node))
                 ? node : -1;
             setupDragMoved = true;
@@ -1385,7 +1442,7 @@
 
             if (!setupDragMoved) {
                 // Pure tap — remove edge nearest tap from whichever slot owns it
-                const hit = getEdgeNear(pos.x, pos.y, edgeList);
+                const hit = getEdgeNear(pos.x, pos.y, edgeList, SETUP_EDGE_THRESHOLD);
                 if (hit) {
                     for (let s = 0; s < 5; s++) {
                         setupSlotEdges[s] = setupSlotEdges[s].filter(e => e.id !== hit.id);
@@ -1393,7 +1450,7 @@
                     rebuildEdgeList();
                 }
             } else if (setupLastNode !== -1) {
-                const endNode = getNodeAt(pos.x, pos.y);
+                const endNode = getNodeAtSetup(pos.x, pos.y);
                 if (endNode !== -1 && endNode !== setupLastNode && validDirection(setupLastNode, endNode)) {
                     const allNodes = [setupLastNode, ...intermediateNodes(setupLastNode, endNode), endNode];
                     for (let i = 0; i < allNodes.length - 1; i++) {
@@ -1533,7 +1590,99 @@
             }
         });
 
-        let playSnapshot = []; // deep copy of edgeList when play started
+        // ── Paste JSON ───────────────────────────────────────────────────────────
+
+        function openPasteJson() {
+            const overlay = document.getElementById('pasteJsonOverlay');
+            document.getElementById('pasteJsonInput').value = '';
+            document.getElementById('pasteJsonError').textContent = '';
+            overlay.style.display = 'flex';
+            setTimeout(() => document.getElementById('pasteJsonInput').focus(), 50);
+        }
+
+        function closePasteJson() {
+            document.getElementById('pasteJsonOverlay').style.display = 'none';
+        }
+
+        function loadFromPastedJson() {
+            const raw = document.getElementById('pasteJsonInput').value.trim();
+            const errEl = document.getElementById('pasteJsonError');
+            errEl.textContent = '';
+
+            let puzzle;
+            try {
+                puzzle = JSON.parse(raw);
+            } catch (e) {
+                errEl.textContent = 'Invalid JSON — could not parse.';
+                return;
+            }
+
+            // Validate required fields
+            if (!Array.isArray(puzzle.edges) || puzzle.edges.length === 0) {
+                errEl.textContent = 'Missing or empty "edges" array.';
+                return;
+            }
+            if (!Array.isArray(puzzle.solutionEdges) || puzzle.solutionEdges.length !== 5) {
+                errEl.textContent = '"solutionEdges" must be an array of 5 index lists.';
+                return;
+            }
+            if (!Array.isArray(puzzle.solution) || puzzle.solution.length !== 5) {
+                errEl.textContent = '"solution" must be an array of 5 numbers.';
+                return;
+            }
+
+            // Validate all edge indices are in range
+            const maxIdx = puzzle.edges.length - 1;
+            for (let s = 0; s < 5; s++) {
+                for (const idx of puzzle.solutionEdges[s]) {
+                    if (idx < 0 || idx > maxIdx) {
+                        errEl.textContent = `solutionEdges[${s}] references out-of-range index ${idx}.`;
+                        return;
+                    }
+                }
+            }
+
+            // All good — load into setup state
+            setupSlotEdges = [[], [], [], [], []];
+            nextId = 0;
+
+            for (let s = 0; s < 5; s++) {
+                for (const idx of puzzle.solutionEdges[s]) {
+                    const raw = puzzle.edges[idx];
+                    setupSlotEdges[s].push(makeEdge(raw.a, raw.b));
+                }
+            }
+
+            rebuildEdgeList();
+
+            // Fill number inputs
+            for (let i = 0; i < 5; i++) {
+                const input = document.getElementById(`setup-n${i}`);
+                const val = puzzle.solution[i];
+                input.value = (val !== null && val !== undefined) ? String(val) : '';
+            }
+            updateSetupTarget();
+            setActiveSlot(0);
+            setupDraw();
+            closePasteJson();
+        }
+
+        document.getElementById('pasteJsonBtn').addEventListener('click', openPasteJson);
+        document.getElementById('pasteJsonClose').addEventListener('click', closePasteJson);
+        document.getElementById('pasteJsonCancelBtn').addEventListener('click', closePasteJson);
+        document.getElementById('pasteJsonLoadBtn').addEventListener('click', loadFromPastedJson);
+
+        // Close on backdrop click
+        document.getElementById('pasteJsonOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('pasteJsonOverlay')) closePasteJson();
+        });
+
+        // Allow Ctrl+Enter to load from the textarea
+        document.getElementById('pasteJsonInput').addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') loadFromPastedJson();
+        });
+
+
         let tileValues   = [null, null, null, null, null];
         let tileEdgeIds  = [null, null, null, null, null];
         let tileHinted   = [null, null, null, null, null]; // hint-revealed numbers not yet earned
@@ -4430,6 +4579,225 @@
         } else {
             initDailyPuzzle();
         }
+
+        // ── Mobile back-button navigation ─────────────────────────────────────────
+        // Intercepts the hardware/gesture back button (and browser back) while any
+        // overlay, popup, or sub-level screen is open and performs the same action
+        // as the visible ← / ✕ control for that context.
+        (function () {
+            var _depth = 0;    // how many nodle history states are currently pushed
+            var _suppress = 0; // popstate events to skip after programmatic history.go
+
+            function pushNav() {
+                _depth++;
+                history.pushState({ nodle: true, d: _depth }, '');
+            }
+
+            // Called by close/back buttons so their history entry is also consumed,
+            // preventing a phantom back-press when nothing is visually open.
+            function consumeNav(n) {
+                n = n || 1;
+                var toPop = Math.min(n, _depth);
+                if (toPop <= 0) return;
+                _depth -= toPop;
+                _suppress += toPop;
+                history.go(-toPop);
+            }
+
+            // Returns the function that "back" should call given the current UI state,
+            // ordered from most-modal (innermost) to least-modal (outermost).
+            function getBackAction() {
+                if (document.getElementById('hintChoiceOverlay').classList.contains('visible'))
+                    return function () { document.getElementById('hintChoiceOverlay').classList.remove('visible'); };
+
+                var pj = document.getElementById('pasteJsonOverlay');
+                if (pj && pj.style.display === 'flex')
+                    return function () { pj.style.display = 'none'; };
+
+                if (document.getElementById('infoOverlay').classList.contains('visible'))
+                    return document.getElementById('infoGuide').classList.contains('visible')
+                        ? showInfoHowToPlay : closeInfo;
+
+                if (document.getElementById('winOverlay').classList.contains('visible'))
+                    return function () { closeOverlay('winOverlay'); };
+
+                var dl = document.getElementById('downloadOverlay');
+                if (dl && dl.style.display === 'flex')
+                    return function () { dl.style.display = 'none'; };
+
+                if (document.getElementById('statsOverlay').classList.contains('visible'))
+                    return function () { closeOverlay('statsOverlay'); };
+
+                if (document.getElementById('archiveOverlay').classList.contains('visible'))
+                    return archiveLevel === 'puzzles'
+                        ? showArchiveMonths
+                        : function () { closeOverlay('archiveOverlay'); };
+
+                if (document.getElementById('practiceOverlay').classList.contains('visible'))
+                    return practiceLevel === 'folder'
+                        ? showPracticeRoot
+                        : function () { closeOverlay('practiceOverlay'); };
+
+                if (document.getElementById('menuOverlay').classList.contains('visible'))
+                    return closeMenu;
+
+                return null;
+            }
+
+            // ── popstate handler ─────────────────────────────────────────────────
+            window.addEventListener('popstate', function () {
+                if (_suppress > 0) { _suppress--; return; }
+                var action = getBackAction();
+                if (action) {
+                    _depth = Math.max(0, _depth - 1);
+                    action();
+                }
+            });
+
+            // ── Wrap open functions to push a history entry on each open/drill-in ─
+
+            // Menu dropdown
+            var _origOpenMenu = openMenu;
+            openMenu = function () { pushNav(); _origOpenMenu.apply(this, arguments); };
+
+            // Archive overlay (top-level open)
+            var _origOpenArchive = openArchive;
+            openArchive = async function () { pushNav(); await _origOpenArchive.apply(this, arguments); };
+
+            // Archive drill-down into a specific month
+            var _origShowArchiveMonth = showArchiveMonth;
+            showArchiveMonth = async function (folder, label) {
+                pushNav();
+                await _origShowArchiveMonth.apply(this, arguments);
+            };
+
+            // Stats overlay
+            var _origOpenStats = openStats;
+            openStats = function () { pushNav(); _origOpenStats.apply(this, arguments); };
+
+            // Practice overlay (top-level open)
+            var _origOpenPractice = openPractice;
+            openPractice = async function () { pushNav(); await _origOpenPractice.apply(this, arguments); };
+
+            // Practice drill-down into a folder
+            var _origShowPracticeFolder = showPracticeFolder;
+            showPracticeFolder = async function (folderName, folderLabel) {
+                pushNav();
+                await _origShowPracticeFolder.apply(this, arguments);
+            };
+
+            // Info overlay — push when the ⓘ button opens it
+            document.getElementById('infoBtn').addEventListener('click', function () {
+                pushNav();
+            });
+
+            // Info overlay number-guide sub-view
+            var _origShowInfoNumberGuide = showInfoNumberGuide;
+            showInfoNumberGuide = function () { pushNav(); _origShowInfoNumberGuide.apply(this, arguments); };
+
+            // Win overlay — push whenever it is shown (solve or "Show results")
+            var _origShowWinOverlay = showWinOverlay;
+            showWinOverlay = function () {
+                _origShowWinOverlay.apply(this, arguments);
+                pushNav();
+            };
+
+            // Hint choice bubble — the original click handler adds 'visible' synchronously,
+            // so we check after it has run.
+            document.getElementById('hintBtn').addEventListener('click', function () {
+                if (document.getElementById('hintChoiceOverlay').classList.contains('visible'))
+                    pushNav();
+            });
+
+            // Download overlay — opened via an inline style change, so detect after tick
+            document.getElementById('menuDownload').addEventListener('click', function () {
+                setTimeout(function () {
+                    if (document.getElementById('downloadOverlay').style.display === 'flex')
+                        pushNav();
+                }, 0);
+            });
+
+            // Paste JSON overlay (dev mode, but harmless to wire always)
+            var pasteBtn = document.getElementById('pasteJsonBtn');
+            if (pasteBtn) {
+                pasteBtn.addEventListener('click', function () {
+                    setTimeout(function () {
+                        var pj = document.getElementById('pasteJsonOverlay');
+                        if (pj && pj.style.display === 'flex') pushNav();
+                    }, 0);
+                });
+            }
+
+            // ── Wire consumeNav into close/back buttons for clean history ─────────
+            // This ensures a close-via-button doesn't leave stale history entries
+            // that would cause a phantom extra back-press when nothing is open.
+
+            // Menu close (backdrop click already handled by closeMenu wrapper)
+            var _origCloseMenu = closeMenu;
+            closeMenu = function () { consumeNav(1); _origCloseMenu.apply(this, arguments); };
+
+            // Archive back button (handles both levels)
+            document.getElementById('archiveBack').addEventListener('click', function () {
+                consumeNav(1);
+            });
+
+            // Stats back button
+            document.getElementById('statsBack').addEventListener('click', function () {
+                consumeNav(1);
+            });
+
+            // Practice back button (handles both levels)
+            document.getElementById('practiceBack').addEventListener('click', function () {
+                consumeNav(1);
+            });
+
+            // Info close (✕) and guide back (←)
+            document.getElementById('infoClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+            document.getElementById('infoGuideBack').addEventListener('click', function () {
+                consumeNav(1);
+            });
+
+            // Win overlay close
+            document.getElementById('winClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+
+            // Hint choice close
+            document.getElementById('hintChoiceClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+            document.getElementById('hintChoiceOverlay').addEventListener('click', function (e) {
+                if (e.target === document.getElementById('hintChoiceOverlay')) consumeNav(1);
+            });
+
+            // Download close
+            document.getElementById('downloadClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+            document.getElementById('downloadOverlay').addEventListener('click', function (e) {
+                if (e.target === document.getElementById('downloadOverlay')) consumeNav(1);
+            });
+
+            // Paste JSON close buttons
+            var pjClose = document.getElementById('pasteJsonClose');
+            if (pjClose) pjClose.addEventListener('click', function () { consumeNav(1); });
+            var pjCancel = document.getElementById('pasteJsonCancelBtn');
+            if (pjCancel) pjCancel.addEventListener('click', function () { consumeNav(1); });
+            var pjOverlay = document.getElementById('pasteJsonOverlay');
+            if (pjOverlay) {
+                pjOverlay.addEventListener('click', function (e) {
+                    if (e.target === pjOverlay) consumeNav(1);
+                });
+            }
+
+            // Info overlay backdrop
+            document.getElementById('infoOverlay').addEventListener('click', function (e) {
+                if (e.target === document.getElementById('infoOverlay')) consumeNav(1);
+            });
+
+        }());
     </script>
     <script>
         if ('serviceWorker' in navigator) {
