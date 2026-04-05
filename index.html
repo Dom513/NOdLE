@@ -794,6 +794,18 @@
             transform: translate(-50%, -50%);
         }
 
+        /* ── Dev2 win overlay — no dim, top-aligned to game grid ────────── */
+        body.dev2 #winOverlay {
+            background: transparent;
+            pointer-events: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 0;
+        }
+        body.dev2 #winBox {
+            pointer-events: all;
+        }
+
         /* ── Dev2 preview row ────────────────────────────────────────────── */
         body.dev2 #topBar { display: none; }
 
@@ -4628,6 +4640,20 @@
         } else if (isDevMode2) {
             // ── Dev2 mode: ?dev=2 — play today's puzzle with no stats/caching ────
             document.body.classList.add('dev2');
+
+            // Win overlay: no dim, top of winBox aligns with top of the game grid
+            const _origShowWinOverlayDev2 = showWinOverlay;
+            showWinOverlay = function () {
+                _origShowWinOverlayDev2.apply(this, arguments);
+                // Set padding-top so winBox top == canvasWrapper top in viewport
+                requestAnimationFrame(() => {
+                    const canvas = document.getElementById('canvasWrapper');
+                    if (canvas) {
+                        const top = canvas.getBoundingClientRect().top;
+                        document.getElementById('winOverlay').style.paddingTop = top + 'px';
+                    }
+                });
+            };
 
             async function initDev2Puzzle() {
                 showScreen('screenLoading');
