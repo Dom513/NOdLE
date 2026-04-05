@@ -899,53 +899,54 @@
             pointer-events: all;
         }
 
-        /* ── Dev2 preview row ────────────────────────────────────────────── */
+        /* ── Dev2 layout overrides ───────────────────────────────────────── */
         body.dev2 #topBar { display: none; }
 
+        /* screenPlay becomes a row in dev2: board-wrap left, side images right */
+        body.dev2 #screenPlay {
+            flex-direction: row;
+            align-items: flex-start;
+            max-width: none;
+            width: 100%;
+        }
+        body.dev2 .board-wrap {
+            max-width: 500px;
+            flex-shrink: 0;
+        }
+
+        /* 16:9 box — centered above the grid inside board-wrap */
         .dev2-preview-row {
             display: none;
-            align-items: flex-end;
-            gap: clamp(8px, 2cqw, 16px);
+            justify-content: center;
             width: 100%;
             margin-bottom: clamp(12px, 3cqw, 20px);
             flex-shrink: 0;
         }
         body.dev2 .dev2-preview-row { display: flex; }
 
-        /* Square box — left side */
-        .dev2-phone-frame {
-            width: 50cqw;
-            height: 50cqw;
-            flex-shrink: 0;
+        .dev2-wide-box {
+            width: 95%;
+            aspect-ratio: 16 / 9;
             border: 2px solid #444;
-            border-radius: clamp(8px, 2cqw, 16px);
+            border-radius: clamp(6px, 1.5cqw, 12px);
             background: transparent;
+            flex-shrink: 0;
         }
 
-        /* Number guide — right side, total height constrained to match the box */
-        .dev2-guide-wrap {
-            display: flex;
+        /* Side example images — stacked vertically to the right of the board */
+        #dev2SideImages {
+            display: none;
             flex-direction: column;
-            align-items: center;
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            height: 50cqw;
-            gap: clamp(4px, 1cqw, 8px);
-        }
-        .dev2-guide-label {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(10px, 2.5cqw, 13px);
-            letter-spacing: 0.15em; text-transform: uppercase;
-            color: #555; line-height: 1;
+            gap: clamp(3px, 0.5vw, 6px);
+            padding: clamp(4px, 1vw, 8px);
             flex-shrink: 0;
+            align-self: stretch;
         }
-        .dev2-guide-img {
-            flex: 1;
-            min-height: 0;
-            width: auto;
+        body.dev2 #dev2SideImages { display: flex; }
+        #dev2SideImages img {
+            width: clamp(36px, 5vw, 64px);
+            height: auto;
             display: block;
-            object-fit: contain;
         }
     </style>
 </head>
@@ -1098,13 +1099,9 @@
     <div class="screen" id="screenPlay">
         <div id="puzzleDescription" style="display:none;"></div>
         <div class="board-wrap">
-        <!-- Dev2 preview row: square box (left) + number guide (right) -->
+        <!-- Dev2 preview row: 16:9 box centered above the grid -->
         <div class="dev2-preview-row">
-            <div class="dev2-phone-frame"></div>
-            <div class="dev2-guide-wrap">
-                <span class="dev2-guide-label">Number Guide</span>
-                <img src="number_guide.png" alt="Number guide" class="dev2-guide-img">
-            </div>
+            <div class="dev2-wide-box"></div>
         </div>
         <!-- Dev2 date navigation bar -->
         <div id="dev2Nav">
@@ -1159,6 +1156,19 @@
             </div>
         </div>
         </div><!-- /board-wrap -->
+
+        <!-- Dev2 side images: 1_example.png … 9_example.png stacked alongside the grid -->
+        <div id="dev2SideImages">
+            <img src="1_example.png" alt="1">
+            <img src="2_example.png" alt="2">
+            <img src="3_example.png" alt="3">
+            <img src="4_example.png" alt="4">
+            <img src="5_example.png" alt="5">
+            <img src="6_example.png" alt="6">
+            <img src="7_example.png" alt="7">
+            <img src="8_example.png" alt="8">
+            <img src="9_example.png" alt="9">
+        </div>
 
         <div id="infoOverlay">
             <div id="infoBox">
