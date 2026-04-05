@@ -902,10 +902,11 @@
         /* ── Dev2 layout overrides ───────────────────────────────────────── */
         body.dev2 #topBar { display: none; }
 
-        /* screenPlay becomes a row in dev2: board-wrap left, side images right */
+        /* screenPlay becomes a centered row in dev2: board-wrap + side images */
         body.dev2 #screenPlay {
             flex-direction: row;
             align-items: flex-start;
+            justify-content: center;
             max-width: none;
             width: 100%;
         }
@@ -925,8 +926,8 @@
         body.dev2 .dev2-preview-row { display: flex; }
 
         .dev2-wide-box {
-            width: 95%;
-            aspect-ratio: 16 / 9;
+            width: 78%;
+            aspect-ratio: 16 / 7;
             border: 2px solid #444;
             border-radius: clamp(6px, 1.5cqw, 12px);
             background: transparent;
@@ -4823,9 +4824,8 @@
                 try {
                     const puzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
                     dev2MonthCache[folder] = puzzles;
-                    const today = todayStr();
                     puzzles
-                        .filter(p => p.date <= today && !dev2AllPuzzles.find(x => x.date === p.date))
+                        .filter(p => !dev2AllPuzzles.find(x => x.date === p.date))
                         .forEach(p => dev2AllPuzzles.push(p));
                     dev2AllPuzzles.sort((a, b) => b.date.localeCompare(a.date));
                     // Recompute dev2Idx since array may have shifted
@@ -4851,8 +4851,7 @@
                 const prev   = document.getElementById('dev2NavPrev');
                 const next   = document.getElementById('dev2NavNext');
                 if (puzzle) {
-                    const isToday = puzzle.date === todayStr();
-                    label.textContent = isToday ? `Today — ${dev2FmtDate(puzzle.date)}` : dev2FmtDate(puzzle.date);
+                    label.textContent = dev2FmtDate(puzzle.date);
                 }
                 prev.disabled = dev2Idx >= dev2AllPuzzles.length - 1;
                 next.disabled = dev2Idx <= 0;
@@ -4877,18 +4876,11 @@
             function dev2RenderMonths(months) {
                 const drop = document.getElementById('dev2NavDropdown');
                 drop.innerHTML = '';
-                const now = new Date();
-                const todayYear  = now.getFullYear();
-                const todayMonth = now.getMonth() + 1;
-                const todayDay   = now.getDate();
 
-                // Include current month always (has today's puzzle)
-                const visible = months.filter(folder => {
-                    const [y, m] = folder.split('_').map(Number);
-                    if (y < todayYear || (y === todayYear && m < todayMonth)) return true;
-                    if (y === todayYear && m === todayMonth) return true; // include current month
-                    return false;
-                }).sort((a, b) => b.localeCompare(a));
+                // All months, newest first (no date filtering — dev mode sees everything)
+                const visible = months
+                    .filter(folder => /^\d{4}_\d{2}$/.test(folder))
+                    .sort((a, b) => b.localeCompare(a));
 
                 visible.forEach(folder => {
                     const [y, m] = folder.split('_');
@@ -4926,10 +4918,9 @@
                     }
                 }
 
-                const today = todayStr();
-                // Show today + past dates only; newest first
+                // All dates in this month, newest first
                 const items = puzzles
-                    .filter(p => p.date <= today)
+                    .slice()
                     .sort((a, b) => b.date.localeCompare(a.date));
 
                 drop.innerHTML = '';
@@ -4950,10 +4941,9 @@
                 drop.appendChild(back);
 
                 items.forEach(puzzle => {
-                    const isToday = puzzle.date === today;
                     const item = document.createElement('div');
                     item.className = 'dev2-nav-item';
-                    const dateLabel = isToday ? `Today — ${dev2FmtDate(puzzle.date)}` : dev2FmtDate(puzzle.date);
+                    const dateLabel = dev2FmtDate(puzzle.date);
                     const isCurrent = puzzle.date === (dev2AllPuzzles[dev2Idx] || {}).date;
                     item.innerHTML = `<span class="dev2-nav-item-label">${dateLabel}</span>` +
                         `<span class="dev2-nav-item-badge" style="${isCurrent ? 'color:#4488ff' : ''}">${isCurrent ? '▶' : '→'}</span>`;
@@ -5023,21 +5013,22 @@
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const allPuzzles = await resp.json();
 
-                    // Cache this month and build initial flat list (today + past in this month)
+                    // Cache this month and build initial flat list (all puzzles, newest first)
                     dev2MonthCache[monthFolder] = allPuzzles;
                     dev2AllPuzzles = allPuzzles
-                        .filter(p => p.date <= dateStr)
+                        .slice()
                         .sort((a, b) => b.date.localeCompare(a.date));
 
                     // Also fetch the month index so the dropdown can show all months
                     fetchJson(`${DAILY_BASE}/index.json`).then(months => {
-                        // Merge any months not yet in cache into the dropdown
                         dev2MonthCache['__index__'] = months;
                     }).catch(() => {});
 
-                    dev2Idx = 0; // start on today
-                    const puzzle = dev2AllPuzzles[0];
-                    if (!puzzle) throw new Error('Puzzle not found for today');
+                    // Start on today's puzzle (or the closest past date if today isn't published)
+                    dev2Idx = dev2AllPuzzles.findIndex(p => p.date <= dateStr);
+                    if (dev2Idx === -1) dev2Idx = 0;
+                    const puzzle = dev2AllPuzzles[dev2Idx];
+                    if (!puzzle) throw new Error('Puzzle not found');
                     dev2UpdateBar();
                     loadPuzzle(puzzle);
                     showScreen('screenPlay');
