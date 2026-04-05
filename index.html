@@ -794,6 +794,99 @@
             transform: translate(-50%, -50%);
         }
 
+        /* ── Dev2 date navigation bar ────────────────────────────────────── */
+        #dev2Nav {
+            display: none;
+            width: 100%;
+            position: relative;
+            margin-bottom: clamp(4px, 1.5cqw, 8px);
+            flex-shrink: 0;
+            z-index: 50;
+        }
+        body.dev2 #dev2Nav { display: block; }
+
+        #dev2NavBar {
+            display: flex; align-items: center; justify-content: space-between;
+            width: 100%;
+            border: 1px solid #333;
+            border-radius: var(--radius);
+            background: #1e1e1e;
+            overflow: hidden;
+        }
+        .dev2-nav-arrow {
+            background: none; border: none; color: #666;
+            font-size: 1.8em; line-height: 1;
+            cursor: pointer; padding: 0 12px;
+            min-height: 38px; min-width: 38px;
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.15s; flex-shrink: 0;
+        }
+        .dev2-nav-arrow:hover:not(:disabled) { color: #ccc; }
+        .dev2-nav-arrow:disabled { opacity: 0.22; cursor: default; }
+        #dev2NavLabel {
+            flex: 1; text-align: center; cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(11px, 3cqw, 13px); color: #888;
+            letter-spacing: 0.08em;
+            padding: 0 4px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            transition: color 0.15s;
+        }
+        #dev2NavLabel:hover { color: #ccc; }
+        #dev2NavLabel.open   { color: #fff; }
+
+        /* Dropdown panel — floats over the board */
+        #dev2NavDropdown {
+            display: none;
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: #1a1a1a; border: 1px solid #333;
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            max-height: clamp(220px, 55cqw, 320px);
+            overflow-y: auto;
+            z-index: 60;
+        }
+        #dev2NavDropdown.open { display: block; }
+
+        /* Matches archive-item exactly */
+        .dev2-nav-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #222;
+            cursor: pointer; transition: background 0.12s;
+        }
+        .dev2-nav-item:last-child { border-bottom: none; }
+        .dev2-nav-item:hover { background: #242424; }
+        .dev2-nav-item-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(11px, 3cqw, 13px); color: #888;
+            letter-spacing: 0.08em;
+        }
+        .dev2-nav-item-badge {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5cqw, 12px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #444;
+        }
+        .dev2-nav-back {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-bottom: 1px solid #2a2a2a;
+            cursor: pointer; transition: background 0.12s;
+        }
+        .dev2-nav-back:hover { background: #222; }
+        .dev2-nav-back-arrow {
+            color: #555; font-size: 1.3em; line-height: 1; font-weight: 700;
+        }
+        .dev2-nav-back-label {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(11px, 3cqw, 13px); color: #555;
+            letter-spacing: 0.12em; text-transform: uppercase;
+        }
+        .dev2-nav-loading {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px; color: #444;
+            text-align: center; padding: 28px 16px;
+        }
         /* ── Dev2 win overlay — no dim, top-aligned to game grid ────────── */
         body.dev2 #winOverlay {
             background: transparent;
@@ -1002,6 +1095,17 @@
             <div class="dev2-phone-frame"></div>
             <div class="dev2-guide-wrap">
                 <img src="number_guide.png" alt="Number guide" class="dev2-guide-img">
+            </div>
+        </div>
+        <!-- Dev2 date navigation bar -->
+        <div id="dev2Nav">
+            <div id="dev2NavBar">
+                <button class="dev2-nav-arrow" id="dev2NavPrev">&#8249;</button>
+                <div id="dev2NavLabel">—</div>
+                <button class="dev2-nav-arrow" id="dev2NavNext">&#8250;</button>
+            </div>
+            <div id="dev2NavDropdown">
+                <div class="dev2-nav-loading">Loading...</div>
             </div>
         </div>
         <div class="canvas-toolbar">
@@ -4655,6 +4759,176 @@
                 });
             };
 
+            // ── Dev2 date navigation ──────────────────────────────────────────
+            // Flat sorted list of all puzzle objects (newest first), built lazily.
+            // Index 0 = today, last index = oldest available puzzle.
+            let dev2AllPuzzles = [];      // flat array, sorted newest-first
+            let dev2Idx = 0;             // current position in dev2AllPuzzles
+            let dev2MonthCache = {};      // folder → array of puzzle objects
+            let dev2DropLevel = 'months'; // 'months' or 'dates'
+            let dev2DropMonth = null;     // folder name of currently shown month
+            let dev2DropOpen  = false;
+
+            const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const MONTH_NAMES_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+            function dev2FmtDate(dateStr) {
+                const [y, m, d] = dateStr.split('-');
+                return `${parseInt(d)} ${MONTH_NAMES_LONG[parseInt(m)-1]} ${y}`;
+            }
+
+            function dev2UpdateBar() {
+                const puzzle = dev2AllPuzzles[dev2Idx];
+                const label  = document.getElementById('dev2NavLabel');
+                const prev   = document.getElementById('dev2NavPrev');
+                const next   = document.getElementById('dev2NavNext');
+                if (puzzle) {
+                    const isToday = puzzle.date === todayStr();
+                    label.textContent = isToday ? `Today — ${dev2FmtDate(puzzle.date)}` : dev2FmtDate(puzzle.date);
+                }
+                prev.disabled = dev2Idx >= dev2AllPuzzles.length - 1;
+                next.disabled = dev2Idx <= 0;
+                label.classList.toggle('open', dev2DropOpen);
+            }
+
+            function dev2LoadPuzzle(idx) {
+                dev2Idx = idx;
+                dev2UpdateBar();
+                const puzzle = dev2AllPuzzles[idx];
+                if (!puzzle) return;
+                loadPuzzle(puzzle);
+                showScreen('screenPlay');
+            }
+
+            function dev2CloseDropdown() {
+                dev2DropOpen = false;
+                document.getElementById('dev2NavDropdown').classList.remove('open');
+                document.getElementById('dev2NavLabel').classList.remove('open');
+            }
+
+            function dev2RenderMonths(months) {
+                const drop = document.getElementById('dev2NavDropdown');
+                drop.innerHTML = '';
+                const now = new Date();
+                const todayYear  = now.getFullYear();
+                const todayMonth = now.getMonth() + 1;
+                const todayDay   = now.getDate();
+
+                // Include current month always (has today's puzzle)
+                const visible = months.filter(folder => {
+                    const [y, m] = folder.split('_').map(Number);
+                    if (y < todayYear || (y === todayYear && m < todayMonth)) return true;
+                    if (y === todayYear && m === todayMonth) return true; // include current month
+                    return false;
+                }).sort((a, b) => b.localeCompare(a));
+
+                visible.forEach(folder => {
+                    const [y, m] = folder.split('_');
+                    const label = `${MONTH_NAMES_SHORT[parseInt(m)-1]} ${y}`;
+                    const item = document.createElement('div');
+                    item.className = 'dev2-nav-item';
+                    item.innerHTML = `<span class="dev2-nav-item-label">${label}</span><span class="dev2-nav-item-badge">→</span>`;
+                    item.addEventListener('click', () => dev2OpenMonth(folder, label));
+                    drop.appendChild(item);
+                });
+            }
+
+            async function dev2OpenMonth(folder, label) {
+                dev2DropLevel = 'dates';
+                dev2DropMonth = folder;
+                const drop = document.getElementById('dev2NavDropdown');
+                drop.innerHTML = `<div class="dev2-nav-loading">Loading...</div>`;
+
+                let puzzles;
+                if (dev2MonthCache[folder]) {
+                    puzzles = dev2MonthCache[folder];
+                } else {
+                    try {
+                        puzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
+                        dev2MonthCache[folder] = puzzles;
+                        // Merge any new puzzles into dev2AllPuzzles
+                        puzzles.forEach(p => {
+                            if (!dev2AllPuzzles.find(x => x.date === p.date))
+                                dev2AllPuzzles.push(p);
+                        });
+                        dev2AllPuzzles.sort((a, b) => b.date.localeCompare(a.date));
+                    } catch(e) {
+                        drop.innerHTML = `<div class="dev2-nav-loading">Could not load ${label}.</div>`;
+                        return;
+                    }
+                }
+
+                const today = todayStr();
+                // Show today + past dates only; newest first
+                const items = puzzles
+                    .filter(p => p.date <= today)
+                    .sort((a, b) => b.date.localeCompare(a.date));
+
+                drop.innerHTML = '';
+
+                // Back row
+                const back = document.createElement('div');
+                back.className = 'dev2-nav-back';
+                back.innerHTML = `<span class="dev2-nav-back-arrow">←</span><span class="dev2-nav-back-label">${label}</span>`;
+                back.addEventListener('click', () => {
+                    dev2DropLevel = 'months';
+                    const indexMonths = dev2MonthCache['__index__'] || [];
+                    const fromPuzzles = dev2AllPuzzles.map(p => {
+                        const [y, m] = p.date.split('-'); return `${y}_${m}`;
+                    });
+                    const allKnown = [...new Set([...indexMonths, ...fromPuzzles, ...Object.keys(dev2MonthCache).filter(k => k !== '__index__')])];
+                    dev2RenderMonths(allKnown);
+                });
+                drop.appendChild(back);
+
+                items.forEach(puzzle => {
+                    const isToday = puzzle.date === today;
+                    const item = document.createElement('div');
+                    item.className = 'dev2-nav-item';
+                    const dateLabel = isToday ? `Today — ${dev2FmtDate(puzzle.date)}` : dev2FmtDate(puzzle.date);
+                    const isCurrent = puzzle.date === (dev2AllPuzzles[dev2Idx] || {}).date;
+                    item.innerHTML = `<span class="dev2-nav-item-label">${dateLabel}</span>` +
+                        `<span class="dev2-nav-item-badge" style="${isCurrent ? 'color:#4488ff' : ''}">${isCurrent ? '▶' : '→'}</span>`;
+                    item.addEventListener('click', () => {
+                        const idx = dev2AllPuzzles.findIndex(x => x.date === puzzle.date);
+                        if (idx !== -1) dev2LoadPuzzle(idx);
+                        dev2CloseDropdown();
+                    });
+                    drop.appendChild(item);
+                });
+            }
+
+            // Toggle dropdown
+            document.getElementById('dev2NavLabel').addEventListener('click', async () => {
+                if (dev2DropOpen) { dev2CloseDropdown(); return; }
+                dev2DropOpen = true;
+                document.getElementById('dev2NavDropdown').classList.add('open');
+                document.getElementById('dev2NavLabel').classList.add('open');
+                dev2DropLevel = 'months';
+                const indexMonths = dev2MonthCache['__index__'] || [];
+                const fromPuzzles = dev2AllPuzzles.map(p => {
+                    const [y, m] = p.date.split('-'); return `${y}_${m}`;
+                });
+                const allKnown = [...new Set([...indexMonths, ...fromPuzzles, ...Object.keys(dev2MonthCache).filter(k => k !== '__index__')])];
+                dev2RenderMonths(allKnown);
+            });
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!dev2DropOpen) return;
+                const nav = document.getElementById('dev2Nav');
+                if (!nav.contains(e.target)) dev2CloseDropdown();
+            });
+
+            // Prev = older puzzle (higher index in newest-first array)
+            document.getElementById('dev2NavPrev').addEventListener('click', () => {
+                if (dev2Idx < dev2AllPuzzles.length - 1) dev2LoadPuzzle(dev2Idx + 1);
+            });
+            // Next = newer puzzle (lower index)
+            document.getElementById('dev2NavNext').addEventListener('click', () => {
+                if (dev2Idx > 0) dev2LoadPuzzle(dev2Idx - 1);
+            });
+
             async function initDev2Puzzle() {
                 showScreen('screenLoading');
                 currentPuzzleList  = null;
@@ -4662,17 +4936,32 @@
                 const dateStr = todayStr();
                 try {
                     const [dy, dm] = dateStr.split('-');
-                    const monthFile = `${dy}_${dm}_puzzles.json`;
+                    const monthFolder = `${dy}_${dm}`;
+                    const monthFile = `${monthFolder}_puzzles.json`;
                     const url = `${DAILY_BASE}/${monthFile}`;
                     const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const allPuzzles = await resp.json();
-                    const puzzle = allPuzzles.find(p => p.date === dateStr);
+
+                    // Cache this month and build initial flat list (today + past in this month)
+                    dev2MonthCache[monthFolder] = allPuzzles;
+                    dev2AllPuzzles = allPuzzles
+                        .filter(p => p.date <= dateStr)
+                        .sort((a, b) => b.date.localeCompare(a.date));
+
+                    // Also fetch the month index so the dropdown can show all months
+                    fetchJson(`${DAILY_BASE}/index.json`).then(months => {
+                        // Merge any months not yet in cache into the dropdown
+                        dev2MonthCache['__index__'] = months;
+                    }).catch(() => {});
+
+                    dev2Idx = 0; // start on today
+                    const puzzle = dev2AllPuzzles[0];
                     if (!puzzle) throw new Error('Puzzle not found for today');
+                    dev2UpdateBar();
                     loadPuzzle(puzzle);
                     showScreen('screenPlay');
                 } catch(err) {
-                    // Fallback to setup if running locally or puzzle fetch fails
                     const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname)
                         || window.location.protocol === 'file:';
                     if (isLocal) {
@@ -4686,6 +4975,9 @@
                     }
                 }
             }
+
+            // When dropdown is open, patch dev2OpenMonth's back button to use cached index
+            // (already done inline above with the anonymous uniqueMonths array)
 
             initDev2Puzzle();
         } else {
