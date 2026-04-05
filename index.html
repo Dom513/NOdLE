@@ -793,6 +793,47 @@
             font-size: clamp(32px, 10vw, 48px); color: #ffffff;
             transform: translate(-50%, -50%);
         }
+
+        /* ── Dev2 preview row ────────────────────────────────────────────── */
+        body.dev2 #topBar { display: none; }
+
+        .dev2-preview-row {
+            display: none;
+            align-items: flex-end;
+            width: 100%;
+            height: 80cqw;
+            margin-bottom: clamp(6px, 2cqw, 12px);
+            flex-shrink: 0;
+        }
+        body.dev2 .dev2-preview-row { display: flex; }
+
+        /* 9:16 phone frame — left-aligned to the board */
+        .dev2-phone-frame {
+            /* height = 80cqw, width = height × (9/16) */
+            width: calc(80cqw * 9 / 16);
+            height: 80cqw;
+            border: 2px solid #444;
+            border-radius: clamp(10px, 2.5cqw, 20px);
+            flex-shrink: 0;
+            background: transparent;
+        }
+
+        /* Number guide image — right-aligned to the board */
+        .dev2-guide-wrap {
+            flex: 1;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            overflow: hidden;
+            padding-left: clamp(6px, 1.5cqw, 12px);
+        }
+        .dev2-guide-img {
+            height: 80cqw;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -846,7 +887,7 @@
             </div>
             <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email dominicwilde3@gmail.com</div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#afcbc0c2c6c1c6ccd8c6c3cbca9cefc8c2cec6c381ccc0c2" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="caaea5a7a3a4a3a9bda3a6aeaff98aada7aba3a6e4a9a5a7">[email&#160;protected]</span></a></div>
             </div>
         </div>
     </div>
@@ -944,6 +985,13 @@
     <div class="screen" id="screenPlay">
         <div id="puzzleDescription" style="display:none;"></div>
         <div class="board-wrap">
+        <!-- Dev2 preview row: phone frame (left) + number guide (right) -->
+        <div class="dev2-preview-row">
+            <div class="dev2-phone-frame"></div>
+            <div class="dev2-guide-wrap">
+                <img src="number_guide.png" alt="Number guide" class="dev2-guide-img">
+            </div>
+        </div>
         <div class="canvas-toolbar">
             <div id="hintWrap" style="display:flex;align-items:center;gap:6px;">
                 <button class="toolbar-btn" id="hintBtn" title="Hint">?</button>
@@ -1067,7 +1115,8 @@
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // ─── Grid geometry ──────────────────────────────────────────────────────
-        const isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
+        const isDevMode  = new URLSearchParams(window.location.search).get('dev') === '1';
+        const isDevMode2 = new URLSearchParams(window.location.search).get('dev') === '2';
         const gridSize = 7;
         const W = 460, H = 460;
         const padding = 40;
@@ -3693,7 +3742,7 @@
         function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
 
         function markSolved(dateStr, timeMs) {
-            if (isDevMode) return; // dev mode — never write to localStorage
+            if (isDevMode || isDevMode2) return; // dev modes — never write to localStorage
             if (getSolvedData(dateStr)) return; // first solve only — never overwrite
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
@@ -3714,7 +3763,7 @@
         function getProgressKey(dateStr) { return `gridlines_progress_${dateStr}`; }
 
         function saveProgress() {
-            if (isDevMode) return; // dev mode — never write to localStorage
+            if (isDevMode || isDevMode2) return; // dev modes — never write to localStorage
             if (puzzleSolved) return;
             if (!currentPuzzleDate && edgeList.length === 0) return; // nothing loaded yet
             const dateStr = currentPuzzleDate || todayStr();
@@ -4576,6 +4625,43 @@
                 setActiveSlot(0);
                 setupDraw();
             });
+        } else if (isDevMode2) {
+            // ── Dev2 mode: ?dev=2 — play today's puzzle with no stats/caching ────
+            document.body.classList.add('dev2');
+
+            async function initDev2Puzzle() {
+                showScreen('screenLoading');
+                currentPuzzleList  = null;
+                currentPuzzleIndex = -1;
+                const dateStr = todayStr();
+                try {
+                    const [dy, dm] = dateStr.split('-');
+                    const monthFile = `${dy}_${dm}_puzzles.json`;
+                    const url = `${DAILY_BASE}/${monthFile}`;
+                    const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const allPuzzles = await resp.json();
+                    const puzzle = allPuzzles.find(p => p.date === dateStr);
+                    if (!puzzle) throw new Error('Puzzle not found for today');
+                    loadPuzzle(puzzle);
+                    showScreen('screenPlay');
+                } catch(err) {
+                    // Fallback to setup if running locally or puzzle fetch fails
+                    const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname)
+                        || window.location.protocol === 'file:';
+                    if (isLocal) {
+                        showScreen('screenSetup');
+                        setActiveSlot(0);
+                        setupDraw();
+                    } else {
+                        showScreen('screenLoading');
+                        document.getElementById('loadingMsg').textContent =
+                            "Couldn't load today's puzzle. Check your connection and try again.";
+                    }
+                }
+            }
+
+            initDev2Puzzle();
         } else {
             initDailyPuzzle();
         }
