@@ -912,27 +912,7 @@
         }
         body.dev2 .dev2-preview-row { display: flex; }
 
-        /* Number guide — left side, auto-width, same height as the square */
-        .dev2-guide-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex-shrink: 0;
-            gap: clamp(4px, 1cqw, 8px);
-        }
-        .dev2-guide-label {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(10px, 2.5cqw, 13px);
-            letter-spacing: 0.15em; text-transform: uppercase;
-            color: #555; line-height: 1;
-        }
-        .dev2-guide-img {
-            height: 50cqw;
-            width: auto;
-            display: block;
-        }
-
-        /* Square box — right side, half the board width */
+        /* Square box — left side */
         .dev2-phone-frame {
             width: 50cqw;
             height: 50cqw;
@@ -940,7 +920,30 @@
             border: 2px solid #444;
             border-radius: clamp(8px, 2cqw, 16px);
             background: transparent;
-            margin-left: auto;
+        }
+
+        /* Number guide — right side, total height constrained to match the box */
+        .dev2-guide-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+            height: 50cqw;
+            gap: clamp(4px, 1cqw, 8px);
+        }
+        .dev2-guide-label {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5cqw, 13px);
+            letter-spacing: 0.15em; text-transform: uppercase;
+            color: #555; line-height: 1;
+            flex-shrink: 0;
+        }
+        .dev2-guide-img {
+            flex: 1;
+            min-height: 0;
+            width: auto;
+            display: block;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -1093,13 +1096,13 @@
     <div class="screen" id="screenPlay">
         <div id="puzzleDescription" style="display:none;"></div>
         <div class="board-wrap">
-        <!-- Dev2 preview row: number guide (left) + square box (right) -->
+        <!-- Dev2 preview row: square box (left) + number guide (right) -->
         <div class="dev2-preview-row">
+            <div class="dev2-phone-frame"></div>
             <div class="dev2-guide-wrap">
                 <span class="dev2-guide-label">Number Guide</span>
                 <img src="number_guide.png" alt="Number guide" class="dev2-guide-img">
             </div>
-            <div class="dev2-phone-frame"></div>
         </div>
         <!-- Dev2 date navigation bar -->
         <div id="dev2Nav">
