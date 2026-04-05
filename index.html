@@ -3802,7 +3802,10 @@
             // Show description (practice), formatted date (archive), or nothing (today)
             const descEl = document.getElementById('puzzleDescription');
             const isPracticeDate = puzzleData.date && puzzleData.date.startsWith('practice-');
-            if (puzzleData.description) {
+            if (isDevMode2) {
+                descEl.textContent = '';
+                descEl.style.display = 'none';
+            } else if (puzzleData.description) {
                 descEl.textContent = puzzleData.description;
                 descEl.style.display = '';
             } else if (puzzleData.date && !isPracticeDate && puzzleData.date !== todayStr()) {
@@ -4777,6 +4780,52 @@
                 return `${parseInt(d)} ${MONTH_NAMES_LONG[parseInt(m)-1]} ${y}`;
             }
 
+            // Fetch the month immediately before/after the current boundary and merge puzzles in
+            async function dev2FetchAdjacentMonth(direction) {
+                // Determine the boundary date
+                const boundaryDate = direction === 'older'
+                    ? dev2AllPuzzles[dev2AllPuzzles.length - 1].date  // oldest known
+                    : dev2AllPuzzles[0].date;                          // newest known (today)
+
+                const [y, m] = boundaryDate.split('-').map(Number);
+
+                let targetYear, targetMonth;
+                if (direction === 'older') {
+                    targetMonth = m === 1 ? 12 : m - 1;
+                    targetYear  = m === 1 ? y - 1 : y;
+                } else {
+                    targetMonth = m === 12 ? 1 : m + 1;
+                    targetYear  = m === 12 ? y + 1 : y;
+                }
+
+                const folder = `${targetYear}_${String(targetMonth).padStart(2, '0')}`;
+                if (dev2MonthCache[folder]) return; // already loaded
+
+                try {
+                    const puzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
+                    dev2MonthCache[folder] = puzzles;
+                    const today = todayStr();
+                    puzzles
+                        .filter(p => p.date <= today && !dev2AllPuzzles.find(x => x.date === p.date))
+                        .forEach(p => dev2AllPuzzles.push(p));
+                    dev2AllPuzzles.sort((a, b) => b.date.localeCompare(a.date));
+                    // Recompute dev2Idx since array may have shifted
+                    const currentDate = (dev2AllPuzzles[dev2Idx] || {}).date;
+                    if (currentDate) {
+                        dev2Idx = dev2AllPuzzles.findIndex(p => p.date === currentDate);
+                        if (dev2Idx === -1) dev2Idx = 0;
+                    }
+                    dev2UpdateBar();
+                } catch(e) {
+                    // Month doesn't exist — disable the arrow permanently
+                    if (direction === 'older') {
+                        document.getElementById('dev2NavPrev').disabled = true;
+                    } else {
+                        document.getElementById('dev2NavNext').disabled = true;
+                    }
+                }
+            }
+
             function dev2UpdateBar() {
                 const puzzle = dev2AllPuzzles[dev2Idx];
                 const label  = document.getElementById('dev2NavLabel');
@@ -4921,12 +4970,24 @@
             });
 
             // Prev = older puzzle (higher index in newest-first array)
-            document.getElementById('dev2NavPrev').addEventListener('click', () => {
-                if (dev2Idx < dev2AllPuzzles.length - 1) dev2LoadPuzzle(dev2Idx + 1);
+            document.getElementById('dev2NavPrev').addEventListener('click', async () => {
+                if (dev2Idx < dev2AllPuzzles.length - 1) {
+                    dev2LoadPuzzle(dev2Idx + 1);
+                } else {
+                    // At the oldest known puzzle — try to fetch the previous month
+                    await dev2FetchAdjacentMonth('older');
+                    if (dev2Idx < dev2AllPuzzles.length - 1) dev2LoadPuzzle(dev2Idx + 1);
+                }
             });
             // Next = newer puzzle (lower index)
-            document.getElementById('dev2NavNext').addEventListener('click', () => {
-                if (dev2Idx > 0) dev2LoadPuzzle(dev2Idx - 1);
+            document.getElementById('dev2NavNext').addEventListener('click', async () => {
+                if (dev2Idx > 0) {
+                    dev2LoadPuzzle(dev2Idx - 1);
+                } else {
+                    // At today — try to fetch a newer month (shouldn't normally happen)
+                    await dev2FetchAdjacentMonth('newer');
+                    if (dev2Idx > 0) dev2LoadPuzzle(dev2Idx - 1);
+                }
             });
 
             async function initDev2Puzzle() {
