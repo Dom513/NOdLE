@@ -3721,7 +3721,11 @@
 
             // Horizontal: centre on button, clamped to viewport
             let left = btnRect.left + btnRect.width / 2 - bubbleW / 2;
-            left = Math.max(8, Math.min(left, window.innerWidth - bubbleW - 8));
+            // In dev2 mode, also clamp left edge to the game grid's left edge
+            const minLeft = isDevMode2
+                ? (document.getElementById('canvasWrapper').getBoundingClientRect().left)
+                : 8;
+            left = Math.max(minLeft, Math.min(left, window.innerWidth - bubbleW - 8));
 
             // Vertical: below the button
             const top = btnRect.bottom + GAP;
