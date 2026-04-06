@@ -3885,8 +3885,9 @@
         function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
 
         function markSolved(dateStr, timeMs) {
-            if (isDevMode || isDevMode2) return; // dev modes — never write to localStorage
-            if (getSolvedData(dateStr)) return; // first solve only — never overwrite
+            if (isDevMode) return; // dev=1 — never write to localStorage
+            if (getSolvedData(dateStr)) return; // already solved — never overwrite (covers dev2 too)
+            if (isDevMode2 && dateStr.startsWith('practice-')) return; // never save practice in dev2
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
                 hintsUsed: 5 - hintsRemaining,
