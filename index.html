@@ -34,8 +34,15 @@
             --fs-2xl:   clamp(24px, 7vw,   34px);
             --fs-title: clamp(20px, 5.5vw, 30px);
 
-            --logo-h:        clamp(42px, 9vw,  68px);
-            --toolbar-icon:  clamp(20px, 6vw,  28px);
+            /* Logo is now sized horizontally by flex (it grows to fill the
+               space between the icon groups); --logo-h is just a max-height
+               safety cap so the logo can't render absurdly tall on very
+               wide layouts. Reducing this value shrinks the rendered
+               letterforms inside an unchanged container, which directly
+               grows the visible gap to the side icons (the container's
+               object-fit: contain whitespace expands as the image shrinks). */
+            --logo-h:        38px;
+            --toolbar-icon:  clamp(22px, 6vw,  28px);
             --hint-icon:     clamp(24px, 6.5vw,28px);
 
             --gap-sm:    clamp(6px,  1.5vw, 10px);
@@ -61,42 +68,75 @@
         }
 
         /* ── Top Bar ─────────────────────────────────────────────────────── */
+        /*
+         * Single flex row: [info][123]  LOGO  [menu][gear].
+         * One `gap` value applied throughout, so the spacing between
+         * 123→logo and logo→menu matches the spacing inside each icon
+         * group. The logo is the only flex-grow item, so it expands to
+         * fill whatever width is left between the two icon groups.
+         */
         #topBar {
             width: 100%; max-width: 500px;
-            display: flex; justify-content: center; align-items: center;
-            position: relative;
-            padding: clamp(6px, 2vw, 16px) 16px 0 16px;
+            display: flex; align-items: center;
+            gap: clamp(2px, 1vw, 8px);
+            padding: clamp(6px, 2vw, 16px) clamp(8px, 2vw, 16px) 0 clamp(8px, 2vw, 16px);
             margin: 0 auto clamp(6px, 2vw, 14px) auto;
             flex-shrink: 0;
         }
 
         #topLogo {
-            height: var(--logo-h);
-            flex-shrink: 1;
+            /* Take all remaining horizontal space between the icon groups. */
+            flex: 1 1 0;
+            min-width: 0;
+            /* width: 100% is implicit via the flex assignment;
+               height auto + max-height keeps aspect ratio while
+               capping the logo on very wide layouts. */
+            height: auto;
+            max-height: var(--logo-h);
             object-fit: contain;
-            max-width: 60%;
         }
 
-        #menuBtn {
-            position: absolute; right: 16px;
+        #menuBtn,
+        #infoBtn,
+        #settingsBtn,
+        #numberGuideBtn {
             background: none; border: none;
-            color: #888; font-size: var(--toolbar-icon);
+            color: #888;
             cursor: pointer; padding: 4px;
             line-height: 1; transition: color 0.15s;
-            min-width: 44px; min-height: 44px;
+            min-width: 40px; min-height: 40px;
             display: flex; align-items: center; justify-content: center;
         }
-        #menuBtn:hover { color: #ddd; }
-        #infoBtn {
-            position: absolute; left: 16px;
-            background: none; border: none;
-            color: #888; font-size: var(--toolbar-icon);
-            cursor: pointer; padding: 4px;
-            line-height: 1; transition: color 0.15s;
-            min-width: 44px; min-height: 44px;
-            display: flex; align-items: center; justify-content: center;
+        /* All four icons share the same SVG height so they line up perfectly,
+           even when the underlying glyphs (gear vs hamburger) would otherwise
+           render at slightly different sizes. */
+        #menuBtn       svg,
+        #infoBtn       svg,
+        #settingsBtn   svg,
+        #numberGuideBtn svg {
+            width:  var(--toolbar-icon);
+            height: var(--toolbar-icon);
+            display: block;
         }
-        #infoBtn:hover { color: #ddd; }
+        /* The 123 glyph naturally needs a wider canvas than the other icons.
+           Its SVG uses a 30x24 viewBox and renders ~25% wider so the digits
+           fit without being squashed or clipped on the right. Height matches
+           the other icons exactly. */
+        #numberGuideBtn svg {
+            width: calc(var(--toolbar-icon) * 30 / 24);
+        }
+        #menuBtn:hover,
+        #infoBtn:hover,
+        #settingsBtn:hover,
+        #numberGuideBtn:hover { color: #ddd; }
+
+        /* Group of icons on each side of the logo, evenly spaced.
+           Lives as a flex item inside #topBar — no absolute positioning. */
+        .topbar-side {
+            display: flex; align-items: center;
+            gap: clamp(2px, 1vw, 8px);
+            flex-shrink: 0;
+        }
 
         /* ── Screens ─────────────────────────────────────────────────────── */
         .screen {
@@ -131,37 +171,54 @@
          */
         .equation {
             display: flex; align-items: center;
-            gap: clamp(2px, 1.5cqw, 8px);
+            /* Gap between equation-sum and target-wrap. */
+            gap: clamp(10px, 6cqw, 44px);
             margin-top: clamp(6px, 2cqw, 14px);
-            width: 100%; justify-content: space-between; flex-wrap: nowrap;
+            width: 100%; justify-content: center; flex-wrap: nowrap;
+        }
+        /* When N>=5, stretch the equation row to exactly fill the board width:
+           equation-sum on the left, target-wrap on the right, with the gap
+           absorbed by space-between so contents touch the canvas edges. */
+        .equation.fill-width {
+            justify-content: space-between;
+            gap: 0;
         }
         .equation-sum {
             display: flex; align-items: center;
-            gap: clamp(2px, 1.5cqw, 8px); flex-wrap: nowrap;
+            /* Inter-tile gap: at N=5 this evaluates to 1.4cqw (unchanged from
+               before). For N>5 it decays quadratically so 6- and 7-number
+               equations still fit within the board width. */
+            gap: clamp(2px, calc(35cqw / (max(var(--num-slots, 5), 5) * max(var(--num-slots, 5), 5))), 7px);
+            flex-wrap: nowrap;
         }
         .eq-op {
-            color: #ccc; font-size: clamp(14px, 4.5cqw, 22px);
+            color: #ccc;
+            font-size: clamp(12px, calc(21cqw / max(var(--num-slots, 5), 5)), 20px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             flex-shrink: 0;
         }
         .eq-equals {
-            color: #ccc; font-size: clamp(14px, 4.5cqw, 22px);
+            color: #ccc; font-size: clamp(13px, 4.2cqw, 20px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             margin: 0 clamp(1px, 0.5cqw, 4px); flex-shrink: 0;
         }
         .tile {
-            width: clamp(24px, 9cqw, 46px);
-            height: clamp(24px, 9cqw, 46px);
+            /* Tile size is constant regardless of slot count — the equation
+               handles ≥6-number puzzles by shrinking the gap and op size, not
+               by squashing the tiles. Slightly reduced from 9cqw so a
+               5-number puzzle fills the board width without crowding. */
+            width: clamp(21px, 7.9cqw, 40px);
+            height: clamp(21px, 7.9cqw, 40px);
             flex-shrink: 0;
             background: #222; border: 1px solid #3a3a3a;
             border-radius: clamp(3px, 1cqw, 6px);
             display: flex; align-items: center; justify-content: center;
-            font-size: clamp(15px, 5.5cqw, 26px);
+            font-size: clamp(14px, 4.85cqw, 23px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700; color: #333;
         }
         #play-target {
             background: none; border-color: transparent;
-            font-size: clamp(16px, 6cqw, 30px); color: #fff;
+            font-size: clamp(14px, 5.25cqw, 26px); color: #fff;
         }
         #play-target-wrap {
             display: flex; flex-direction: column; align-items: center;
@@ -169,7 +226,7 @@
         }
         #play-target-label {
             font-family: 'Rajdhani', sans-serif;
-            font-size: clamp(11px, 3cqw, 16px);
+            font-size: clamp(10px, 2.55cqw, 14px);
             font-weight: 700;
             color: #fff; letter-spacing: 0.12em; text-transform: uppercase;
             line-height: 1; margin-bottom: -2px;
@@ -177,9 +234,9 @@
         #play-total-wrap {
             display: flex; align-items: center;
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(16px, 6cqw, 28px);
+            font-size: clamp(14px, 5.25cqw, 25px);
             flex-shrink: 0; color: #aaa;
-            min-width: clamp(16px, 5cqw, 28px); text-align: center;
+            min-width: clamp(14px, 4.25cqw, 25px); text-align: center;
         }
         #setup-target-wrap {
             background: none; border: none;
@@ -193,13 +250,13 @@
         .tile.editable:focus-within { border-color: #4488ff; }
         .tile input {
             width: 100%; height: 100%; background: transparent; border: none; outline: none;
-            text-align: center; font-size: clamp(15px, 5.5cqw, 26px);
+            text-align: center; font-size: clamp(15px, 5.25cqw, 25px);
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             color: #aaa; padding: 0;
             touch-action: auto; user-select: text;
         }
         .tile.hinted { color: #555; border-color: #444; }
-        .tile.pattern-hinted { color: #00e676 !important; border-color: #00e676; cursor: default; }
+        .tile.pattern-hinted { color: #00e676 !important; border-color: #555; box-shadow: inset 0 0 0 1px #00e676; cursor: default; }
 
         /* ── Setup slot selector ─────────────────────────────────────────── */
         .setup-slot { cursor: pointer; border-color: #555; }
@@ -291,12 +348,34 @@
         }
         #gameTimer {
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(14px, 4vw, 18px);
-            color: #777; letter-spacing: 0.12em;
+            font-size: clamp(17px, 5vw, 22px);
+            color: #aaa; letter-spacing: 0.12em;
             pointer-events: none; user-select: none;
             position: absolute; left: 50%; transform: translateX(-50%);
             bottom: 12px;
         }
+
+        /* Skip-tutorial button replaces the game timer while the tutorial
+           is active. Kept intentionally small — close to plain timer text
+           height so it doesn't dominate the toolbar. */
+        #tutorialSkipBtn {
+            display: none;
+            position: absolute; left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            top: 50%;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(11px, 3vw, 13px);
+            font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: #444; background: none;
+            border: 1px solid #2a2a2a; border-radius: var(--radius-md, 6px);
+            padding: 2px clamp(8px, 2.5vw, 12px);
+            cursor: pointer; min-height: unset;
+            transition: color 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        #tutorialSkipBtn:hover { color: #888; border-color: #444; }
+        body.tutorial-mode #gameTimer       { display: none; }
+        body.tutorial-mode #tutorialSkipBtn { display: inline-block; }
 
         @keyframes rotateCW {
             from { transform: rotate(0deg); }
@@ -312,7 +391,7 @@
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.75);
             align-items: center; justify-content: center;
-            z-index: 100; padding: 16px;
+            z-index: 110; padding: 16px;
         }
         #infoOverlay.visible, #winOverlay.visible { display: flex; }
 
@@ -516,6 +595,85 @@
             min-height: unset; white-space: nowrap;
         }
         .menu-item-btn:hover { background: #333; color: #fff; }
+
+        /* ── Settings overlay (centered modal) ───────────────────────────── */
+        #settingsOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75);
+            align-items: center; justify-content: center;
+            z-index: 110; padding: 16px;
+        }
+        #settingsOverlay.visible { display: flex; }
+        #settingsBox {
+            position: relative;
+            background: #2a2a2a; border: 2px solid #444;
+            border-radius: var(--radius-lg);
+            padding: clamp(24px, 6vw, 36px) clamp(20px, 7vw, 40px) clamp(18px, 5vw, 28px);
+            max-width: 380px; width: 100%;
+            display: flex; flex-direction: column;
+            gap: 0;
+        }
+        #settingsClose {
+            position: absolute; top: 10px; right: 14px;
+            background: none; border: none; color: #555;
+            font-size: clamp(14px, 4vw, 18px); font-weight: 700;
+            cursor: pointer; padding: 4px 8px; transition: color 0.15s;
+            min-height: unset;
+        }
+        #settingsClose:hover { color: #ccc; }
+        #settingsTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(18px, 5vw, 24px); letter-spacing: 0.08em; color: #fff;
+            text-transform: uppercase; margin-bottom: clamp(12px, 3vw, 20px);
+            text-align: center;
+        }
+        .settings-option {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 10px;
+            padding: clamp(14px, 3.5vw, 20px) 0;
+            border-top: 1px solid #333;
+        }
+        .settings-option-row {
+            display: flex; align-items: center;
+            gap: 16px;
+        }
+        .settings-option-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(13px, 3.5vw, 15px); color: #ddd;
+            letter-spacing: 0.08em; cursor: pointer; user-select: none;
+        }
+        .settings-option-sub {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(10px, 2.6vw, 12px); color: #666;
+            letter-spacing: 0.04em; text-align: center; line-height: 1.4;
+        }
+
+        /* Toggle switch — blue when checked, dim grey when off. */
+        .toggle-switch {
+            position: relative;
+            appearance: none; -webkit-appearance: none;
+            width: 42px; height: 24px;
+            background: #555;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            margin: 0;
+        }
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            top: 3px; left: 3px;
+            width: 18px; height: 18px;
+            background: #ddd;
+            border-radius: 50%;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .toggle-switch:checked { background: #4488ff; }
+        .toggle-switch:checked::before {
+            transform: translateX(18px);
+            background: #fff;
+        }
 
         /* ── Archive overlay ─────────────────────────────────────────────── */
         #archiveOverlay {
@@ -804,6 +962,10 @@
             z-index: 50;
         }
         body.dev2 #dev2Nav { display: block; }
+        /* Hide the dev2 archive nav during the tutorial (where the date label
+           would otherwise read "NaN undefined" for tutorial-N pseudo-dates). */
+        body.tutorial-mode #dev2Nav,
+        body.tutorial-mode #puzzleDescription { display: none !important; }
 
         #dev2NavBar {
             display: flex; align-items: center; justify-content: space-between;
@@ -899,6 +1061,277 @@
             pointer-events: all;
         }
 
+        /* ── Tutorial instruction overlay ───────────────────────────────── */
+        /* The box can be positioned in any of 8 spots around the canvas via
+           the data-pos attribute (set from puzzle JSON). Default is topleft. */
+        #tutorialInstruction {
+            display: none;
+            position: absolute;
+            top: clamp(10px, 3cqw, 18px);
+            left: clamp(10px, 3cqw, 18px);
+            /* Wider box, with a bigger minimum so even short instructions get
+               a substantial card rather than collapsing to one line. */
+            max-width: clamp(220px, 70cqw, 340px);
+            min-width: clamp(180px, 50cqw, 260px);
+            background: rgba(42, 42, 42, 0.96);
+            border: 2px solid #4488ff;
+            border-radius: var(--radius);
+            padding: clamp(12px, 3cqw, 18px) clamp(14px, 3.5cqw, 20px);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(14px, 4cqw, 18px);
+            color: #ddd;
+            line-height: 1.5;
+            z-index: 50;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            /* Smooth shrink/grow when toggling between full and minimized.
+               clip-path handles the animation now; nothing else needs to
+               change — the box is always its natural size in layout. */
+            overflow: hidden;
+        }
+        #tutorialInstruction[data-pos="topright"]    { left: auto; right: clamp(10px, 3cqw, 18px); }
+        #tutorialInstruction[data-pos="bottomleft"]  { top: auto;  bottom: clamp(10px, 3cqw, 18px); }
+        #tutorialInstruction[data-pos="bottomright"] { top: auto;  bottom: clamp(10px, 3cqw, 18px);
+                                                       left: auto; right: clamp(10px, 3cqw, 18px); }
+        #tutorialInstruction[data-pos="topcenter"]    { left: 50%; transform: translateX(-50%); }
+        #tutorialInstruction[data-pos="bottomcenter"] { top: auto; bottom: clamp(10px, 3cqw, 18px);
+                                                        left: 50%; transform: translateX(-50%); }
+        #tutorialInstruction[data-pos="leftcenter"]   { top: 50%; transform: translateY(-50%); }
+        #tutorialInstruction[data-pos="rightcenter"]  { top: 50%; transform: translateY(-50%);
+                                                        left: auto; right: clamp(10px, 3cqw, 18px); }
+        #tutorialInstruction[data-pos="center"]       { top: 50%; left: 50%;
+                                                        transform: translate(-50%, -50%);
+                                                        right: auto; bottom: auto; }
+        #tutorialInstruction.visible { display: block; }
+
+        /* ── Minimize / expand animation ────────────────────────────────
+           The box always keeps its natural width × auto-height layout.
+           Only the VISIBLE region changes, via clip-path: circle().
+           This is the only CSS technique that preserves the box's exact
+           aspect ratio throughout the animation.
+
+           CSS variables --clip-cx / --clip-cy set the circle origin to
+           the box's anchor corner (different per data-pos), so the reveal
+           always radiates from the same corner that's pinned to the screen. */
+        #tutorialInstruction {
+            --clip-cx: 19px;  --clip-cy: 19px;   /* default: top-left */
+            clip-path: circle(0px at var(--clip-cx) var(--clip-cy));
+            transition: clip-path 0.3s ease;
+        }
+        /* 'in' is added one rAF after 'visible' so the transition fires */
+        #tutorialInstruction.visible.in {
+            clip-path: circle(160% at var(--clip-cx) var(--clip-cy));
+        }
+        #tutorialInstruction.minimized {
+            clip-path: circle(0px at var(--clip-cx) var(--clip-cy)) !important;
+            pointer-events: none;
+        }
+        /* Per-position clip origins (mirror the instruction box anchors) */
+        #tutorialInstruction[data-pos="topright"]    { --clip-cx: calc(100% - 19px); --clip-cy: 19px; }
+        #tutorialInstruction[data-pos="bottomleft"]  { --clip-cx: 19px;               --clip-cy: calc(100% - 19px); }
+        #tutorialInstruction[data-pos="bottomright"] { --clip-cx: calc(100% - 19px); --clip-cy: calc(100% - 19px); }
+        #tutorialInstruction[data-pos="topcenter"]   { --clip-cx: 50%;               --clip-cy: 19px; }
+        #tutorialInstruction[data-pos="bottomcenter"]{ --clip-cx: 50%;               --clip-cy: calc(100% - 19px); }
+        #tutorialInstruction[data-pos="leftcenter"]  { --clip-cx: 19px;               --clip-cy: 50%; }
+        #tutorialInstruction[data-pos="rightcenter"] { --clip-cx: calc(100% - 19px); --clip-cy: 50%; }
+        #tutorialInstruction[data-pos="center"]      { --clip-cx: 50%;               --clip-cy: 50%; }
+
+        /* The "+" button that replaces the box when it is minimized.
+           position:fixed at body level so canvasWrapper's rotation animation
+           never affects it. Its exact top/left are set by JS each time the
+           instruction is shown or the window resizes. */
+        #tutorialMiniBtn {
+            position: fixed;
+            top: 18px; left: 18px;   /* overridden by JS — just a safe default */
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(42, 42, 42, 0.96);
+            border: 2px solid #4488ff;
+            border-radius: 50%;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700; font-size: 26px;
+            color: #4488ff; line-height: 1;
+            cursor: pointer;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 51;
+            transition: opacity 0.18s ease, visibility 0.18s;
+        }
+        #tutorialMiniBtn.visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Faint footer line inside every instruction box. Tap-to-dismiss is
+           wired in JS; this just signals it. */
+        #tutorialInstructionDismiss {
+            margin-top: clamp(8px, 2cqw, 12px);
+            padding-top: clamp(6px, 1.5cqw, 10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: clamp(11px, 3cqw, 13px);
+            color: #777;
+            font-style: italic;
+            text-align: center;
+            letter-spacing: 0.05em;
+        }
+
+        /* Glow on the highlighted element. colour is inside @keyframes so it
+           overrides the button's ID-selector colour rule (animations beat the
+           cascade regardless of specificity). Glow alphas are slightly reduced
+           for a less intense halo. */
+        .tutorial-highlight {
+            --highlight-color: #4488ff;
+            --highlight-glow-soft:   rgba(68, 136, 255, 0.50);
+            --highlight-glow-strong: rgba(68, 136, 255, 0.80);
+            animation: tutorialPulse 1.3s ease-in-out infinite;
+        }
+        @keyframes tutorialPulse {
+            0%, 100% {
+                color: var(--highlight-color);
+                filter: drop-shadow(0 0 1.5px var(--highlight-glow-strong))
+                        drop-shadow(0 0 4px   var(--highlight-glow-soft));
+            }
+            50% {
+                color: var(--highlight-color);
+                filter: drop-shadow(0 0 3px   var(--highlight-glow-strong))
+                        drop-shadow(0 0 7px   var(--highlight-glow-soft));
+            }
+        }
+        #tutorialStepLabel {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: clamp(11px, 3cqw, 14px);
+            letter-spacing: 0.15em;
+            color: #4488ff;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        /* ── Tutorial congratulations overlay ────────────────────────────── */
+        #tutorialDoneOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            align-items: center;
+            justify-content: center;
+            z-index: 110;
+            padding: 16px;
+        }
+        #tutorialDoneOverlay.visible { display: flex; }
+        #tutorialDoneBox {
+            position: relative;
+            background: #2a2a2a;
+            border: 2px solid #4488ff;
+            border-radius: var(--radius-lg);
+            padding: clamp(24px, 6vw, 36px) clamp(20px, 5vw, 32px);
+            max-width: 380px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: clamp(10px, 2.5vw, 14px);
+            text-align: center;
+        }
+        #tutorialDoneTitle {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: clamp(20px, 5.5vw, 26px);
+            letter-spacing: 0.06em;
+            color: #fff;
+            text-transform: uppercase;
+        }
+        #tutorialDoneText {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: var(--fs-sm);
+            color: #bbb;
+            line-height: 1.55;
+        }
+        #tutorialDoneText .info-icon {
+            display: inline-block;
+            width: 1.2em;
+            height: 1.2em;
+            line-height: 1.2em;
+            text-align: center;
+            border-radius: 50%;
+            color: #4488ff;
+            font-weight: 700;
+            vertical-align: -0.12em;
+        }
+        #tutorialDoneBtns {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        #tutorialDoneBtns button { width: 100%; }
+
+        /* X close in top-right of the congrats box, matching #winClose. */
+        #tutorialDoneClose {
+            position: absolute; top: 10px; right: 10px;
+            background: none; border: none; color: #555;
+            font-size: clamp(14px, 4vw, 18px);
+            cursor: pointer; padding: 4px 8px; letter-spacing: 0;
+            transition: color 0.15s;
+            min-width: 36px; min-height: 36px;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        #tutorialDoneClose:hover { color: #ccc; }
+
+        /* ── Tutorial skip-confirmation bubble ───────────────────────────── */
+        /* No dimmed backdrop — bubble floats freely, same as #hintChoiceOverlay. */
+        #tutorialSkipConfirmOverlay {
+            display: none; position: fixed; inset: 0;
+            z-index: 100;
+        }
+        #tutorialSkipConfirmOverlay.visible { display: block; }
+        #tutorialSkipConfirmBox {
+            position: absolute;
+            background: #2a2a2a; border: 2px solid #555;
+            border-radius: var(--radius-lg);
+            padding: 14px 16px 12px;
+            width: clamp(220px, 70vw, 280px);
+            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        }
+        /* Speech-bubble tail pointing UP toward the skip button */
+        #tutorialSkipConfirmBox::before {
+            content: '';
+            position: absolute;
+            top: -10px; left: var(--skip-tail-pos, 50%); transform: translateX(-50%);
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #555;
+        }
+        #tutorialSkipConfirmBox::after {
+            content: '';
+            position: absolute;
+            top: -7px; left: var(--skip-tail-pos, 50%); transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid #2a2a2a;
+        }
+        #tutorialSkipConfirmClose {
+            position: absolute; top: 6px; right: 8px;
+            background: none; border: none; color: #555;
+            font-size: 13px; cursor: pointer;
+            padding: 2px 6px; transition: color 0.15s; min-height: unset;
+        }
+        #tutorialSkipConfirmClose:hover { color: #ccc; }
+        #tutorialSkipConfirmTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(11px, 3vw, 13px); letter-spacing: 0.15em;
+            color: #666; text-transform: uppercase;
+        }
+        #tutorialSkipConfirmText {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 11px); color: #888; line-height: 1.5;
+        }
+        #tutorialSkipConfirmText .info-icon { color: #4488ff; font-weight: 700; }
+        #tutorialSkipConfirmBtns { display: flex; flex-direction: column; gap: 6px; }
+        #tutorialSkipConfirmBtns button { width: 100%; }
+
         /* ── Dev2 layout overrides ───────────────────────────────────────── */
         body.dev2 #topBar { display: none; }
 
@@ -953,10 +1386,55 @@
 </head>
 <body>
 
+    <!-- Tutorial "+" re-expand bubble. Lives at body level / position:fixed
+         so canvasWrapper's rotateCW animation never affects it. Its position
+         is synced to the active instruction box corner by JS. -->
+    <div id="tutorialMiniBtn" role="button" aria-label="Show instructions">+</div>
+
     <div id="topBar">
-        <button id="infoBtn" title="How to play">ⓘ</button>
+        <div class="topbar-side topbar-left">
+            <button id="infoBtn" title="How to play" aria-label="How to play">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9.5"/>
+                    <line x1="12" y1="11" x2="12" y2="17"/>
+                    <circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
+            <button id="numberGuideBtn" title="Number guide" aria-label="Number guide">
+                <!-- Wider viewBox so the "123" text isn't clipped at the right.
+                     The SVG keeps the same height as the other icons; it just
+                     renders ~25% wider via the matching CSS rule below. -->
+                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
+                    <text x="15" y="19" text-anchor="middle"
+                          font-family="Rajdhani, sans-serif"
+                          font-size="22" font-weight="700" letter-spacing="-1.5">123</text>
+                </svg>
+            </button>
+        </div>
         <img src="nodle_logo.png" alt="NodLe" id="topLogo">
-        <button id="menuBtn" title="Menu">☰</button>
+        <div class="topbar-side topbar-right">
+            <button id="settingsBtn" title="Settings" aria-label="Settings">
+                <!-- Outlined gear with 8 rounded teeth (Feather-style),
+                     scaled down to 78% so its visual height matches the
+                     other top-bar icons. -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <g transform="translate(12 12) scale(0.78) translate(-12 -12)">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </g>
+                </svg>
+            </button>
+            <button id="menuBtn" title="Menu" aria-label="Menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                    <line x1="4"  y1="7"  x2="20" y2="7"/>
+                    <line x1="4"  y1="12" x2="20" y2="12"/>
+                    <line x1="4"  y1="17" x2="20" y2="17"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
     <!-- ── Menu overlay ──────────────────────────────────────────────────── -->
@@ -968,6 +1446,21 @@
             <button class="menu-item-btn" id="menuPractice">Practice</button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
             <button class="menu-item-btn" id="menuDownload">Get the app</button>
+        </div>
+    </div>
+
+    <!-- ── Settings overlay (gear icon flyout) ──────────────────────────── -->
+    <div id="settingsOverlay">
+        <div id="settingsBox">
+            <button id="settingsClose">✕</button>
+            <div id="settingsTitle">Settings</div>
+            <div class="settings-option">
+                <div class="settings-option-row">
+                    <span class="settings-option-label">Easy mode</span>
+                    <input type="checkbox" id="settingsEasyToggle" class="toggle-switch">
+                </div>
+                <div class="settings-option-sub">Reveals all numbers. Resets in-progress puzzles.</div>
+            </div>
         </div>
     </div>
 
@@ -1026,19 +1519,15 @@
         <canvas id="setupCanvas" width="460" height="460"></canvas>
         <div class="board-footer">
             <div class="equation">
-                <div class="equation-sum">
-                    <div class="tile setup-slot" id="setup-t0"><input type="number" min="1" max="9" placeholder="?" id="setup-n0" /></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile setup-slot" id="setup-t1"><input type="number" min="1" max="9" placeholder="?" id="setup-n1" /></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile setup-slot" id="setup-t2"><input type="number" min="1" max="9" placeholder="?" id="setup-n2" /></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile setup-slot" id="setup-t3"><input type="number" min="1" max="9" placeholder="?" id="setup-n3" /></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile setup-slot" id="setup-t4"><input type="number" min="1" max="9" placeholder="?" id="setup-n4" /></div>
-                    <span class="eq-equals">=</span>
-                    <div id="setup-target-wrap"><span id="setupTarget">?</span></div>
+                <div class="equation-sum" id="setup-equation-sum">
+                    <!-- setup tiles + ops generated dynamically by buildSetupSlots() -->
                 </div>
+            </div>
+            <div id="setupSlotCountRow" style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:8px; font-family:'Share Tech Mono',monospace; font-size:12px; color:#888;">
+                <span>Slots:</span>
+                <button class="secondary" id="setupSlotMinusBtn" style="padding:2px 12px; min-height:unset; font-size:14px;">−</button>
+                <span id="setupSlotCountLabel" style="min-width:14px; text-align:center; color:#fff;">5</span>
+                <button class="secondary" id="setupSlotPlusBtn" style="padding:2px 12px; min-height:unset; font-size:14px;">+</button>
             </div>
             <div class="btn-row">
                 <button class="secondary" id="setupClearBtn">Clear all</button>
@@ -1049,6 +1538,22 @@
             </div>
             <div id="copyFeedback" style="margin-top:8px; font-size:11px; color:#555; font-family:'Share Tech Mono',monospace; min-height:16px;"></div>
         </div>
+        </div>
+    </div>
+
+    <!-- ── Copy JSON confirm overlay ─────────────────────────────────────── -->
+    <div id="copyConfirmOverlay" style="
+        display:none; position:fixed; inset:0;
+        background:rgba(0,0,0,0.80);
+        align-items:center; justify-content:center;
+        z-index:150; padding:16px;">
+        <div style="background:#2a2a2a; border:2px solid #4488ff; border-radius:var(--radius-lg); padding:24px 22px; max-width:360px; width:100%; display:flex; flex-direction:column; gap:14px;">
+            <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:20px; letter-spacing:0.06em; color:#fff; text-transform:uppercase; text-align:center;">Save puzzle?</div>
+            <div id="copyConfirmSummary" style="font-family:'Share Tech Mono',monospace; font-size:13px; color:#bbb; line-height:1.55; text-align:center;"></div>
+            <div style="display:flex; gap:8px;">
+                <button class="secondary" id="copyConfirmCancel" style="flex:1;">Cancel</button>
+                <button class="primary"   id="copyConfirmOk"     style="flex:1;">Confirm &amp; copy</button>
+            </div>
         </div>
     </div>
 
@@ -1121,28 +1626,22 @@
                 <span id="hintCount"></span>
             </div>
             <span id="gameTimer">0:00</span>
+            <button id="tutorialSkipBtn" type="button">Skip tutorial</button>
             <button class="toolbar-btn" id="rotateBtn" title="Rotate 90°" style="margin-left:auto;">↻</button>
         </div>
         <div id="canvasWrapper">
             <canvas id="playCanvas" width="460" height="460"></canvas>
             <canvas id="animOverlay" width="460" height="460"></canvas>
+            <div id="tutorialInstruction">
+                <div id="tutorialStepLabel"></div>
+                <div id="tutorialInstructionText"></div>
+                <div id="tutorialInstructionDismiss">Tap anywhere to close</div>
+            </div>
         </div>
         <div class="board-footer">
             <div class="equation">
-                <div class="equation-sum">
-                    <div class="tile" id="play-t0"></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile" id="play-t1"></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile" id="play-t2"></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile" id="play-t3"></div>
-                    <span class="eq-op">+</span>
-                    <div class="tile" id="play-t4"></div>
-                    <span class="eq-equals">=</span>
-                    <span id="play-total-wrap">
-                        <span id="play-total"></span>
-                    </span>
+                <div class="equation-sum" id="play-equation-sum">
+                    <!-- tiles + ops + equals + total are generated dynamically by buildPlayTiles() -->
                 </div>
                 <div id="play-target-wrap">
                     <span id="play-target-label">target</span>
@@ -1170,8 +1669,10 @@
             <img src="8_example.png" alt="8">
             <img src="9_example.png" alt="9">
         </div>
+    </div><!-- /screenPlay — overlays below are siblings, not children, so
+               screenPlay's display:none/flex never suppresses them -->
 
-        <div id="infoOverlay">
+    <div id="infoOverlay">
             <div id="infoBox">
                 <button id="infoClose">✕</button>
                 <button id="infoGuideBack" style="display:none;">&#8592;</button>
@@ -1183,11 +1684,10 @@
                         <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
                         <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
                         <p style="font-weight:400;">Click the question mark to get a hint.</p>
-                        <p id="infoPracticeIntro">Before you get started, try some tutorial puzzles or click "Number Guide" to get used to what all of the numbers look like:</p>
+                        <p id="infoPracticeIntro">Try some practice puzzles if you want more help identifying what different versions of the numbers can look like.</p>
                     </div>
                     <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:clamp(10px,2.5vw,16px); display:flex;">
                         <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
-                        <button class="secondary" id="infoSeeNumbersBtn">Number Guide</button>
                     </div>
                 </div>
                 <!-- Number guide view -->
@@ -1214,6 +1714,7 @@
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
                 <button id="winShareBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Share result</button>
+                <button id="winStatsBtn" class="secondary" style="width:100%; margin-top:4px;">See stats</button>
                 <div id="winPuzzleBtns" style="display:none; flex-direction:column; gap:8px; width:100%;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
@@ -1221,6 +1722,33 @@
                         <button class="secondary" id="winPrev" style="flex:1; padding-left:6px; padding-right:6px;">← Previous</button>
                         <button class="secondary" id="winNext" style="flex:1; padding-left:6px; padding-right:6px;">Next →</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tutorialDoneOverlay">
+            <div id="tutorialDoneBox">
+                <button id="tutorialDoneClose" type="button" aria-label="Close">✕</button>
+                <div id="tutorialDoneTitle">Congratulations!</div>
+                <div id="tutorialDoneText">Now you know how to play NOdLE. You can attempt more practice puzzles or take on the daily puzzle. If you ever get stuck, click on the <span class="info-icon">ⓘ</span> in the top left.</div>
+                <div id="tutorialDoneBtns">
+                    <button class="primary" id="tutorialDoneTodayBtn">Play today's puzzle</button>
+                    <button class="secondary" id="tutorialDonePracticeBtn">More practice puzzles</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tutorialSkipConfirmOverlay">
+            <div id="tutorialSkipConfirmBox">
+                <button id="tutorialSkipConfirmClose" type="button">✕</button>
+                <div id="tutorialSkipConfirmTitle">Are you sure?</div>
+                <div id="tutorialSkipConfirmText">
+                    If you ever get stuck, just click the
+                    <span class="info-icon">ⓘ</span> icon for instructions.
+                </div>
+                <div id="tutorialSkipConfirmBtns">
+                    <button class="primary" id="tutorialSkipContinueBtn">Continue tutorial</button>
+                    <button class="secondary" id="tutorialSkipPlayTodayBtn">Play today's puzzle</button>
                 </div>
             </div>
         </div>
@@ -1247,7 +1775,6 @@
                 <div id="hintChoiceRemaining"></div>
             </div>
         </div>
-    </div>
 
     <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // ─── Grid geometry ──────────────────────────────────────────────────────
@@ -1498,8 +2025,107 @@
             });
         }
 
-        // Five distinct colours for the 5 number slots (used by both setup and play)
-        const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9'];
+        // Up to 7 distinct colours for variable-length puzzles (1-7 number slots).
+        // The first 5 are the original palette; the last two are added for 6/7-number puzzles.
+        const SLOT_COLORS = ['#ff2244', '#ffcc00', '#00e676', '#2979ff', '#d500f9', '#00e5ff', '#ff8c00'];
+        const MAX_SLOTS = 7;
+        const MIN_SLOTS = 1;
+
+        /* Builds the play-screen equation tiles (N tiles + ops + equals + total).
+         * Called by loadPuzzle whenever a puzzle is loaded so the equation shape
+         * matches puzzleSolution.length. Initial render is also done at script
+         * startup so the play screen has tiles even before any puzzle is loaded.
+         * Tile click behaviour is wired via event delegation on the parent, so
+         * rebuilding the children does NOT lose any listeners.
+         */
+        function buildPlayTiles(n) {
+            n = Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, n | 0));
+            const sumEl = document.getElementById('play-equation-sum');
+            if (!sumEl) return;
+            sumEl.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                if (i > 0) {
+                    const op = document.createElement('span');
+                    op.className   = 'eq-op';
+                    op.textContent = '+';
+                    sumEl.appendChild(op);
+                }
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.id        = `play-t${i}`;
+                sumEl.appendChild(tile);
+            }
+            const eq = document.createElement('span');
+            eq.className   = 'eq-equals';
+            eq.textContent = '=';
+            sumEl.appendChild(eq);
+            const totalWrap = document.createElement('span');
+            totalWrap.id = 'play-total-wrap';
+            const totalSpan = document.createElement('span');
+            totalSpan.id = 'play-total';
+            totalWrap.appendChild(totalSpan);
+            sumEl.appendChild(totalWrap);
+
+            // Tell CSS how many slots so .tile sizes itself proportionally.
+            // Set on the parent element (not :root) so setup and play screens
+            // can have independent slot counts without overwriting each other.
+            sumEl.style.setProperty('--num-slots', n);
+            // Also set on :root as a sensible global default in case any tile
+            // outside the equation sums (e.g. play-target) needs to read it.
+            document.documentElement.style.setProperty('--num-slots', n);
+            // For N>=5, stretch the equation to exactly fill the board width
+            // (sum tiles flush left, target flush right). For N<5 keep the
+            // existing centered layout.
+            const eqEl = sumEl.parentElement;
+            if (eqEl) eqEl.classList.toggle('fill-width', n >= 5);
+        }
+
+        /* Builds the setup-screen slots (N tiles with number inputs + ops + equals + target).
+         * Each tile has a colour matching SLOT_COLORS[i]. Click/focus handlers are
+         * wired via event delegation on the parent so rebuilding is safe.
+         */
+        function buildSetupSlots(n) {
+            n = Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, n | 0));
+            const sumEl = document.getElementById('setup-equation-sum');
+            if (!sumEl) return;
+            sumEl.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                if (i > 0) {
+                    const op = document.createElement('span');
+                    op.className   = 'eq-op';
+                    op.textContent = '+';
+                    sumEl.appendChild(op);
+                }
+                const tile = document.createElement('div');
+                tile.className = 'tile setup-slot';
+                tile.id        = `setup-t${i}`;
+                const input = document.createElement('input');
+                input.type        = 'number';
+                input.min         = '1';
+                input.max         = '9';
+                input.placeholder = '?';
+                input.id          = `setup-n${i}`;
+                tile.appendChild(input);
+                sumEl.appendChild(tile);
+            }
+            const eq = document.createElement('span');
+            eq.className   = 'eq-equals';
+            eq.textContent = '=';
+            sumEl.appendChild(eq);
+            const targetWrap = document.createElement('div');
+            targetWrap.id = 'setup-target-wrap';
+            const targetSpan = document.createElement('span');
+            targetSpan.id = 'setupTarget';
+            targetSpan.textContent = '?';
+            targetWrap.appendChild(targetSpan);
+            sumEl.appendChild(targetWrap);
+
+            // Scope tile sizing to this setup-equation-sum (independent of play)
+            sumEl.style.setProperty('--num-slots', n);
+
+            const lbl = document.getElementById('setupSlotCountLabel');
+            if (lbl) lbl.textContent = String(n);
+        }
 
         // ════════════════════════════════════════════════════════════════════════
         // SETUP SCREEN
@@ -1507,10 +2133,19 @@
         const setupCanvas = document.getElementById('setupCanvas');
         const setupCtx    = setupCanvas.getContext('2d');
 
-        // Per-slot edge lists — index 0-4 matches the 5 solution slots.
-        // edgeList is kept as the union of all slots for hit-testing / goPlay export.
+        // Per-slot edge lists — one entry per setup slot. Length tracks the
+        // current setup slot count (1-7) so users can craft puzzles of any
+        // valid size. edgeList is kept as the union of all slots for hit-testing.
         let setupSlotEdges = [[], [], [], [], []];
         let activeSlot     = 0;
+
+        function getSetupSlotCount() { return setupSlotEdges.length; }
+
+        // Build initial setup tiles to match the default setupSlotEdges length.
+        buildSetupSlots(setupSlotEdges.length);
+        // Build initial play tiles too so the play screen has a default 5-tile
+        // layout before any puzzle is loaded (e.g. for the dev-mode setup→play flow).
+        buildPlayTiles(5);
 
         let setupDown      = false;
         let setupLastNode  = -1;
@@ -1521,18 +2156,27 @@
             edgeList = setupSlotEdges.flat();
         }
 
-        function setActiveSlot(slot) {
+        function setActiveSlot(slot, doFocus = true) {
+            const N = getSetupSlotCount();
+            if (slot < 0 || slot >= N) slot = Math.max(0, Math.min(N - 1, slot));
             activeSlot = slot;
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < N; i++) {
                 const tile = document.getElementById(`setup-t${i}`);
+                if (!tile) continue;
                 tile.classList.toggle('active-slot', i === slot);
                 // Always show the slot colour; active slot is full brightness, others dimmer
                 tile.style.color       = SLOT_COLORS[i];
                 tile.style.borderColor = SLOT_COLORS[i];
                 tile.style.opacity     = i === slot ? '1' : '0.4';
             }
-            document.getElementById(`setup-n${slot}`).focus();
+            if (doFocus) {
+                const inp = document.getElementById(`setup-n${slot}`);
+                if (inp) inp.focus();
+            }
         }
+        // Apply initial colour to the freshly-built default 5 slots without
+        // stealing focus on page load.
+        setActiveSlot(0, false);
 
         function setupDraw(previewNode = -1, cursorPos = null) {
             setupCtx.clearRect(0, 0, W, H);
@@ -1554,7 +2198,7 @@
             }
 
             // Draw each slot's edges in its colour; active slot is brighter
-            for (let s = 0; s < 5; s++) {
+            for (let s = 0; s < setupSlotEdges.length; s++) {
                 const isActive = s === activeSlot;
                 for (const edge of setupSlotEdges[s]) {
                     drawEdge(setupCtx, edge, SLOT_COLORS[s], isActive ? 5 : 3);
@@ -1629,7 +2273,7 @@
                 // Pure tap — remove edge nearest tap from whichever slot owns it
                 const hit = getEdgeNear(pos.x, pos.y, edgeList, SETUP_EDGE_THRESHOLD);
                 if (hit) {
-                    for (let s = 0; s < 5; s++) {
+                    for (let s = 0; s < setupSlotEdges.length; s++) {
                         setupSlotEdges[s] = setupSlotEdges[s].filter(e => e.id !== hit.id);
                     }
                     rebuildEdgeList();
@@ -1658,71 +2302,173 @@
         setupCanvas.addEventListener('touchend',    setupEnd,    { passive: false });
         setupCanvas.addEventListener('touchcancel', () => { setupDown = false; setupLastNode = -1; setupDragMoved = false; setupDraw(); }, { passive: false });
 
-        // Tapping a tile activates that slot; typing in its input still works normally
-        for (let i = 0; i < 5; i++) {
-            const tile  = document.getElementById(`setup-t${i}`);
-            const input = document.getElementById(`setup-n${i}`);
-            tile.addEventListener('mousedown',  (e) => { e.preventDefault(); setActiveSlot(i); }, false);
-            tile.addEventListener('touchstart', (e) => { e.preventDefault(); setActiveSlot(i); }, { passive: false });
-            input.addEventListener('focus', () => setActiveSlot(i));
-            input.addEventListener('input', updateSetupTarget);
-        }
+        // Tapping a tile activates that slot; typing in its input still works normally.
+        // Use event delegation on the parent so it survives buildSetupSlots() rebuilds.
+        (function wireSetupSlotDelegation() {
+            const sumEl = document.getElementById('setup-equation-sum');
+            const slotIndex = (target) => {
+                const t = target.closest('.setup-slot');
+                if (!t) return -1;
+                const m = t.id.match(/^setup-t(\d+)$/);
+                return m ? parseInt(m[1], 10) : -1;
+            };
+            sumEl.addEventListener('mousedown', (e) => {
+                // Don't preventDefault on the input itself — let it focus normally
+                if (e.target.tagName === 'INPUT') return;
+                const i = slotIndex(e.target);
+                if (i < 0) return;
+                e.preventDefault();
+                setActiveSlot(i);
+            }, false);
+            sumEl.addEventListener('touchstart', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                const i = slotIndex(e.target);
+                if (i < 0) return;
+                e.preventDefault();
+                setActiveSlot(i);
+            }, { passive: false });
+            sumEl.addEventListener('focusin', (e) => {
+                if (e.target.tagName !== 'INPUT') return;
+                const m = e.target.id.match(/^setup-n(\d+)$/);
+                if (m) setActiveSlot(parseInt(m[1], 10));
+            });
+            sumEl.addEventListener('input', (e) => {
+                if (e.target.tagName === 'INPUT' && /^setup-n\d+$/.test(e.target.id)) {
+                    updateSetupTarget();
+                }
+            });
+        })();
 
         function updateSetupTarget() {
-            let sum = 0, allFilled = true;
-            for (let i = 0; i < 5; i++) {
-                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
-                if (isNaN(v)) { allFilled = false; } else { sum += v; }
+            // Sum is over filled slots only. Target shows sum when at least one
+            // slot is filled and every filled slot has a valid number.
+            const N = getSetupSlotCount();
+            let sum = 0, anyFilled = false, anyInvalid = false;
+            for (let i = 0; i < N; i++) {
+                const inp = document.getElementById(`setup-n${i}`);
+                if (!inp) continue;
+                const raw = inp.value.trim();
+                if (raw === '') continue;
+                const v = parseInt(raw);
+                if (isNaN(v)) anyInvalid = true; else { sum += v; anyFilled = true; }
             }
-            document.getElementById('setupTarget').textContent = allFilled ? sum : '?';
+            document.getElementById('setupTarget').textContent =
+                (anyFilled && !anyInvalid) ? String(sum) : '?';
         }
 
         document.getElementById('setupClearBtn').addEventListener('click', () => {
-            setupSlotEdges = [[], [], [], [], []];
+            const N = getSetupSlotCount();
+            setupSlotEdges = Array.from({ length: N }, () => []);
             rebuildEdgeList();
-            for (let i = 0; i < 5; i++) document.getElementById(`setup-n${i}`).value = '';
+            for (let i = 0; i < N; i++) {
+                const inp = document.getElementById(`setup-n${i}`);
+                if (inp) inp.value = '';
+            }
             updateSetupTarget();
             setupDraw();
         });
 
+        // ── Setup slot count +/- buttons (1-7) ─────────────────────────────
+        function setSetupSlotCount(n, opts) {
+            n = Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, n | 0));
+            // Capture current input values & edges so we don't lose them on rebuild
+            const oldN = getSetupSlotCount();
+            const oldVals = [];
+            for (let i = 0; i < oldN; i++) {
+                const inp = document.getElementById(`setup-n${i}`);
+                oldVals.push(inp ? inp.value : '');
+            }
+            // Resize the edges array (preserve existing slot lines for slots 0..min(n,oldN)-1)
+            const newEdges = Array.from({ length: n }, (_, i) => i < oldN ? setupSlotEdges[i] : []);
+            setupSlotEdges = newEdges;
+            rebuildEdgeList();
+            // Rebuild DOM for new count
+            buildSetupSlots(n);
+            // Restore values into the new inputs (only for kept slots)
+            for (let i = 0; i < Math.min(n, oldVals.length); i++) {
+                const inp = document.getElementById(`setup-n${i}`);
+                if (inp) inp.value = oldVals[i];
+            }
+            // Keep the active slot in range
+            if (activeSlot >= n) activeSlot = n - 1;
+            setActiveSlot(activeSlot);
+            updateSetupTarget();
+            setupDraw();
+        }
+
+        document.getElementById('setupSlotPlusBtn').addEventListener('click', () => {
+            setSetupSlotCount(getSetupSlotCount() + 1);
+        });
+        document.getElementById('setupSlotMinusBtn').addEventListener('click', () => {
+            const N = getSetupSlotCount();
+            if (N <= MIN_SLOTS) return;
+            // Block removal if the last slot has anything in it (avoid silent data loss)
+            const lastInp = document.getElementById(`setup-n${N - 1}`);
+            const lastVal = lastInp ? lastInp.value.trim() : '';
+            const lastEdges = setupSlotEdges[N - 1] || [];
+            if (lastVal !== '' || lastEdges.length > 0) {
+                const fb = document.getElementById('copyFeedback');
+                fb.style.color = '#ff8c00';
+                fb.textContent = `Clear slot ${N} first before removing it.`;
+                setTimeout(() => { fb.textContent = ''; fb.style.color = '#555'; }, 3000);
+                return;
+            }
+            setSetupSlotCount(N - 1);
+        });
+
         document.getElementById('copyJsonBtn').addEventListener('click', () => {
             const feedback = document.getElementById('copyFeedback');
+            feedback.style.color = '#555';
+            feedback.textContent = '';
 
-            const hasEdges = setupSlotEdges.some(s => s.length > 0);
-            if (!hasEdges) {
-                feedback.textContent = 'No lines drawn yet.';
-                return;
-            }
-
-            const solution = [];
-            let allFilled = true;
-            for (let i = 0; i < 5; i++) {
-                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
-                if (isNaN(v)) allFilled = false;
-                solution.push(isNaN(v) ? null : v);
-            }
-            if (!allFilled) {
-                feedback.textContent = 'Please fill in all five solution numbers first.';
-                return;
-            }
-
-            const target = solution.reduce((a, b) => a + b, 0);
-            const dateRaw = new Date();
-            const date = dateRaw.toISOString().split('T')[0];
-
-            // Validate each slot: run recogniseNumber on its edges and check it matches
+            // Gather only the filled slots (slots where the user typed a number).
+            // Each filled slot must also have at least one drawn line. Slots with
+            // lines but no number are also flagged. Empty (neither lines nor
+            // number) slots are silently ignored.
+            const N = getSetupSlotCount();
+            const filledSlots = []; // array of { idx, num, edges }
             const errors = [];
-            for (let i = 0; i < 5; i++) {
-                const edges = setupSlotEdges[i];
-                if (edges.length === 0) {
-                    errors.push(`slot ${i + 1} (${solution[i]}): no lines drawn`);
+
+            for (let i = 0; i < N; i++) {
+                const inp = document.getElementById(`setup-n${i}`);
+                const raw = inp ? inp.value.trim() : '';
+                const edges = setupSlotEdges[i] || [];
+                const hasNum = raw !== '' && !isNaN(parseInt(raw));
+                const num = hasNum ? parseInt(raw) : null;
+                const hasLines = edges.length > 0;
+
+                if (!hasNum && !hasLines) continue;          // empty slot, skip
+                if (hasNum && !hasLines) {
+                    errors.push(`slot ${i + 1} (${num}): no lines drawn`);
                     continue;
                 }
-                const result = recogniseNumber(edges);
+                if (!hasNum && hasLines) {
+                    errors.push(`slot ${i + 1}: lines drawn but no number entered`);
+                    continue;
+                }
+                filledSlots.push({ idx: i, num, edges });
+            }
+
+            if (filledSlots.length === 0) {
+                feedback.style.color = '#ff4444';
+                feedback.textContent = 'Need at least one filled slot (number + lines).';
+                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 4000);
+                return;
+            }
+            if (filledSlots.length > MAX_SLOTS) {
+                feedback.style.color = '#ff4444';
+                feedback.textContent = `Maximum ${MAX_SLOTS} numbers per puzzle.`;
+                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 4000);
+                return;
+            }
+
+            // Validate each filled slot: drawn lines must form the entered number
+            for (const slot of filledSlots) {
+                const result = recogniseNumber(slot.edges);
                 if (!result) {
-                    errors.push(`slot ${i + 1}: lines don't form a recognisable number`);
-                } else if (result.num !== solution[i]) {
-                    errors.push(`slot ${i + 1}: lines look like ${result.num}, expected ${solution[i]}`);
+                    errors.push(`slot ${slot.idx + 1}: lines don't form a recognisable number`);
+                } else if (result.num !== slot.num) {
+                    errors.push(`slot ${slot.idx + 1}: lines look like ${result.num}, expected ${slot.num}`);
                 }
             }
             if (errors.length > 0) {
@@ -1732,12 +2478,18 @@
                 return;
             }
 
-            // Build flat edge array slot-by-slot; solutionEdges[i] = indices into edges[] for slot i
+            const solution = filledSlots.map(s => s.num);
+            const target = solution.reduce((a, b) => a + b, 0);
+            const dateRaw = new Date();
+            const date = dateRaw.toISOString().split('T')[0];
+
+            // Build flat edge array slot-by-slot (filled slots only); solutionEdges[i]
+            // = indices into edges[] for filled-slot i, in their visual order.
             const flatEdges = [];
             const solutionEdges = [];
-            for (let s = 0; s < 5; s++) {
+            for (const slot of filledSlots) {
                 const startIdx = flatEdges.length;
-                for (const e of setupSlotEdges[s]) flatEdges.push({ a: e.a, b: e.b });
+                for (const e of slot.edges) flatEdges.push({ a: e.a, b: e.b });
                 const indices = [];
                 for (let k = startIdx; k < flatEdges.length; k++) indices.push(k);
                 solutionEdges.push(indices);
@@ -1745,34 +2497,59 @@
 
             const json = JSON.stringify({ date, target, solution, edges: flatEdges, solutionEdges });
 
-            const doFallbackCopy = () => {
-                const ta = document.createElement('textarea');
-                ta.value = json;
-                ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
-                document.body.appendChild(ta);
-                ta.focus(); ta.select();
-                let ok = false;
-                try { ok = document.execCommand('copy'); } catch(e) {}
-                document.body.removeChild(ta);
-                if (ok) {
-                    feedback.style.color = '#00e676';
-                    feedback.textContent = '✓ JSON copied to clipboard!';
-                } else {
-                    feedback.style.color = '#ff4444';
-                    feedback.textContent = 'Copy failed — try a different browser.';
-                }
-                setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
-            };
+            // Pop the confirm overlay before actually writing to the clipboard.
+            // The user clicks "Confirm & copy" to proceed, "Cancel" to abort.
+            const summaryParts = [
+                `${solution.length} number${solution.length === 1 ? '' : 's'}: ${solution.join(' + ')} = ${target}`,
+                `${flatEdges.length} edge${flatEdges.length === 1 ? '' : 's'} total`
+            ];
+            document.getElementById('copyConfirmSummary').textContent = summaryParts.join('  ·  ');
+            const overlay = document.getElementById('copyConfirmOverlay');
+            overlay.style.display = 'flex';
 
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(json).then(() => {
-                    feedback.style.color = '#00e676';
-                    feedback.textContent = '✓ JSON copied to clipboard!';
+            const performCopy = () => {
+                overlay.style.display = 'none';
+
+                const doFallbackCopy = () => {
+                    const ta = document.createElement('textarea');
+                    ta.value = json;
+                    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+                    document.body.appendChild(ta);
+                    ta.focus(); ta.select();
+                    let ok = false;
+                    try { ok = document.execCommand('copy'); } catch(e) {}
+                    document.body.removeChild(ta);
+                    if (ok) {
+                        feedback.style.color = '#00e676';
+                        feedback.textContent = '✓ JSON copied to clipboard!';
+                    } else {
+                        feedback.style.color = '#ff4444';
+                        feedback.textContent = 'Copy failed — try a different browser.';
+                    }
                     setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
-                }).catch(() => doFallbackCopy());
-            } else {
-                doFallbackCopy();
-            }
+                };
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(json).then(() => {
+                        feedback.style.color = '#00e676';
+                        feedback.textContent = '✓ JSON copied to clipboard!';
+                        setTimeout(() => { feedback.textContent = ''; feedback.style.color = '#555'; }, 3000);
+                    }).catch(() => doFallbackCopy());
+                } else {
+                    doFallbackCopy();
+                }
+            };
+            const cancelCopy = () => { overlay.style.display = 'none'; };
+
+            // Re-bind handlers each time so we don't accumulate stale closures
+            const okBtn     = document.getElementById('copyConfirmOk');
+            const cancelBtn = document.getElementById('copyConfirmCancel');
+            const newOk     = okBtn.cloneNode(true);
+            const newCancel = cancelBtn.cloneNode(true);
+            okBtn.replaceWith(newOk);
+            cancelBtn.replaceWith(newCancel);
+            newOk.addEventListener('click', performCopy);
+            newCancel.addEventListener('click', cancelCopy);
         });
 
         // ── Paste JSON ───────────────────────────────────────────────────────────
@@ -1807,18 +2584,23 @@
                 errEl.textContent = 'Missing or empty "edges" array.';
                 return;
             }
-            if (!Array.isArray(puzzle.solutionEdges) || puzzle.solutionEdges.length !== 5) {
-                errEl.textContent = '"solutionEdges" must be an array of 5 index lists.';
+            if (!Array.isArray(puzzle.solutionEdges) ||
+                puzzle.solutionEdges.length < MIN_SLOTS ||
+                puzzle.solutionEdges.length > MAX_SLOTS) {
+                errEl.textContent = `"solutionEdges" must be an array of ${MIN_SLOTS}–${MAX_SLOTS} index lists.`;
                 return;
             }
-            if (!Array.isArray(puzzle.solution) || puzzle.solution.length !== 5) {
-                errEl.textContent = '"solution" must be an array of 5 numbers.';
+            if (!Array.isArray(puzzle.solution) ||
+                puzzle.solution.length !== puzzle.solutionEdges.length) {
+                errEl.textContent = `"solution" must be an array with the same length as "solutionEdges" (${puzzle.solutionEdges.length}).`;
                 return;
             }
 
+            const N = puzzle.solution.length;
+
             // Validate all edge indices are in range
             const maxIdx = puzzle.edges.length - 1;
-            for (let s = 0; s < 5; s++) {
+            for (let s = 0; s < N; s++) {
                 for (const idx of puzzle.solutionEdges[s]) {
                     if (idx < 0 || idx > maxIdx) {
                         errEl.textContent = `solutionEdges[${s}] references out-of-range index ${idx}.`;
@@ -1827,11 +2609,13 @@
                 }
             }
 
-            // All good — load into setup state
-            setupSlotEdges = [[], [], [], [], []];
+            // All good — load into setup state. Resize the setup UI to N slots
+            // first, then populate.
+            setupSlotEdges = Array.from({ length: N }, () => []);
             nextId = 0;
+            buildSetupSlots(N);
 
-            for (let s = 0; s < 5; s++) {
+            for (let s = 0; s < N; s++) {
                 for (const idx of puzzle.solutionEdges[s]) {
                     const raw = puzzle.edges[idx];
                     setupSlotEdges[s].push(makeEdge(raw.a, raw.b));
@@ -1841,8 +2625,9 @@
             rebuildEdgeList();
 
             // Fill number inputs
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < N; i++) {
                 const input = document.getElementById(`setup-n${i}`);
+                if (!input) continue;
                 const val = puzzle.solution[i];
                 input.value = (val !== null && val !== undefined) ? String(val) : '';
             }
@@ -1874,6 +2659,10 @@
         let tileWasHinted = [false, false, false, false, false]; // true if slot was ever hint-revealed
         let tilePatternHinted = [false, false, false, false, false]; // true if slot was filled by pattern hint (locked)
         let hintsRemaining = 5;
+        // Per-puzzle hint cap = number of solution numbers (1-7).
+        // Pattern-hint cost stays at 3 regardless; for very small puzzles
+        // (cap 1-2) pattern hints are simply unaffordable, which is fine.
+        let hintsCap       = 5;
         const hintAnimating = new Set(); // slot indices currently mid-animation (visually hidden)
         let puzzleSolution      = null; // solution numbers from puzzle JSON, if provided
         let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
@@ -1883,36 +2672,78 @@
         let currentPuzzleIndex  = -1;  // index of current puzzle in currentPuzzleList
         let replayResult = null; //stores any newly replayed puzzle scores
 
+        // ── Difficulty mode (easy / hard) ─────────────────────────────────
+        // Persisted as the user's preferred default. Easy mode pre-fills all
+        // 5 number gaps with grey hint values without consuming any hints.
+        function getDifficulty() {
+            return localStorage.getItem('nodle_difficulty') === 'easy' ? 'easy' : 'hard';
+        }
+        function setDifficulty(d) {
+            localStorage.setItem('nodle_difficulty', d === 'easy' ? 'easy' : 'hard');
+        }
+
+        // ── Tutorial state ────────────────────────────────────────────────
+        let tutorialMode    = false;
+        let tutorialPuzzles = null;
+        let tutorialIdx     = -1;
+
         document.getElementById('goPlayBtn').addEventListener('click', () => {
+            // Gather only the filled setup slots (number entered + lines drawn).
+            // Empty slots are silently skipped — same logic as Copy JSON, but here
+            // we don't error on partials; we just play whatever the user has.
+            const N = getSetupSlotCount();
+            const filledSlots = []; // { num, edges }
+            for (let i = 0; i < N; i++) {
+                const inp   = document.getElementById(`setup-n${i}`);
+                const raw   = inp ? inp.value.trim() : '';
+                const edges = setupSlotEdges[i] || [];
+                const hasNum = raw !== '' && !isNaN(parseInt(raw));
+                if (!hasNum || edges.length === 0) continue;
+                filledSlots.push({ num: parseInt(raw), edges });
+            }
+
+            // Number of play tiles = number of filled slots, falling back to
+            // the user's current setup slot count (so an empty 3-slot setup
+            // shows 3 freeplay tiles, not 5).
+            const playN = filledSlots.length > 0 ? filledSlots.length : Math.max(1, N);
+            buildPlayTiles(playN);
+
             // Always rebuild edgeList fresh from setupSlotEdges so that a second
             // play-through gets the full original board, not the modified post-play state
             rebuildEdgeList();
             closeOverlay('winOverlay');
             for (const e of edgeList) e.red = false;
             playSnapshot = edgeList.map(e => ({ ...e }));
-            tileValues   = [null, null, null, null, null];
-            tileEdgeIds  = [null, null, null, null, null];
-            tileHinted   = [null, null, null, null, null];
-            tileWasHinted = [false, false, false, false, false];
-            tilePatternHinted = [false, false, false, false, false];
-            hintsRemaining = 5;
-            const setupNums = [];
-            let allFilled = true;
-            for (let i = 0; i < 5; i++) {
-                const v = parseInt(document.getElementById(`setup-n${i}`).value.trim());
-                if (isNaN(v)) { allFilled = false; setupNums.push(null); }
-                else setupNums.push(v);
-            }
-            puzzleSolution = allFilled ? setupNums : null;
-            // Build solutionEdges from setupSlotEdges so pattern hints work in setup→play mode
-            if (allFilled) {
+            tileValues        = Array(playN).fill(null);
+            tileEdgeIds       = Array(playN).fill(null);
+            tileHinted        = Array(playN).fill(null);
+            tileWasHinted     = Array(playN).fill(false);
+            tilePatternHinted = Array(playN).fill(false);
+            hintsCap          = playN;
+            hintsRemaining    = playN;
+
+            if (filledSlots.length > 0) {
+                puzzleSolution = filledSlots.map(s => s.num);
+                // Build solutionEdges from filled-slot edges so pattern hints work in setup→play mode.
+                // Indices are relative to edgeList = setupSlotEdges.flat() (which we just rebuilt
+                // to include only edges from the original setupSlotEdges, in order).
                 let idx = 0;
-                puzzleSolutionEdges = setupSlotEdges.map(slotEdges => {
-                    const indices = slotEdges.map((_, j) => idx + j);
+                const indicesPerSetupSlot = setupSlotEdges.map(slotEdges => {
+                    const out = slotEdges.map((_, j) => idx + j);
                     idx += slotEdges.length;
-                    return indices;
+                    return out;
                 });
+                // Map filled-slot order back to original setupSlot indices to look up indicesPerSetupSlot
+                const setupOrder = [];
+                for (let i = 0; i < N; i++) {
+                    const inp   = document.getElementById(`setup-n${i}`);
+                    const raw   = inp ? inp.value.trim() : '';
+                    const edges = setupSlotEdges[i] || [];
+                    if (raw !== '' && !isNaN(parseInt(raw)) && edges.length > 0) setupOrder.push(i);
+                }
+                puzzleSolutionEdges = setupOrder.map(origIdx => indicesPerSetupSlot[origIdx]);
             } else {
+                puzzleSolution      = null;
                 puzzleSolutionEdges = null;
             }
             puzzleStartTime    = null;
@@ -1925,13 +2756,20 @@
             setSolvedButtonState(false);
             const setupTimerEl = document.getElementById('gameTimer');
             if (setupTimerEl) setupTimerEl.textContent = '0:00';
-            for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
+            for (let i = 0; i < playN; i++) {
+                const el = document.getElementById(`play-t${i}`);
+                if (el) el.style.color = '';
+            }
             updateTiles();
             const val = document.getElementById('setupTarget').textContent.trim();
             document.getElementById('play-target').textContent = val === '?' ? '' : val;
             closeOverlay('infoOverlay');
             showScreen('screenPlay');
             playDraw();
+            // Setup → play is dev-mode only and never eligible for difficulty toggle
+            currentPuzzleData = null;
+            if (typeof updateDifficultyUI === 'function') updateDifficultyUI(null);
+            if (typeof hideTutorialInstruction === 'function') hideTutorialInstruction();
         });
 
         // ════════════════════════════════════════════════════════════════════════
@@ -2218,6 +3056,14 @@
         }
 
         document.getElementById('showResultsBtn').addEventListener('click', () => {
+            // If the user finished the tutorial and closed the congrats
+            // popup with the X, reopening "Show results" should bring that
+            // same popup back — not the regular win overlay (we never
+            // saved solved data for tutorial-N dates).
+            if (currentPuzzleDate && currentPuzzleDate.startsWith('tutorial-')) {
+                document.getElementById('tutorialDoneOverlay').classList.add('visible');
+                return;
+            }
             const solvedData = getSolvedData(currentPuzzleDate || todayStr());
             if (solvedData) {
                 showWinOverlay(solvedData.timeMs, solvedData.hintsUsed ?? null);
@@ -2249,7 +3095,7 @@
             // 1. Collect edge IDs that belong to pattern-hinted slots.
             //    These lines were permanently consumed and must stay off the board.
             const patternHintedEdgeIds = new Set();
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < tileValues.length; i++) {
                 if (tilePatternHinted[i] && tileEdgeIds[i]) {
                     for (const id of tileEdgeIds[i]) patternHintedEdgeIds.add(id);
                 }
@@ -2265,7 +3111,7 @@
             //    Both grey (number hints) and green (pattern hints) shift left together.
             //    A slot that was hinted and then earned (red) also reverts to grey.
             const surviving = [];
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < tileValues.length; i++) {
                 if (tilePatternHinted[i]) {
                     // Green locked-in number — keep value, edgeIds, and patternHinted flag
                     surviving.push({ value: tileValues[i], edgeIds: tileEdgeIds[i], patternHinted: true });
@@ -2279,7 +3125,7 @@
             }
 
             // 4. Clear all slots completely.
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < tileValues.length; i++) {
                 tileValues[i]        = null;
                 tileEdgeIds[i]       = null;
                 tileHinted[i]        = null;
@@ -2330,8 +3176,9 @@
         // ─── Tile state ─────────────────────────────────────────────────────────
 
         function updateTiles() {
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < tileValues.length; i++) {
                 const el = document.getElementById(`play-t${i}`);
+                if (!el) continue;
                 if (tileValues[i] !== null) {
                     el.textContent = tileValues[i];
                     el.classList.remove('hinted');
@@ -2376,7 +3223,7 @@
                 const canHint = canNumber || canPattern;
                 hintBtn.disabled = !canHint;
                 if (puzzleSolved) hintBtn.disabled = false;
-                hintCount.textContent = `${hintsRemaining}/5`;
+                hintCount.textContent = `${hintsRemaining}/${hintsCap}`;
             }
             // Update running total
             const totalEl = document.getElementById('play-total');
@@ -3240,70 +4087,79 @@
             requestAnimationFrame(frame);
         }
 
-        for (let i = 0; i < 5; i++) {
-            document.getElementById(`play-t${i}`).addEventListener('click', () => {
-                if (puzzleSolved) return;
-                if (tileValues[i] === null) return;
-                if (tilePatternHinted[i]) return; // locked — pattern hints cannot be returned
-                const num = tileValues[i];
-                const ids = tileEdgeIds[i] || [];
+        // Tile click handler — uses event delegation on the parent so it survives
+        // buildPlayTiles() rebuilds for variable-length puzzles (1-7 tiles).
+        document.getElementById('play-equation-sum').addEventListener('click', (ev) => {
+            const tileEl = ev.target.closest('.tile');
+            if (!tileEl) return;
+            const m = tileEl.id.match(/^play-t(\d+)$/);
+            if (!m) return;
+            const i = parseInt(m[1], 10);
+            const N = tileValues.length;
+            if (i < 0 || i >= N) return;
 
-                // If this slot was originally hint-revealed, restore the grey hint reminder.
-                const restoreHint = tileWasHinted[i];
+            if (puzzleSolved) return;
+            if (tileValues[i] === null) return;
+            if (tilePatternHinted[i]) return; // locked — pattern hints cannot be returned
+            const num = tileValues[i];
+            const ids = tileEdgeIds[i] || [];
 
-                // Clear this slot
-                tileValues[i]  = null;
-                tileEdgeIds[i] = null;
-                tileHinted[i]  = restoreHint ? num : null;
-                // tileWasHinted[i] stays true — slot remains "was hinted"
+            // If this slot was originally hint-revealed, restore the grey hint reminder.
+            const restoreHint = tileWasHinted[i];
 
-                // Compact: gather all filled or hinted slots (value+metadata) left-to-right,
-                // then re-fill all slots left-to-right preserving hint state.
-                const queue = [];
-                for (let j = 0; j < 5; j++) {
-                    if (tileValues[j] !== null) {
-                        queue.push({
-                            val:           tileValues[j],
-                            ids:           tileEdgeIds[j],
-                            hinted:        tileHinted[j],
-                            wasHinted:     tileWasHinted[j],
-                            patternHinted: tilePatternHinted[j]
-                        });
-                    } else if (tileHinted[j] !== null) {
-                        queue.push({
-                            val:           null,
-                            ids:           null,
-                            hinted:        tileHinted[j],
-                            wasHinted:     true,
-                            patternHinted: false
-                        });
-                    }
+            // Clear this slot
+            tileValues[i]  = null;
+            tileEdgeIds[i] = null;
+            tileHinted[i]  = restoreHint ? num : null;
+            // tileWasHinted[i] stays true — slot remains "was hinted"
+
+            // Compact: gather all filled or hinted slots (value+metadata) left-to-right,
+            // then re-fill all slots left-to-right preserving hint state.
+            const queue = [];
+            for (let j = 0; j < N; j++) {
+                if (tileValues[j] !== null) {
+                    queue.push({
+                        val:           tileValues[j],
+                        ids:           tileEdgeIds[j],
+                        hinted:        tileHinted[j],
+                        wasHinted:     tileWasHinted[j],
+                        patternHinted: tilePatternHinted[j]
+                    });
+                } else if (tileHinted[j] !== null) {
+                    queue.push({
+                        val:           null,
+                        ids:           null,
+                        hinted:        tileHinted[j],
+                        wasHinted:     true,
+                        patternHinted: false
+                    });
                 }
-                // Clear all slots
-                for (let j = 0; j < 5; j++) {
-                    tileValues[j]        = null;
-                    tileEdgeIds[j]       = null;
-                    tileHinted[j]        = null;
-                    tileWasHinted[j]     = false;
-                    tilePatternHinted[j] = false;
-                }
-                // Re-fill left-to-right with all queued entries
-                for (let j = 0; j < 5 && queue.length; j++) {
-                    const entry = queue.shift();
-                    tileValues[j]        = entry.val;
-                    tileEdgeIds[j]       = entry.ids;
-                    tileHinted[j]        = entry.hinted;
-                    tileWasHinted[j]     = entry.wasHinted;
-                    tilePatternHinted[j] = entry.patternHinted;
-                }
+            }
+            // Clear all slots
+            for (let j = 0; j < N; j++) {
+                tileValues[j]        = null;
+                tileEdgeIds[j]       = null;
+                tileHinted[j]        = null;
+                tileWasHinted[j]     = false;
+                tilePatternHinted[j] = false;
+            }
+            // Re-fill left-to-right with all queued entries
+            for (let j = 0; j < N && queue.length; j++) {
+                const entry = queue.shift();
+                tileValues[j]        = entry.val;
+                tileEdgeIds[j]       = entry.ids;
+                tileHinted[j]        = entry.hinted;
+                tileWasHinted[j]     = entry.wasHinted;
+                tilePatternHinted[j] = entry.patternHinted;
+            }
 
-                updateTiles();
+            updateTiles();
 
-                // Get edges to restore
-                const edgesToRestore = playSnapshot.filter(e => ids.includes(e.id)).map(e => ({ ...e, red: false }));
+            // Get edges to restore
+            const edgesToRestore = playSnapshot.filter(e => ids.includes(e.id)).map(e => ({ ...e, red: false }));
 
-                // Compute shape center
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            // Compute shape center
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                 for (const edge of edgesToRestore) {
                     const na = nodes[edge.a], nb = nodes[edge.b];
                     minX = Math.min(minX, na.x, nb.x); maxX = Math.max(maxX, na.x, nb.x);
@@ -3313,9 +4169,9 @@
                 const shapeSize = Math.max(maxX - minX, maxY - minY) || 40;
 
                 // Tile position
-                const tileEl = document.getElementById(`play-t${i}`);
+                const posTileEl = document.getElementById(`play-t${i}`);
                 const canvasRect = animCanvas.getBoundingClientRect();
-                const tileRect   = tileEl.getBoundingClientRect();
+                const tileRect   = posTileEl.getBoundingClientRect();
                 const tx = (tileRect.left + tileRect.width/2  - canvasRect.left) * (460 / canvasRect.width);
                 const ty = (tileRect.top  + tileRect.height/2 - canvasRect.top)  * (460 / canvasRect.height);
 
@@ -3387,21 +4243,12 @@
                 }
                 requestAnimationFrame(frame);
             });
-        }
 
-        function showWin() {
-            pauseTimer(); // freeze elapsed time
-            const elapsed = getElapsed();
-            const totalSec = Math.floor(elapsed / 1000);
-            const mins = Math.floor(totalSec / 60);
-            const secs = totalSec % 60;
-            const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
-            // Sync the live display to the exact same value
-            const timerEl = document.getElementById('gameTimer');
-            if (timerEl) timerEl.textContent = timeStr;
-
-            // Restore all edges with their slot colour
-            for (let slot = 0; slot < 5; slot++) {
+        /* Re-add the solved-puzzle edges to the grid with their slot colours.
+         * Called when a puzzle is freshly solved (after the 200ms reveal gap)
+         * and when restoring an already-solved board on load. */
+        function restoreSolvedEdges() {
+            for (let slot = 0; slot < tileValues.length; slot++) {
                 if (!tileEdgeIds[slot]) continue;
                 const color = SLOT_COLORS[slot];
                 for (const id of tileEdgeIds[slot]) {
@@ -3415,14 +4262,57 @@
                 }
             }
             playDraw();
+        }
 
-            // Mark solved BEFORE updateTiles so slot colours are applied by updateTiles
+        function showWin() {
+            // Close the skip-tutorial confirm bubble if it happens to be open —
+            // it sits at z-index 100 and would otherwise intercept clicks on the
+            // win/tutorial-done overlays (which now live at z-index 110).
+            document.getElementById('tutorialSkipConfirmOverlay').classList.remove('visible');
+
+            pauseTimer(); // freeze elapsed time
+            const elapsed = getElapsed();
+            const totalSec = Math.floor(elapsed / 1000);
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            const timeStr = `${mins}:${String(secs).padStart(2, '0')}`;
+            // Sync the live display to the exact same value
+            const timerEl = document.getElementById('gameTimer');
+            if (timerEl) timerEl.textContent = timeStr;
+
+            // Mark solved now so interactions/timer stop, but do NOT call
+            // updateTiles() yet — tiles keep their current colour for the
+            // 0.2s gap and turn rainbow at the same moment the popup appears.
             puzzleSolved = true;
-            updateTiles();
-            setSolvedButtonState(true);
+
+            // Tutorial mode: skip win overlay entirely, advance to next puzzle
+            // (or show the congratulations popup if this was the last one).
+            if (tutorialMode) {
+                hideTutorialInstruction();
+                const isLastTutorialPuzzle = !tutorialPuzzles || (tutorialIdx + 1) >= tutorialPuzzles.length;
+                // Short pause after the final number lands before the next view
+                // appears — empty grid + completed sum sits visible for the gap.
+                // For the FINAL tutorial puzzle, reveal the coloured solution
+                // edges right as the congratulations popup appears.
+                const delay = isLastTutorialPuzzle ? 200 : 350;
+                setTimeout(() => {
+                    if (isLastTutorialPuzzle) {
+                        restoreSolvedEdges();
+                        setSolvedButtonState(true);
+                    }
+                    advanceTutorial();
+                }, delay);
+                return;
+            }
+
             const solvedDateStr = currentPuzzleDate || todayStr();
             if (solvedDateStr === todayStr()) clearProgress();
-            markSolved(solvedDateStr, elapsed);
+            try { markSolved(solvedDateStr, elapsed); }
+            catch (e) { console.error('[showWin] markSolved failed:', e); }
+
+            // Hide difficulty toggle once solved
+            try { updateDifficultyUI(currentPuzzleData); }
+            catch (e) { console.error('[showWin] updateDifficultyUI failed:', e); }
 
             // Always display the first-solve scores, not the current replay's scores.
             // markSolved() only writes on the very first solve, so reading back from
@@ -3430,10 +4320,29 @@
             if (!isDevMode) {
                 replayResult = {
                     timeMs: elapsed,
-                    hintsUsed: 5 - hintsRemaining
+                    hintsUsed: hintsCap - hintsRemaining
                 };
-
-                showWinOverlay(elapsed, 5 - hintsRemaining);
+                // 200ms gap: empty grid + completed sum sit visible. Then the
+                // coloured solution edges appear together with the win popup
+                // and the action-button swap (Show Results replaces Submit).
+                // Each step is independently try/caught so if one fails (e.g.
+                // restoreSolvedEdges throws on bad edge data), the popup still
+                // shows and the button still swaps.
+                setTimeout(() => {
+                    try { restoreSolvedEdges(); }
+                    catch (e) { console.error('[showWin/timeout] restoreSolvedEdges failed:', e); }
+                    try { updateTiles(); }
+                    catch (e) { console.error('[showWin/timeout] updateTiles failed:', e); }
+                    try { setSolvedButtonState(true); }
+                    catch (e) { console.error('[showWin/timeout] setSolvedButtonState failed:', e); }
+                    try { showWinOverlay(elapsed, hintsCap - hintsRemaining); }
+                    catch (e) { console.error('[showWin/timeout] showWinOverlay failed:', e); }
+                }, 200);
+            } else {
+                // Dev mode skips the popup entirely — restore edges + swap
+                // buttons immediately so the solved state is fully visible.
+                try { restoreSolvedEdges(); } catch (e) {}
+                try { setSolvedButtonState(true); } catch (e) {}
             }
         }
 
@@ -3453,20 +4362,26 @@
             document.getElementById('infoGuide').classList.remove('visible');
             document.getElementById('infoGuideBack').style.display = 'none';
         }
-        function showInfoNumberGuide() {
+        function showInfoNumberGuide(direct) {
             const box = document.getElementById('infoBox');
             // Lock box to its current how-to-play height before swapping content
             box.style.height = box.offsetHeight + 'px';
             document.getElementById('infoHowToPlay').style.display = 'none';
             document.getElementById('infoGuide').classList.add('visible');
-            document.getElementById('infoGuideBack').style.display = '';
+            // When opened directly via the top-bar icon there's no how-to-play
+            // view to go back to, so the ← arrow stays hidden in that case.
+            document.getElementById('infoGuideBack').style.display = direct ? 'none' : '';
         }
         document.getElementById('infoBtn').addEventListener('click', () => {
             openOverlay('infoOverlay');
         });
         document.getElementById('infoClose').addEventListener('click', closeInfo);
         document.getElementById('infoGuideBack').addEventListener('click', showInfoHowToPlay);
-        document.getElementById('infoSeeNumbersBtn').addEventListener('click', showInfoNumberGuide);
+        // The legacy "Number Guide" secondary button inside the info overlay was
+        // removed in favour of a top-bar icon (#numberGuideBtn). Keep this guard
+        // in case the element is restored — safe no-op when it's absent.
+        const _legacyNumGuideBtn = document.getElementById('infoSeeNumbersBtn');
+        if (_legacyNumGuideBtn) _legacyNumGuideBtn.addEventListener('click', showInfoNumberGuide);
         document.getElementById('infoOverlay').addEventListener('click', (e) => {
             if (e.target === document.getElementById('infoOverlay')) closeInfo();
         });
@@ -3540,26 +4455,50 @@
         }
 
         // Returns the solution slot index (into puzzleSolutionEdges) for the largest
-        // unscored number whose value is not already hinted and whose edges are on the board.
+        // unscored number whose edges are on the board. Two-pass:
+        //   Pass 1 prefers slots whose number is genuinely unknown to the user
+        //          (skip both placed and grey-hinted), so hint credits aren't
+        //          "wasted" upgrading info the user already has when there's
+        //          a brand-new reveal available instead.
+        //   Pass 2 falls back to skipping only placed numbers, so a pattern
+        //          reveal can still be cashed in when every empty gap is
+        //          already showing a grey hint (easy mode, or the user has
+        //          spent number hints on every slot). executePatternHint
+        //          handles upgrading the matching grey hint to a green
+        //          pattern-locked tile.
         function bestPatternSlot() {
             if (!puzzleSolutionEdges) return -1;
             const edgeIds = new Set(edgeList.map(e => e.id));
-            // Frequency-aware list of numbers already placed or showing as a grey hint
-            const accounted = [...tileValues, ...tileHinted].filter(v => v !== null);
-            const eligible = [];
-            for (let s = 0; s < puzzleSolution.length; s++) {
-                const num = puzzleSolution[s];
-                // Skip if this number value is already accounted for
-                const acIdx = accounted.indexOf(num);
-                if (acIdx !== -1) { accounted.splice(acIdx, 1); continue; }
-                const indices = puzzleSolutionEdges[s] || [];
-                if (indices.length === 0) continue;
-                const allPresent = indices.every(idx => {
-                    const snap = playSnapshot[idx];
-                    return snap && edgeIds.has(snap.id);
-                });
-                if (allPresent) eligible.push(s);
+
+            // Inner helper: given a list of values to treat as "accounted
+            // for", return solution slot indices that are eligible
+            // (frequency-aware and edges-on-board).
+            function eligibleSlots(accountedSrc) {
+                const accounted = accountedSrc.filter(v => v !== null);
+                const eligible = [];
+                for (let s = 0; s < puzzleSolution.length; s++) {
+                    const num = puzzleSolution[s];
+                    const acIdx = accounted.indexOf(num);
+                    if (acIdx !== -1) { accounted.splice(acIdx, 1); continue; }
+                    const indices = puzzleSolutionEdges[s] || [];
+                    if (indices.length === 0) continue;
+                    const allPresent = indices.every(idx => {
+                        const snap = playSnapshot[idx];
+                        return snap && edgeIds.has(snap.id);
+                    });
+                    if (allPresent) eligible.push(s);
+                }
+                return eligible;
             }
+
+            // Pass 1: skip both placed and grey-hinted.
+            let eligible = eligibleSlots([...tileValues, ...tileHinted]);
+
+            // Pass 2: skip only placed values, so a hinted-only board is solvable.
+            if (eligible.length === 0) {
+                eligible = eligibleSlots([...tileValues]);
+            }
+
             if (eligible.length === 0) return -1;
             return eligible.reduce((best, s) =>
                 puzzleSolution[s] > puzzleSolution[best] ? s : best
@@ -3699,11 +4638,16 @@
         document.getElementById('hintBtn').addEventListener('click', () => {
             if (puzzleSolved) return;
             if (!puzzleSolution || hintsRemaining <= 0) return;
-            if (hintRemaining().length === 0) return;
 
             const canNumber  = hintsRemaining >= 1 &&
+                hintRemaining().length > 0 &&
                 tileValues.some((v, i) => v === null && tileHinted[i] === null);
             const canPattern = hintsRemaining >= 3 && puzzleSolutionEdges;
+
+            // Bail only if NEITHER hint type is available. (In easy mode all
+            // numbers are already grey-revealed so canNumber is false, but the
+            // user can still spend 3 credits on a pattern hint.)
+            if (!canNumber && !canPattern) return;
 
             document.getElementById('hintRevealNumber').disabled  = !canNumber;
             // Reveal Pattern is never disabled due to missing lines — that case shows
@@ -3797,15 +4741,35 @@
         }
 
         function loadPuzzle(puzzleData) {
+            // If the user was mid-tutorial and is now navigating to any
+            // non-tutorial puzzle (daily, practice, archive...), tear the
+            // tutorial state down first. Otherwise the instruction box, the
+            // skip-tutorial button, and the tutorial-mode body class would
+            // all linger on top of the new puzzle.
+            if (tutorialMode && !(puzzleData && puzzleData.date && puzzleData.date.startsWith('tutorial-'))) {
+                exitTutorialEarly();
+            }
+
+            // Derive puzzle size from the solution (1-7). Fall back to 5 for
+            // old/static puzzles that lack a solution array (e.g. dev-mode
+            // freeplay where the user hasn't filled numbers yet).
+            const N = (Array.isArray(puzzleData.solution) && puzzleData.solution.length > 0)
+                ? Math.max(MIN_SLOTS, Math.min(MAX_SLOTS, puzzleData.solution.length))
+                : 5;
+            // Rebuild the play equation DOM to match N tiles. This also sets the
+            // CSS --num-slots variable so tile sizing scales appropriately.
+            buildPlayTiles(N);
+
             edgeList = puzzleData.edges.map((e, i) => ({ id: i, a: e.a, b: e.b, red: false }));
             nextId = edgeList.length;
             playSnapshot = edgeList.map(e => ({ ...e }));
-            tileValues  = [null, null, null, null, null];
-            tileEdgeIds = [null, null, null, null, null];
-            tileHinted  = [null, null, null, null, null];
-            tileWasHinted = [false, false, false, false, false];
-            tilePatternHinted = [false, false, false, false, false];
-            hintsRemaining = 5;
+            tileValues        = Array(N).fill(null);
+            tileEdgeIds       = Array(N).fill(null);
+            tileHinted        = Array(N).fill(null);
+            tileWasHinted     = Array(N).fill(false);
+            tilePatternHinted = Array(N).fill(false);
+            hintsCap       = N;
+            hintsRemaining = N;
             replayResult = null;
             hintAnimating.clear();
             puzzleSolution      = puzzleData.solution || null;
@@ -3816,7 +4780,10 @@
             puzzleSolved     = false;
             puzzleElapsed    = 0;
             puzzleSessionStart = null; // timer starts on first draw or hint
-            for (let i = 0; i < 5; i++) document.getElementById(`play-t${i}`).style.color = '';
+            for (let i = 0; i < N; i++) {
+                const el = document.getElementById(`play-t${i}`);
+                if (el) el.style.color = '';
+            }
             updateTiles();
             setSolvedButtonState(false);
             const timerEl = document.getElementById('gameTimer');
@@ -3826,7 +4793,8 @@
             // Show description (practice), formatted date (archive), or nothing (today)
             const descEl = document.getElementById('puzzleDescription');
             const isPracticeDate = puzzleData.date && puzzleData.date.startsWith('practice-');
-            if (isDevMode2) {
+            const isTutorialDate = puzzleData.date && puzzleData.date.startsWith('tutorial-');
+            if (isDevMode2 || isTutorialDate || tutorialMode) {
                 descEl.textContent = '';
                 descEl.style.display = 'none';
             } else if (puzzleData.description) {
@@ -3880,9 +4848,613 @@
 
             showScreen('screenPlay');
             playDraw();
+            // Set up the difficulty toggle UI for this puzzle and apply easy
+            // mode if appropriate. (Caller's restoreProgress / restoreSolvedBoard,
+            // run AFTER loadPuzzle, will overwrite tileHinted with saved state if
+            // any progress exists, so this is safe to do unconditionally here.)
+            currentPuzzleData = puzzleData;
+            updateDifficultyUI(puzzleData);
+            if (getDifficulty() === 'easy' && isPuzzleEligibleForDifficulty(puzzleData)) {
+                applyEasyMode();
+            }
+            // Show / hide tutorial instruction
+            if (tutorialMode) {
+                showTutorialInstruction(puzzleData, tutorialIdx);
+            } else {
+                hideTutorialInstruction();
+            }
         }
 
-        function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
+        // ── Difficulty mode helpers ───────────────────────────────────────
+        let currentPuzzleData = null;
+
+        // Easy mode: pre-fill all 5 number gaps with grey hint values, as if the
+        // user had used 5 reveal-number hints, but without consuming any hints
+        // (hintsRemaining stays at 5). User can still reveal patterns.
+        function applyEasyMode() {
+            if (!puzzleSolution) return;
+            if (puzzleSolved) return;
+            for (let i = 0; i < puzzleSolution.length; i++) {
+                if (tileValues[i] === null && tileHinted[i] === null) {
+                    tileHinted[i] = puzzleSolution[i];
+                    tileWasHinted[i] = true;
+                }
+            }
+            updateTiles();
+        }
+
+        // Daily and archive puzzles get the difficulty toggle. Practice and
+        // tutorial puzzles do not.
+        function isPuzzleEligibleForDifficulty(puzzleData) {
+            if (!puzzleData) return false;
+            if (tutorialMode) return false;
+            const date = puzzleData.date;
+            if (!date) return false;
+            if (date.startsWith('practice-')) return false;
+            if (date.startsWith('tutorial-')) return false;
+            if (date === 'dev') return false;
+            return true;
+        }
+
+        function updateDifficultyUI(puzzleData) {
+            // The legacy two-button #difficultyToggle UI was replaced by a single
+            // "Easy mode" toggle inside the Settings flyout. Refresh that toggle's
+            // visible state and disabled-ness based on whether the active puzzle
+            // is eligible for difficulty switching.
+            const toggle = document.getElementById('settingsEasyToggle');
+            if (!toggle) return;
+            const isElig = isPuzzleEligibleForDifficulty(puzzleData);
+            toggle.checked  = getDifficulty() === 'easy';
+            // Disable when not eligible (e.g. practice/tutorial puzzles or solved),
+            // but still reflect the user's persisted preference visually.
+            toggle.disabled = !isElig || puzzleSolved;
+        }
+
+        // Has the user actually engaged with this puzzle? Used to decide whether
+        // changing difficulty needs a confirmation (since it will reset progress).
+        function hasPuzzleProgress() {
+            if (puzzleSolved) return false;
+            if (tileValues.some(v => v !== null)) return true;
+            if (hintsRemaining < hintsCap) return true;
+            if (playSnapshot && edgeList.length < playSnapshot.length) return true;
+            if (edgeList.some(e => e.red)) return true;
+            return false;
+        }
+
+        function applyDifficultyChange(target) {
+            setDifficulty(target);
+            if (currentPuzzleData) {
+                // Wipe saved progress for this puzzle so reload starts fresh
+                if (currentPuzzleDate) {
+                    try { localStorage.removeItem(getProgressKey(currentPuzzleDate)); } catch(e) {}
+                }
+                loadPuzzle(currentPuzzleData);
+                if (target === 'easy' && isPuzzleEligibleForDifficulty(currentPuzzleData)) {
+                    applyEasyMode();
+                }
+            } else {
+                updateDifficultyUI(currentPuzzleData);
+            }
+        }
+
+        // Settings-overlay easy mode toggle: flipping it persists the new choice
+        // and applies to the current puzzle. If there's progress to lose, ask
+        // before resetting; on cancel the toggle reverts.
+        document.getElementById('settingsEasyToggle').addEventListener('change', (e) => {
+            const target = e.target.checked ? 'easy' : 'hard';
+            const current = getDifficulty();
+            if (current === target) return;
+            applyDifficultyChange(target);
+        });
+
+        // ── Tutorial flow ─────────────────────────────────────────────────
+        let _suppressTutorial = false;
+
+        async function initTutorial() {
+            showScreen('screenLoading');
+            document.getElementById('loadingMsg').textContent = 'Loading tutorial...';
+            try {
+                const puzzles = await fetchJson(`${PUZZLE_BASE_URL}/tutorial.json`);
+                if (!Array.isArray(puzzles) || puzzles.length === 0) throw new Error('Empty tutorial');
+                tutorialMode    = true;
+                tutorialPuzzles = puzzles;
+                tutorialIdx     = 0;
+                document.body.classList.add('tutorial-mode');
+                loadTutorialPuzzle(0);
+            } catch (e) {
+                // Tutorial unavailable — fall through to normal first-visit behaviour
+                _suppressTutorial = true;
+                tutorialMode    = false;
+                tutorialPuzzles = null;
+                tutorialIdx     = -1;
+                document.body.classList.remove('tutorial-mode');
+                await initDailyPuzzle();
+            }
+        }
+
+        function loadTutorialPuzzle(idx) {
+            const p = tutorialPuzzles[idx];
+            if (!p) return;
+            // Annotate with a tutorial-N date so progress / solved state never
+            // collides with anything else in localStorage
+            const annotated = { ...p, date: `tutorial-${idx}` };
+            loadPuzzle(annotated);
+        }
+
+        // List of currently-glowing DOM elements (one per active highlight).
+        // We store the list so step changes / dismissals can clean them all up.
+        let _tutorialHighlightEls = [];
+        // The pointerdown listener that dismisses the box on tap.
+        let _tutorialDismissListener = null;
+        // Last-set box position so resize can re-sync the mini btn.
+        let _miniBtnPos = 'topleft';
+
+        /* Compute the fixed-viewport position of the "+" bubble so it lands
+         * on the same corner of the canvas as the instruction box anchor.
+         * Called whenever the instruction position changes or the window
+         * resizes / rotates (the mini btn is position:fixed at body level,
+         * immune to canvasWrapper's rotateCW animation). */
+        function syncMiniBtn(pos) {
+            const mini    = document.getElementById('tutorialMiniBtn');
+            const wrapper = document.getElementById('canvasWrapper');
+            if (!mini || !wrapper) return;
+            const wr   = wrapper.getBoundingClientRect();
+            const SIZE = 36;
+            const PAD  = Math.round(Math.min(18, Math.max(10, wr.width * 0.03)));
+            let top, left;
+            switch (pos) {
+                case 'topright':
+                    top = wr.top + PAD;      left = wr.right - PAD - SIZE; break;
+                case 'bottomleft':
+                    top = wr.bottom - PAD - SIZE; left = wr.left + PAD; break;
+                case 'bottomright':
+                    top = wr.bottom - PAD - SIZE; left = wr.right - PAD - SIZE; break;
+                case 'topcenter':
+                    top = wr.top + PAD;      left = wr.left + (wr.width  - SIZE) / 2; break;
+                case 'bottomcenter':
+                    top = wr.bottom - PAD - SIZE; left = wr.left + (wr.width  - SIZE) / 2; break;
+                case 'leftcenter':
+                    top = wr.top + (wr.height - SIZE) / 2; left = wr.left + PAD; break;
+                case 'rightcenter':
+                    top = wr.top + (wr.height - SIZE) / 2; left = wr.right - PAD - SIZE; break;
+                case 'center':
+                    top = wr.top  + (wr.height - SIZE) / 2;
+                    left = wr.left + (wr.width  - SIZE) / 2; break;
+                default: // topleft
+                    top = wr.top + PAD;      left = wr.left + PAD; break;
+            }
+            mini.style.top  = `${top}px`;
+            mini.style.left = `${left}px`;
+        }
+        // Keep the bubble aligned when the viewport resizes or rotates.
+        let _miniBtnShowTimeout = null; // pending show-after-minimize setTimeout
+
+        window.addEventListener('resize', () => syncMiniBtn(_miniBtnPos));
+
+        // When the board plays its rotate-in animation:
+        //  • If the instruction is EXPANDED: hide it immediately so nothing
+        //    snaps across the screen.
+        //  • If the instruction was MINIMISED (+ scheduled to appear): cancel
+        //    the pending show so the + doesn't appear mid-rotation with
+        //    getBoundingClientRect() returning the rotated (wrong) coordinates.
+        //    Re-show the + correctly in the animationend handler instead.
+        //  • If the + is already visible: hide it and re-show after rotation.
+        document.getElementById('canvasWrapper').addEventListener('animationstart', (e) => {
+            if (e.animationName !== 'rotateCW') return;
+            const box  = document.getElementById('tutorialInstruction');
+            const mini = document.getElementById('tutorialMiniBtn');
+
+            // Cancel any pending show-+ timer (fired by minimizeTutorialInstruction).
+            if (_miniBtnShowTimeout !== null) {
+                clearTimeout(_miniBtnShowTimeout);
+                _miniBtnShowTimeout = null;
+            }
+
+            // Hide the + bubble for the duration of the animation.
+            mini.classList.remove('visible');
+
+            // If the box is expanded (not minimised), strip it cleanly.
+            if (box.classList.contains('visible') &&
+                !box.classList.contains('minimized')) {
+                box.classList.remove('visible');
+                box.classList.remove('in');
+                removeTutorialDismissListener();
+            }
+        });
+
+        // After rotation ends, re-measure the canvas position and re-show the
+        // + bubble if the tutorial step is still in the minimised state.
+        document.getElementById('canvasWrapper').addEventListener('animationend', (e) => {
+            if (e.animationName !== 'rotateCW') return;
+            const box  = document.getElementById('tutorialInstruction');
+            if (box.classList.contains('visible') &&
+                box.classList.contains('minimized')) {
+                syncMiniBtn(_miniBtnPos);
+                document.getElementById('tutorialMiniBtn').classList.add('visible');
+            }
+        });
+
+        /* Show the per-step instruction overlay for the tutorial.
+         *
+         * Reads optional layout fields from the tutorial puzzle JSON:
+         *
+         *   {
+         *     "instruction": "Tap the menu and the info button",
+         *
+         *     "box": {
+         *       "position": "topleft"        // one of: topleft, topright,
+         *                                    //   bottomleft, bottomright,
+         *                                    //   topcenter, bottomcenter,
+         *                                    //   leftcenter, rightcenter, center
+         *                                    // (defaults to topleft if omitted)
+         *     },
+         *
+         *     "highlight": [                 // one or many; either a string,
+         *                                    // an object, or an array of either
+         *       {
+         *         "element": "#menuBtn",     // CSS selector / bare ID for the
+         *                                    // element to glow
+         *         "colour":  "#4488ff",      // optional. glow colour (also used
+         *                                    // for any matching text below).
+         *                                    // Defaults to #4488ff (blue).
+         *         "text":    "menu"          // optional. word(s) in the
+         *                                    // instruction to colour-match
+         *                                    // (case-insensitive)
+         *       },
+         *       {
+         *         "element": "#infoBtn",
+         *         "colour":  "#ff4488",
+         *         "text":    "info button"
+         *       }
+         *     ]
+         *   }
+         *
+         * Shorthand forms still accepted:
+         *   "highlight": "#menuBtn"                      // simple selector
+         *   "highlight": { "element": "#menuBtn" }       // single object
+         */
+        function showTutorialInstruction(puzzleOrText, idx) {
+            const box        = document.getElementById('tutorialInstruction');
+            const totalSteps = tutorialPuzzles ? tutorialPuzzles.length : 0;
+            // Backwards-compatible: callers used to pass the raw text string.
+            const cfg = (typeof puzzleOrText === 'string')
+                ? { instruction: puzzleOrText }
+                : (puzzleOrText || {});
+
+            document.getElementById('tutorialStepLabel').textContent =
+                `Step ${idx + 1} of ${totalSteps}`;
+
+            // Normalize highlights to a flat array of {element, colour, text}.
+            const highlights = normalizeTutorialHighlights(cfg);
+
+            // Render the instruction text, colouring any words that match a
+            // highlight's "text" field with that highlight's colour.
+            renderInstructionText(
+                document.getElementById('tutorialInstructionText'),
+                cfg.instruction || '',
+                highlights);
+
+            // Box position via data-pos attribute (CSS handles the rest)
+            const validPositions = new Set([
+                'topleft','topright','bottomleft','bottomright',
+                'topcenter','bottomcenter','leftcenter','rightcenter',
+                'center'
+            ]);
+            const pos = (cfg.box && validPositions.has(cfg.box.position))
+                ? cfg.box.position
+                : 'topleft';
+            box.dataset.pos = pos;
+
+            // Sync the "+" bubble to the same corner (JS handles its fixed
+            // position; data-pos is no longer needed on the mini btn).
+            _miniBtnPos = pos;
+            syncMiniBtn(pos);
+            const mini = document.getElementById('tutorialMiniBtn');
+            mini.classList.remove('visible');
+
+            // Always start fresh — remove any leftover minimized / in state.
+            box.classList.remove('minimized');
+            box.classList.remove('in');
+            box.classList.add('visible');
+
+            // CSS clip-path transitions don't fire the same frame as
+            // display:none → display:block. Two rAFs ensures the element
+            // has rendered before the 'in' class (which drives clip to full)
+            // is applied, so the reveal animation always plays.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                box.classList.add('in');
+            }));
+
+            // Apply glow class + per-element colour CSS variables.
+            applyTutorialHighlights(highlights);
+
+            // Wire up tap-anywhere-to-close. The slight delay ensures the very
+            // tap that triggered this step (e.g. the click that solved the
+            // last tutorial puzzle) doesn't immediately register as a close.
+            attachTutorialDismissListener();
+        }
+
+        /* Walk the various accepted highlight shapes (string / object / array
+         * of either) and return a flat array of normalized entries:
+         *   { element: "#menuBtn", colour: "#4488ff", text: "menu"|null }
+         * Invalid / empty entries are silently dropped. */
+        function normalizeTutorialHighlights(cfg) {
+            if (!cfg) return [];
+            let raw = cfg.highlight;
+
+            // Legacy schema (the brief speech-bubble-tail era):
+            //   "arrow": { "to": { "element": "#x" }, "highlight": true }
+            if (raw == null && cfg.arrow && cfg.arrow.highlight && cfg.arrow.to && cfg.arrow.to.element) {
+                raw = cfg.arrow.to.element;
+            }
+            if (raw == null) return [];
+
+            const list = Array.isArray(raw) ? raw : [raw];
+            const out = [];
+            for (const entry of list) {
+                if (!entry) continue;
+                let element, colour, text;
+                if (typeof entry === 'string') {
+                    element = entry;
+                } else if (typeof entry === 'object') {
+                    element = entry.element;
+                    // Accept either British or American spelling
+                    colour  = entry.colour || entry.color;
+                    text    = entry.text;
+                }
+                if (!element) continue;
+                out.push({
+                    element,
+                    colour: sanitizeColour(colour) || '#4488ff',
+                    text:   (typeof text === 'string' && text.trim()) ? text.trim() : null
+                });
+            }
+            return out;
+        }
+
+        /* Light validation: reject anything that contains characters outside
+         * the safe colour-value set (avoids HTML/CSS injection through the
+         * value). Returns null on rejection so caller can fall back to default. */
+        function sanitizeColour(c) {
+            if (!c || typeof c !== 'string') return null;
+            const trimmed = c.trim();
+            if (!/^[#a-zA-Z0-9.,()% \/]+$/.test(trimmed)) return null;
+            return trimmed;
+        }
+
+        /* Resolve a CSS-selector-or-bare-ID to a DOM element. */
+        function resolveTutorialElement(sel) {
+            if (!sel) return null;
+            sel = String(sel).trim();
+            if (!sel) return null;
+            try {
+                let el = document.querySelector(sel);
+                if (!el && !sel.startsWith('#') && !sel.startsWith('.')) {
+                    el = document.getElementById(sel);
+                }
+                return el || null;
+            } catch (e) {
+                return document.getElementById(sel) || null;
+            }
+        }
+
+        /* Apply / replace the .tutorial-highlight class on every element
+         * specified in the highlight list, setting per-element CSS variables
+         * so each element's glow colour is independently configurable. */
+        function applyTutorialHighlights(highlights) {
+            // Remove any glow from a previous step
+            for (const el of _tutorialHighlightEls) {
+                el.classList.remove('tutorial-highlight');
+                el.style.removeProperty('--highlight-color');
+                el.style.removeProperty('--highlight-glow-soft');
+                el.style.removeProperty('--highlight-glow-strong');
+            }
+            _tutorialHighlightEls = [];
+
+            for (const h of highlights) {
+                const el = resolveTutorialElement(h.element);
+                if (!el) continue;
+                const rgba = colourToRgba(h.colour);
+                el.style.setProperty('--highlight-color', h.colour);
+                if (rgba) {
+                    el.style.setProperty('--highlight-glow-soft',   rgba(0.50));
+                    el.style.setProperty('--highlight-glow-strong', rgba(0.80));
+                }
+                el.classList.add('tutorial-highlight');
+                _tutorialHighlightEls.push(el);
+            }
+        }
+
+        /* Convert a hex / rgb() / named colour into a function (alpha) → "rgba(r,g,b,a)".
+         * Returns null if the colour can't be parsed (caller falls back to defaults). */
+        function colourToRgba(c) {
+            if (!c) return null;
+            const s = c.trim();
+            // #rgb / #rgba / #rrggbb / #rrggbbaa
+            let m = s.match(/^#([0-9a-f]{3,8})$/i);
+            if (m) {
+                const hex = m[1];
+                let r, g, b;
+                if (hex.length === 3 || hex.length === 4) {
+                    r = parseInt(hex[0] + hex[0], 16);
+                    g = parseInt(hex[1] + hex[1], 16);
+                    b = parseInt(hex[2] + hex[2], 16);
+                } else if (hex.length === 6 || hex.length === 8) {
+                    r = parseInt(hex.slice(0, 2), 16);
+                    g = parseInt(hex.slice(2, 4), 16);
+                    b = parseInt(hex.slice(4, 6), 16);
+                } else {
+                    return null;
+                }
+                return (alpha) => `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            // rgb(r, g, b) or rgba(r, g, b, a)
+            m = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+            if (m) {
+                const r = +m[1], g = +m[2], b = +m[3];
+                return (alpha) => `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return null;
+        }
+
+        /* Render the instruction text into the DOM, wrapping any substring
+         * that matches a highlight's `text` field with a coloured <span>.
+         * Built via DOM nodes (not innerHTML) so the user's instruction text
+         * can never inject HTML. */
+        function renderInstructionText(targetEl, instruction, highlights) {
+            targetEl.textContent = '';   // clear
+            instruction = String(instruction || '');
+            const patterns = highlights.filter(h => h.text);
+            if (patterns.length === 0 || !instruction) {
+                targetEl.textContent = instruction;
+                return;
+            }
+            // Sort by length descending so longer matches take precedence
+            // (e.g. "info button" beats "info").
+            patterns.sort((a, b) => b.text.length - a.text.length);
+
+            const escaped = patterns.map(p => p.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+
+            let lastIdx = 0;
+            let match;
+            while ((match = regex.exec(instruction)) !== null) {
+                if (match.index > lastIdx) {
+                    targetEl.appendChild(document.createTextNode(
+                        instruction.slice(lastIdx, match.index)));
+                }
+                const matched = match[0];
+                const lower = matched.toLowerCase();
+                const found = patterns.find(p => p.text.toLowerCase() === lower);
+                const span = document.createElement('span');
+                span.textContent = matched;
+                span.style.color      = found ? found.colour : '';
+                span.style.fontWeight = '700';
+                targetEl.appendChild(span);
+                lastIdx = regex.lastIndex;
+                // Guard against zero-width matches (shouldn't happen, but…)
+                if (match.index === regex.lastIndex) regex.lastIndex++;
+            }
+            if (lastIdx < instruction.length) {
+                targetEl.appendChild(document.createTextNode(instruction.slice(lastIdx)));
+            }
+        }
+
+        /* Attach a pointerdown listener that MINIMIZES the instruction on the
+         * next tap anywhere. Delayed so the tap that opened this step doesn't
+         * immediately dismiss it. */
+        function attachTutorialDismissListener() {
+            removeTutorialDismissListener();
+            const handler = () => {
+                if (document.getElementById('tutorialInstruction')
+                        .classList.contains('minimized')) return;
+                minimizeTutorialInstruction();
+            };
+            _tutorialDismissListener = handler;
+            setTimeout(() => {
+                if (_tutorialDismissListener !== handler) return;
+                document.addEventListener('pointerdown', handler, { capture: true });
+            }, 250);
+        }
+
+        function removeTutorialDismissListener() {
+            if (_tutorialDismissListener) {
+                document.removeEventListener('pointerdown', _tutorialDismissListener, true);
+                _tutorialDismissListener = null;
+            }
+        }
+
+        /* Collapse: clip shrinks to 0, then the "+" bubble fades in. */
+        function minimizeTutorialInstruction() {
+            const box  = document.getElementById('tutorialInstruction');
+            const mini = document.getElementById('tutorialMiniBtn');
+            if (!box.classList.contains('visible')) return;
+            box.classList.add('minimized');
+            removeTutorialDismissListener();
+            // Track the pending show so it can be cancelled if rotation starts
+            // before the 180ms elapses (getBoundingClientRect mid-animation
+            // gives incorrect coordinates).
+            if (_miniBtnShowTimeout !== null) clearTimeout(_miniBtnShowTimeout);
+            _miniBtnShowTimeout = setTimeout(() => {
+                _miniBtnShowTimeout = null;
+                syncMiniBtn(_miniBtnPos);
+                mini.classList.add('visible');
+            }, 180);
+        }
+
+        /* Expand: bubble fades out, clip grows back to full. */
+        function expandTutorialInstruction() {
+            const box  = document.getElementById('tutorialInstruction');
+            const mini = document.getElementById('tutorialMiniBtn');
+            if (!box.classList.contains('minimized')) return;
+            mini.classList.remove('visible');
+            box.classList.remove('minimized');
+            attachTutorialDismissListener();
+        }
+
+        document.getElementById('tutorialMiniBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            expandTutorialInstruction();
+        });
+
+        function hideTutorialInstruction() {
+            const box  = document.getElementById('tutorialInstruction');
+            const mini = document.getElementById('tutorialMiniBtn');
+            box.classList.remove('visible');
+            box.classList.remove('in');
+            box.classList.remove('minimized');
+            mini.classList.remove('visible');
+            if (_miniBtnShowTimeout !== null) {
+                clearTimeout(_miniBtnShowTimeout);
+                _miniBtnShowTimeout = null;
+            }
+            removeTutorialDismissListener();
+            for (const el of _tutorialHighlightEls) {
+                el.classList.remove('tutorial-highlight');
+                el.style.removeProperty('--highlight-color');
+                el.style.removeProperty('--highlight-glow-soft');
+                el.style.removeProperty('--highlight-glow-strong');
+            }
+            _tutorialHighlightEls = [];
+        }
+
+        function advanceTutorial() {
+            const next = tutorialIdx + 1;
+            if (!tutorialPuzzles || next >= tutorialPuzzles.length) {
+                finishTutorial();
+                return;
+            }
+            tutorialIdx = next;
+            loadTutorialPuzzle(next);
+        }
+
+        function finishTutorial() {
+            tutorialMode    = false;
+            tutorialPuzzles = null;
+            tutorialIdx     = -1;
+            // The final tutorial puzzle leaves puzzleSolved=true on the board
+            // (showWin sets it before the tutorial-mode early return). Reset
+            // it now so any saveProgress call between here and the next
+            // loadPuzzle isn't blocked by a stale solved flag.
+            puzzleSolved    = false;
+            document.body.classList.remove('tutorial-mode');
+            hideTutorialInstruction();
+            markVisited();
+            document.getElementById('tutorialDoneOverlay').classList.add('visible');
+        }
+
+        function exitTutorialEarly() {
+            tutorialMode    = false;
+            tutorialPuzzles = null;
+            tutorialIdx     = -1;
+            puzzleSolved    = false; // see finishTutorial — same defence
+            document.body.classList.remove('tutorial-mode');
+            hideTutorialInstruction();
+            // The user is intentionally leaving the tutorial. Treat them as
+            // a returning visitor so initDailyPuzzle doesn't re-route them
+            // back into the tutorial on the next visit.
+            markVisited();
+        }
 
         function markSolved(dateStr, timeMs) {
             if (isDevMode) return; // dev=1 — never write to localStorage
@@ -3890,7 +5462,7 @@
             if (isDevMode2 && dateStr.startsWith('practice-')) return; // never save practice in dev2
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
-                hintsUsed: 5 - hintsRemaining,
+                hintsUsed: hintsCap - hintsRemaining,
                 tileValues:  [...tileValues],
                 tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null),
                 coloredEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b, color: e.color || null }))
@@ -3907,13 +5479,14 @@
         function getProgressKey(dateStr) { return `gridlines_progress_${dateStr}`; }
 
         function saveProgress() {
-            if (isDevMode || isDevMode2) return; // dev modes — never write to localStorage
-            if (puzzleSolved) return;
-            if (!currentPuzzleDate && edgeList.length === 0) return; // nothing loaded yet
+            if (isDevMode || isDevMode2) { console.log('[saveProgress] skipped: dev mode'); return; }
+            if (tutorialMode) { console.log('[saveProgress] skipped: tutorialMode is true'); return; } // tutorial puzzles never persist progress
+            if (puzzleSolved) { console.log('[saveProgress] skipped: puzzleSolved is true'); return; }
+            if (!currentPuzzleDate && edgeList.length === 0) { console.log('[saveProgress] skipped: nothing loaded'); return; }
             const dateStr = currentPuzzleDate || todayStr();
             // Don't cache progress for archive puzzles — only today's and practice puzzles
             const isArchive = dateStr !== todayStr() && !dateStr.startsWith('practice-');
-            if (isArchive) return;
+            if (isArchive) { console.log('[saveProgress] skipped: archive puzzle', dateStr); return; }
             localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
                 tileValues:    [...tileValues],
                 tileEdgeIds:   tileEdgeIds.map(ids => ids ? [...ids] : null),
@@ -3924,6 +5497,7 @@
                 elapsedMs:     getElapsed(),
                 remainingEdges: edgeList.map(e => ({ id: e.id, a: e.a, b: e.b }))
             }));
+            console.log('[saveProgress] wrote progress for', dateStr);
         }
 
         function clearProgress() {
@@ -3979,7 +5553,7 @@
             const hintsRow   = document.getElementById('winHintsRow');
             const hintsNumEl = document.getElementById('winHintsNumber');
             if (hintsUsed != null) {
-                hintsNumEl.textContent      = `${hintsUsed}/5`;
+                hintsNumEl.textContent      = `${hintsUsed}/${hintsCap}`;
                 andUsedEl.style.display     = '';
                 hintsRow.style.display      = '';
             } else {
@@ -4077,8 +5651,8 @@
             puzzleSolved = true;
             setSolvedButtonState(true);
 
-            // Restore hints remaining so the x/5 display is correct
-            if (solved.hintsUsed != null) hintsRemaining = 5 - solved.hintsUsed;
+            // Restore hints remaining so the x/N display is correct
+            if (solved.hintsUsed != null) hintsRemaining = Math.max(0, hintsCap - solved.hintsUsed);
 
             const vals = (solved.tileValues && solved.tileValues.some(v => v !== null))
                 ? solved.tileValues
@@ -4089,7 +5663,7 @@
                 edgeList = solved.coloredEdges.map(e => ({ ...e, red: false }));
             } else if (solved.tileEdgeIds) {
                 tileEdgeIds = solved.tileEdgeIds;
-                for (let slot = 0; slot < 5; slot++) {
+                for (let slot = 0; slot < tileEdgeIds.length; slot++) {
                     if (!tileEdgeIds[slot]) continue;
                     const color = SLOT_COLORS[slot];
                     for (const id of tileEdgeIds[slot]) {
@@ -4109,13 +5683,16 @@
                 const timerEl = document.getElementById('gameTimer');
                 if (timerEl) timerEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
             }
+
+            // Hide the difficulty toggle for already-solved puzzles
+            updateDifficultyUI(currentPuzzleData);
         }
 
         document.getElementById('winShareBtn').addEventListener('click', async () => {
             const btn     = document.getElementById('winShareBtn');
             const timeStr = btn.dataset.time;
             const hints   = btn.dataset.hints;
-            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/5 hints! Play it here: www.nodle.fyi`;
+            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/${hintsCap} hints! Play it here: www.nodle.fyi`;
 
             // Use native share sheet if available (works on mobile)
             if (navigator.share) {
@@ -4147,6 +5724,70 @@
                     setTimeout(() => { btn.textContent = orig; }, 3000);
                 }
                 document.body.removeChild(ta);
+            }
+        });
+
+        document.getElementById('winStatsBtn').addEventListener('click', () => {
+            closeOverlay('winOverlay');
+            openStats();
+        });
+
+        // ── Tutorial congratulations popup buttons ────────────────────────
+        document.getElementById('tutorialDoneClose').addEventListener('click', () => {
+            // Close-only: leaves the user looking at the last tutorial puzzle's
+            // solved board. Show Results (which is already visible because
+            // setSolvedButtonState(true) ran for the final tutorial puzzle)
+            // can re-open this popup.
+            document.getElementById('tutorialDoneOverlay').classList.remove('visible');
+        });
+        document.getElementById('tutorialDoneTodayBtn').addEventListener('click', async () => {
+            document.getElementById('tutorialDoneOverlay').classList.remove('visible');
+            await initDailyPuzzle();
+        });
+        document.getElementById('tutorialDonePracticeBtn').addEventListener('click', () => {
+            document.getElementById('tutorialDoneOverlay').classList.remove('visible');
+            openPractice();
+        });
+
+        // ── Skip-tutorial button & confirmation bubble ────────────────────
+        document.getElementById('tutorialSkipBtn').addEventListener('click', () => {
+            if (!tutorialMode) return;
+
+            // Position the bubble below the skip button, horizontally centred
+            // on it — identical logic to the hint-choice bubble.
+            const box     = document.getElementById('tutorialSkipConfirmBox');
+            const btnRect = document.getElementById('tutorialSkipBtn').getBoundingClientRect();
+            const bubbleW = box.offsetWidth || 260;
+            const GAP     = 10;
+
+            let left = btnRect.left + btnRect.width / 2 - bubbleW / 2;
+            left = Math.max(8, Math.min(left, window.innerWidth - bubbleW - 8));
+
+            const top = btnRect.bottom + GAP;
+            box.style.left = `${left}px`;
+            box.style.top  = `${top}px`;
+
+            // Point the tail at the button centre
+            const tailCentre = btnRect.left + btnRect.width / 2 - left;
+            const tailPct    = Math.round((tailCentre / bubbleW) * 100);
+            box.style.setProperty('--skip-tail-pos', `${tailPct}%`);
+
+            document.getElementById('tutorialSkipConfirmOverlay').classList.add('visible');
+        });
+        document.getElementById('tutorialSkipConfirmClose').addEventListener('click', () => {
+            document.getElementById('tutorialSkipConfirmOverlay').classList.remove('visible');
+        });
+        document.getElementById('tutorialSkipContinueBtn').addEventListener('click', () => {
+            document.getElementById('tutorialSkipConfirmOverlay').classList.remove('visible');
+        });
+        document.getElementById('tutorialSkipPlayTodayBtn').addEventListener('click', async () => {
+            document.getElementById('tutorialSkipConfirmOverlay').classList.remove('visible');
+            await initDailyPuzzle();
+        });
+        // Tap the dimmed backdrop to dismiss (same as "continue")
+        document.getElementById('tutorialSkipConfirmOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('tutorialSkipConfirmOverlay')) {
+                document.getElementById('tutorialSkipConfirmOverlay').classList.remove('visible');
             }
         });
 
@@ -4190,27 +5831,88 @@
         });
 
         async function initDailyPuzzle() {
+            // First-time visitors are routed through the tutorial flow instead
+            // of the old how-to-play info popup.
+            if (isFirstVisit() && !tutorialMode && !_suppressTutorial) {
+                await initTutorial();
+                return;
+            }
+
             showScreen('screenLoading');
             currentPuzzleList  = null;
             currentPuzzleIndex = -1;
             const dateStr = todayStr();
 
             try {
-                // Derive month file from today's date e.g. 2026_03_puzzles.json
+                // Walk back month-by-month until we find a puzzles file that
+                // exists and is non-empty. This way local development with a
+                // stale puzzles directory still loads a real puzzle instead
+                // of dumping the user on the setup screen. On a live deploy
+                // with up-to-date puzzles, the very first iteration succeeds
+                // and behaviour is unchanged from before.
+                const MAX_MONTHS_BACK = 24;
                 const [dy, dm] = dateStr.split('-');
-                const monthFile = `${dy}_${dm}_puzzles.json`;
-                const url = `${DAILY_BASE}/${monthFile}`;
-                const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const allPuzzles = await resp.json();
-                const puzzle = allPuzzles.find(p => p.date === dateStr);
+                let yr = parseInt(dy, 10), mo = parseInt(dm, 10);
+                let allPuzzles = null;
+                let foundMonthFile = null;
+                let lastErr = null;
+                for (let i = 0; i < MAX_MONTHS_BACK; i++) {
+                    const monthFile = `${yr}_${String(mo).padStart(2, '0')}_puzzles.json`;
+                    const url = `${DAILY_BASE}/${monthFile}`;
+                    try {
+                        const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            if (Array.isArray(data) && data.length > 0) {
+                                allPuzzles = data;
+                                foundMonthFile = monthFile;
+                                break;
+                            }
+                        } else {
+                            lastErr = new Error(`HTTP ${resp.status} on ${monthFile}`);
+                        }
+                    } catch (e) {
+                        lastErr = e;
+                        // network/parse error — try previous month
+                    }
+                    mo -= 1;
+                    if (mo === 0) { mo = 12; yr -= 1; }
+                }
+                if (!allPuzzles) {
+                    throw lastErr || new Error('No puzzle JSON found in last ' + MAX_MONTHS_BACK + ' months');
+                }
+
+                let puzzle = allPuzzles.find(p => p.date === dateStr);
+                if (!puzzle) {
+                    // Today's puzzle isn't in the file we found — use the most
+                    // recent puzzle available, re-dated as today so save/restore
+                    // and the rest of the flow work normally. Once a real
+                    // puzzle for today is added to the JSON, the next refresh
+                    // will pick it up; the fingerprint change will then wipe
+                    // any progress made against the stand-in (correct, since
+                    // it's a different puzzle).
+                    const sorted = [...allPuzzles].sort((a, b) => b.date.localeCompare(a.date));
+                    const fallback = sorted[0];
+                    console.log(`[initDailyPuzzle] No puzzle for ${dateStr} in ${foundMonthFile}; using most recent (${fallback.date}) as today's puzzle`);
+                    puzzle = { ...fallback, date: dateStr };
+                }
 
                 // If the puzzle content has changed since the user last loaded it,
                 // wipe their saved progress and solved state so they start fresh.
+                // The fingerprint is computed from a CANONICAL representation
+                // (edges sorted by (a,b), only structural fields included) so
+                // that a regenerated JSON file with the same puzzle but
+                // reshuffled edge order or extra metadata fields doesn't
+                // falsely look "changed" and wipe progress on every refresh.
                 const fingerprintKey = `gridlines_puzzle_${dateStr}`;
-                const freshFingerprint = JSON.stringify(puzzle.edges);
+                const freshFingerprint = JSON.stringify(
+                    [...puzzle.edges]
+                        .map(e => ({ a: e.a, b: e.b }))
+                        .sort((x, y) => (x.a - y.a) || (x.b - y.b))
+                );
                 const storedFingerprint = localStorage.getItem(fingerprintKey);
                 if (storedFingerprint !== null && storedFingerprint !== freshFingerprint) {
+                    console.log('[initDailyPuzzle] Puzzle fingerprint changed — wiping saved progress for', dateStr);
                     localStorage.removeItem(getProgressKey(dateStr));
                     localStorage.removeItem(getSolvedKey(dateStr));
                 }
@@ -4220,21 +5922,23 @@
                 const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
 
-                // First-time visitor — show how-to-play overlay with welcome buttons
-                if (isFirstVisit()) {
-                    openOverlay('infoOverlay');
-                    markVisited();
-                }
                 if (!solved) {
                     const progress = getProgressData(dateStr);
-                    if (progress) restoreProgress(progress);
+                    if (progress) {
+                        console.log('[initDailyPuzzle] Restoring saved progress for', dateStr);
+                        restoreProgress(progress);
+                    } else {
+                        console.log('[initDailyPuzzle] No saved progress for', dateStr);
+                    }
                 }
 
                 // Already solved today — restore exact board state and show win overlay
                 if (solved) {
+                    console.log('[initDailyPuzzle] Restoring solved board for', dateStr);
                     restoreSolvedBoard(puzzle, solved);
                 }
             } catch (err) {
+                console.log('[initDailyPuzzle] Failed to load any daily puzzle:', err && err.message);
                 // Fall back to setup when running locally (fetch fails instantly with a
                 // network error because there's no server). On the live site a fetch
                 // failure shows a friendly message instead — setup is dev-only there.
@@ -4276,6 +5980,26 @@
         document.getElementById('menuBtn').addEventListener('click', openMenu);
         document.getElementById('menuOverlay').addEventListener('click', (e) => {
             if (e.target === document.getElementById('menuOverlay')) closeMenu();
+        });
+
+        // ── Settings flyout ──────────────────────────────────────────────
+        function openSettings() {
+            updateDifficultyUI(currentPuzzleData);
+            openOverlay('settingsOverlay');
+        }
+        function closeSettings() {
+            closeOverlay('settingsOverlay');
+        }
+        document.getElementById('settingsBtn').addEventListener('click', openSettings);
+        document.getElementById('settingsClose').addEventListener('click', closeSettings);
+        document.getElementById('settingsOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+        });
+
+        // ── Number-guide button: opens info overlay directly into the guide view
+        document.getElementById('numberGuideBtn').addEventListener('click', () => {
+            openOverlay('infoOverlay');
+            showInfoNumberGuide(true);
         });
 
         document.getElementById('menuToday').addEventListener('click', async () => {
@@ -5121,6 +6845,9 @@
                 if (document.getElementById('menuOverlay').classList.contains('visible'))
                     return closeMenu;
 
+                if (document.getElementById('settingsOverlay').classList.contains('visible'))
+                    return closeSettings;
+
                 return null;
             }
 
@@ -5139,6 +6866,10 @@
             // Menu dropdown
             var _origOpenMenu = openMenu;
             openMenu = function () { pushNav(); _origOpenMenu.apply(this, arguments); };
+
+            // Settings flyout — same as menu
+            var _origOpenSettings = openSettings;
+            openSettings = function () { pushNav(); _origOpenSettings.apply(this, arguments); };
 
             // Archive overlay (top-level open)
             var _origOpenArchive = openArchive;
@@ -5215,6 +6946,13 @@
             // Menu close (backdrop click already handled by closeMenu wrapper)
             var _origCloseMenu = closeMenu;
             closeMenu = function () { consumeNav(1); _origCloseMenu.apply(this, arguments); };
+
+            // Settings flyout close — same pattern as menu
+            var _origCloseSettings = closeSettings;
+            closeSettings = function () { consumeNav(1); _origCloseSettings.apply(this, arguments); };
+            document.getElementById('settingsClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
 
             // Archive back button (handles both levels)
             document.getElementById('archiveBack').addEventListener('click', function () {
