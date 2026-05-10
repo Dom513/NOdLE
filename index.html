@@ -5469,6 +5469,8 @@
             }));
         }
 
+        function getSolvedKey(dateStr) { return `gridlines_solved_${dateStr}`; }
+
         function getSolvedData(dateStr) {
             try {
                 const raw = localStorage.getItem(getSolvedKey(dateStr));
