@@ -596,6 +596,49 @@
         }
         .menu-item-btn:hover { background: #333; color: #fff; }
 
+        /* ── Update notification badges ──────────────────────────────────── */
+        /* Hidden by default. The `has-new-updates` class on <body> reveals
+           both the corner badge on the menu icon and the inline badge next
+           to the "Updates" menu-item label. Opening the Updates overlay
+           clears the class (and writes the current updates.json fingerprint
+           to localStorage), so the badges stay hidden until updates.json
+           actually changes again. */
+        #menuBtn { position: relative; }
+        .update-badge {
+            display: none;
+            background: #d92626;
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: 700;
+            border-radius: 50%;
+            line-height: 1;
+            box-sizing: border-box;
+            text-align: center;
+            pointer-events: none;
+        }
+        body.has-new-updates .update-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .update-badge.on-icon {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 12px;
+            height: 12px;
+            font-size: 9px;
+            padding-top: 1px;
+        }
+        .update-badge.inline {
+            width: 14px;
+            height: 14px;
+            font-size: 10px;
+            margin-left: 8px;
+            vertical-align: middle;
+            padding-top: 1px;
+        }
+
         /* ── Settings overlay (centered modal) ───────────────────────────── */
         #settingsOverlay {
             display: none; position: fixed; inset: 0;
@@ -1433,6 +1476,7 @@
                     <line x1="4"  y1="12" x2="20" y2="12"/>
                     <line x1="4"  y1="17" x2="20" y2="17"/>
                 </svg>
+                <span class="update-badge on-icon" aria-hidden="true">!</span>
             </button>
         </div>
     </div>
@@ -1441,9 +1485,11 @@
     <div id="menuOverlay">
         <div id="menuBox">
             <button class="menu-item-btn" id="menuToday">Today's puzzle</button>
+            <button class="menu-item-btn" id="menuWeekly">Weekly puzzle</button>
             <button class="menu-item-btn" id="menuStats">Stats</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
             <button class="menu-item-btn" id="menuPractice">Practice</button>
+            <button class="menu-item-btn" id="menuUpdates">Updates<span class="update-badge inline" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
             <button class="menu-item-btn" id="menuDownload">Get the app</button>
         </div>
@@ -1497,6 +1543,31 @@
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
                 <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#afcbc0c2c6c1c6ccd8c6c3cbca9cefc8c2cec6c381ccc0c2" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="caaea5a7a3a4a3a9bda3a6aeaff98aada7aba3a6e4a9a5a7">[email&#160;protected]</span></a></div>
             </div>
+        </div>
+    </div>
+
+    <!-- ── Weekly puzzle overlay (Coming Soon) ───────────────────────────── -->
+    <div id="weeklyOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
+        <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
+            <div style="display:flex; align-items:center; gap:12px; padding:clamp(12px,3vw,20px) 16px; border-bottom:1px solid #333; flex-shrink:0;">
+                <button id="weeklyClose" style="background:none; border:none; color:#666; font-size:20px; cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset; line-height:1;">←</button>
+                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Weekly Puzzle</div>
+            </div>
+            <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
+                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
+                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">Weekly 7 number puzzles are coming to NOdLE soon, for people who want even more of a challenge.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Updates overlay ──────────────────────────────────────────────── -->
+    <div id="updatesOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
+        <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
+            <div style="display:flex; align-items:center; gap:12px; padding:clamp(12px,3vw,20px) 16px; border-bottom:1px solid #333; flex-shrink:0;">
+                <button id="updatesClose" style="background:none; border:none; color:#666; font-size:20px; cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset; line-height:1;">←</button>
+                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Updates</div>
+            </div>
+            <div id="updatesList" style="padding:clamp(16px,4vw,24px) 20px clamp(24px,6vw,40px); overflow-y:auto; display:flex; flex-direction:column; gap:clamp(16px,4vw,24px);"></div>
         </div>
     </div>
     <div id="practiceOverlay">
@@ -4905,9 +4976,11 @@
             if (!toggle) return;
             const isElig = isPuzzleEligibleForDifficulty(puzzleData);
             toggle.checked  = getDifficulty() === 'easy';
-            // Disable when not eligible (e.g. practice/tutorial puzzles or solved),
-            // but still reflect the user's persisted preference visually.
-            toggle.disabled = !isElig || puzzleSolved;
+            // Disable only when the puzzle isn't eligible for difficulty
+            // switching (e.g. practice/tutorial). A solved daily puzzle stays
+            // toggleable: the change just persists for the next puzzle without
+            // disturbing the completed board.
+            toggle.disabled = !isElig;
         }
 
         // Has the user actually engaged with this puzzle? Used to decide whether
@@ -4923,6 +4996,13 @@
 
         function applyDifficultyChange(target) {
             setDifficulty(target);
+            // If the active puzzle is already solved, persist the preference
+            // for the next puzzle but leave the completed board untouched —
+            // don't wipe its saved solved state or trigger a reload.
+            if (puzzleSolved) {
+                updateDifficultyUI(currentPuzzleData);
+                return;
+            }
             if (currentPuzzleData) {
                 // Wipe saved progress for this puzzle so reload starts fresh
                 if (currentPuzzleDate) {
@@ -6032,6 +6112,128 @@
                 document.getElementById('downloadOverlay').style.display = 'none';
         });
 
+        // ── Weekly puzzle (Coming Soon) ───────────────────────────────────────
+        document.getElementById('menuWeekly').addEventListener('click', () => {
+            closeMenu();
+            document.getElementById('weeklyOverlay').style.display = 'flex';
+        });
+        document.getElementById('weeklyClose').addEventListener('click', () => {
+            document.getElementById('weeklyOverlay').style.display = 'none';
+        });
+        document.getElementById('weeklyOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('weeklyOverlay'))
+                document.getElementById('weeklyOverlay').style.display = 'none';
+        });
+
+        // ── Updates ───────────────────────────────────────────────────────────
+        // Latest updates payload cached on app boot so the overlay can render
+        // instantly without a second fetch, and so the badge can react to
+        // changes the moment they're detected.
+        let _latestUpdates = null;
+        let _latestUpdatesFingerprint = null;
+
+        // Stable fingerprint: stringify the structural fields of each entry
+        // (date / name / subtext), sorted by date descending. Any meaningful
+        // change to updates.json — added entry, edited text, edited date —
+        // produces a different fingerprint; reorderings of equivalent entries
+        // or addition of unrelated metadata fields do not.
+        function updatesFingerprint(updates) {
+            return JSON.stringify(
+                [...updates]
+                    .map(u => ({
+                        date:    u && u.date    ? String(u.date)    : '',
+                        name:    u && u.name    ? String(u.name)    : '',
+                        subtext: u && u.subtext ? String(u.subtext) : ''
+                    }))
+                    .sort((a, b) => b.date.localeCompare(a.date) || b.name.localeCompare(a.name))
+            );
+        }
+
+        async function checkForUpdates() {
+            try {
+                const updates = await fetchJson('updates.json');
+                if (!Array.isArray(updates)) {
+                    console.log('[checkForUpdates] updates.json is not an array');
+                    return;
+                }
+                _latestUpdates = updates;
+                _latestUpdatesFingerprint = updatesFingerprint(updates);
+                const seen = localStorage.getItem('nodle_updates_seen');
+                const hasNew = seen !== _latestUpdatesFingerprint;
+                document.body.classList.toggle('has-new-updates', hasNew && updates.length > 0);
+                if (hasNew) {
+                    console.log('[checkForUpdates] New updates detected');
+                } else {
+                    console.log('[checkForUpdates] No new updates');
+                }
+            } catch (e) {
+                console.log('[checkForUpdates] Failed to fetch updates.json:', e && e.message);
+                // Make sure we don't leave a stale badge if the file has been removed
+                document.body.classList.remove('has-new-updates');
+            }
+        }
+
+        function renderUpdates() {
+            const list = document.getElementById('updatesList');
+            list.innerHTML = '';
+            if (!_latestUpdates || _latestUpdates.length === 0) {
+                list.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace; font-size:clamp(12px,3vw,14px); color:#666; text-align:center; padding:clamp(24px,6vw,40px) 0;">No updates yet.</div>';
+                return;
+            }
+            // Newest first
+            const sorted = [..._latestUpdates].sort((a, b) =>
+                String(b.date || '').localeCompare(String(a.date || ''))
+            );
+            for (const u of sorted) {
+                const item = document.createElement('div');
+                item.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:clamp(12px,3vw,18px) 0; border-bottom:1px solid #2a2a2a;';
+                const dateEl = document.createElement('div');
+                dateEl.style.cssText = "font-family:'Share Tech Mono',monospace; font-size:clamp(10px,2.6vw,12px); color:#666; letter-spacing:0.08em; text-transform:uppercase;";
+                dateEl.textContent = formatUpdateDate(u.date) || '';
+                const nameEl = document.createElement('div');
+                nameEl.style.cssText = "font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,4.5vw,20px); color:#fff; letter-spacing:0.04em;";
+                nameEl.textContent = u.name || '';
+                const subEl = document.createElement('div');
+                subEl.style.cssText = "font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.6;";
+                subEl.textContent = u.subtext || '';
+                item.appendChild(dateEl);
+                item.appendChild(nameEl);
+                if (u.subtext) item.appendChild(subEl);
+                list.appendChild(item);
+            }
+        }
+
+        function formatUpdateDate(raw) {
+            if (!raw) return '';
+            // Accept ISO YYYY-MM-DD and return a friendly "10 May 2026"-style string.
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw));
+            if (!m) return String(raw);
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const d = parseInt(m[3], 10);
+            const mo = months[parseInt(m[2], 10) - 1] || '';
+            return `${d} ${mo} ${m[1]}`;
+        }
+
+        document.getElementById('menuUpdates').addEventListener('click', () => {
+            closeMenu();
+            renderUpdates();
+            document.getElementById('updatesOverlay').style.display = 'flex';
+            // Mark all current updates as seen — clears both badges until the
+            // next time updates.json changes.
+            if (_latestUpdatesFingerprint) {
+                try { localStorage.setItem('nodle_updates_seen', _latestUpdatesFingerprint); }
+                catch (e) { /* storage unavailable; badge will just re-show next boot */ }
+            }
+            document.body.classList.remove('has-new-updates');
+        });
+        document.getElementById('updatesClose').addEventListener('click', () => {
+            document.getElementById('updatesOverlay').style.display = 'none';
+        });
+        document.getElementById('updatesOverlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('updatesOverlay'))
+                document.getElementById('updatesOverlay').style.display = 'none';
+        });
+
         document.getElementById('menuArchive').addEventListener('click', () => {
             closeMenu();
             openArchive();
@@ -6786,6 +6988,11 @@
             initDailyPuzzle();
         }
 
+        // Check for new updates in parallel with the puzzle load — it's a
+        // small JSON, runs independently, and only paints the badge if
+        // updates.json changed since the user last opened the Updates panel.
+        checkForUpdates();
+
         // ── Mobile back-button navigation ─────────────────────────────────────────
         // Intercepts the hardware/gesture back button (and browser back) while any
         // overlay, popup, or sub-level screen is open and performs the same action
@@ -6830,6 +7037,14 @@
                 var dl = document.getElementById('downloadOverlay');
                 if (dl && dl.style.display === 'flex')
                     return function () { dl.style.display = 'none'; };
+
+                var wk = document.getElementById('weeklyOverlay');
+                if (wk && wk.style.display === 'flex')
+                    return function () { wk.style.display = 'none'; };
+
+                var up = document.getElementById('updatesOverlay');
+                if (up && up.style.display === 'flex')
+                    return function () { up.style.display = 'none'; };
 
                 if (document.getElementById('statsOverlay').classList.contains('visible'))
                     return function () { closeOverlay('statsOverlay'); };
@@ -6930,6 +7145,22 @@
                 }, 0);
             });
 
+            // Weekly puzzle overlay — same pattern as download
+            document.getElementById('menuWeekly').addEventListener('click', function () {
+                setTimeout(function () {
+                    if (document.getElementById('weeklyOverlay').style.display === 'flex')
+                        pushNav();
+                }, 0);
+            });
+
+            // Updates overlay — same pattern
+            document.getElementById('menuUpdates').addEventListener('click', function () {
+                setTimeout(function () {
+                    if (document.getElementById('updatesOverlay').style.display === 'flex')
+                        pushNav();
+                }, 0);
+            });
+
             // Paste JSON overlay (dev mode, but harmless to wire always)
             var pasteBtn = document.getElementById('pasteJsonBtn');
             if (pasteBtn) {
@@ -6998,6 +7229,22 @@
             });
             document.getElementById('downloadOverlay').addEventListener('click', function (e) {
                 if (e.target === document.getElementById('downloadOverlay')) consumeNav(1);
+            });
+
+            // Weekly puzzle close
+            document.getElementById('weeklyClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+            document.getElementById('weeklyOverlay').addEventListener('click', function (e) {
+                if (e.target === document.getElementById('weeklyOverlay')) consumeNav(1);
+            });
+
+            // Updates close
+            document.getElementById('updatesClose').addEventListener('click', function () {
+                consumeNav(1);
+            });
+            document.getElementById('updatesOverlay').addEventListener('click', function (e) {
+                if (e.target === document.getElementById('updatesOverlay')) consumeNav(1);
             });
 
             // Paste JSON close buttons
