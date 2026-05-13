@@ -582,7 +582,7 @@
             border-radius: 0 0 0 var(--radius-lg);
             padding: 8px 8px 12px;
             display: flex; flex-direction: column; gap: 2px;
-            min-width: 160px;
+            min-width: 198px;
         }
         .menu-item-btn {
             background: none; border: none; color: #aaa;
@@ -760,6 +760,10 @@
             transition: background 0.12s;
         }
         .archive-item:hover { background: #242424; }
+        /* Month rows have per-button click targets (Daily / Weekly), so the
+           row itself isn't clickable — drop the pointer and hover affordance. */
+        .archive-item.archive-item--month { cursor: default; }
+        .archive-item.archive-item--month:hover { background: transparent; }
         .archive-item-date {
             font-family: 'Share Tech Mono', monospace;
             font-size: clamp(11px, 3vw, 13px); color: #888;
@@ -772,6 +776,58 @@
         }
         .archive-item-badge.solved  { color: #4488ff; }
         .archive-item-badge.unsolved { color: #444; }
+        /* Month-row action buttons (Daily / Weekly). Two compact pills shown
+           on the right of each month entry; Weekly only appears if a
+           {folder}_puzzles_weekly.json file exists. */
+        .archive-item-actions {
+            display: flex; align-items: center; gap: clamp(6px, 2vw, 10px);
+        }
+        .archive-month-btn {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #888; background: none;
+            border: 1px solid #333; border-radius: 6px;
+            padding: clamp(5px, 1.5vw, 7px) clamp(9px, 2.5vw, 13px);
+            cursor: pointer; min-height: unset; line-height: 1;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .archive-month-btn:hover {
+            color: #ddd; border-color: #555; background: #2a2a2a;
+        }
+        /* Invisible placeholder used in the Weekly slot when a month has no
+           weekly puzzles file. Keeps Daily in the same column across rows. */
+        .archive-month-btn--placeholder {
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .archive-month-btn--placeholder:hover {
+            background: none; border-color: #333;
+        }
+        /* Per-row pill button used as the Play / Solved indicator in the
+           archive puzzle list and practice puzzle lists. Visually matches
+           the .archive-month-btn pill used in the month header rows. When
+           the user has solved the puzzle, the --solved modifier fills the
+           button green and the label is changed to "Solved". */
+        .archive-play-btn {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #888; background: none;
+            border: 1px solid #333; border-radius: 6px;
+            padding: clamp(5px, 1.5vw, 7px) clamp(9px, 2.5vw, 13px);
+            cursor: pointer; min-height: unset; line-height: 1;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .archive-play-btn:hover {
+            color: #ddd; border-color: #555; background: #2a2a2a;
+        }
+        .archive-play-btn.archive-play-btn--solved {
+            color: #fff; background: #2d7a3f; border-color: #2d7a3f;
+        }
+        .archive-play-btn.archive-play-btn--solved:hover {
+            background: #348a47; border-color: #348a47; color: #fff;
+        }
         .practice-item-badge.solved  { color: #4488ff; }
         .practice-item-badge.unsolved { color: #444; }
         #archiveLoading {
@@ -1455,7 +1511,7 @@
                 </svg>
             </button>
         </div>
-        <img src="nodle_logo.png" alt="NodLe" id="topLogo">
+        <img src="nodle_logo2.png" alt="NodLe" id="topLogo">
         <div class="topbar-side topbar-right">
             <button id="settingsBtn" title="Settings" aria-label="Settings">
                 <!-- Outlined gear with 8 rounded teeth (Feather-style),
@@ -1856,6 +1912,25 @@
         const padding = 40;
         const spacing = (W - padding * 2) / (gridSize - 1);
 
+        // ─── HiDPI canvas setup ────────────────────────────────────────────────
+        // The play, setup and animation canvases are rendered in logical W × H
+        // coordinates (460 × 460), but their CSS size is stretched to fit the
+        // container and can be magnified further by browser zoom. To keep the
+        // lines and nodes vector-crisp at any zoom level, we blow up the
+        // backing pixel buffer by SUPER_SAMPLE in each dimension and apply a
+        // matching transform to the context. All drawing code below continues
+        // to operate in the original 460 × 460 coordinate space — no other
+        // changes needed.
+        const SUPER_SAMPLE = 4;
+        function setupHiDPICanvas(canvas) {
+            if (!canvas) return null;
+            const ctx = canvas.getContext('2d');
+            canvas.width  = W * SUPER_SAMPLE;
+            canvas.height = H * SUPER_SAMPLE;
+            ctx.scale(SUPER_SAMPLE, SUPER_SAMPLE);
+            return ctx;
+        }
+
         const nodes = [];
         for (let r = 0; r < gridSize; r++)
             for (let c = 0; c < gridSize; c++)
@@ -2202,7 +2277,7 @@
         // SETUP SCREEN
         // ════════════════════════════════════════════════════════════════════════
         const setupCanvas = document.getElementById('setupCanvas');
-        const setupCtx    = setupCanvas.getContext('2d');
+        const setupCtx    = setupHiDPICanvas(setupCanvas);
 
         // Per-slot edge lists — one entry per setup slot. Length tracks the
         // current setup slot count (1-7) so users can craft puzzles of any
@@ -2847,7 +2922,7 @@
         // PLAY SCREEN
         // ════════════════════════════════════════════════════════════════════════
         const playCanvas = document.getElementById('playCanvas');
-        const playCtx    = playCanvas.getContext('2d');
+        const playCtx    = setupHiDPICanvas(playCanvas);
 
         let playDown       = false;
         let playLastPos    = null;
@@ -3934,7 +4009,7 @@
         }
 
         const animCanvas = document.getElementById('animOverlay');
-        const animCtx    = animCanvas ? animCanvas.getContext('2d') : null;
+        const animCtx    = setupHiDPICanvas(animCanvas);
 
         function animateNumberToTile(matchedEdges, num, slot, onComplete, color = '#ff4444') {
             if (!animCtx) { onComplete(); return; }
@@ -6040,23 +6115,36 @@
 
         // ── Menu ─────────────────────────────────────────────────────────────────
 
+        let _menuResizeHandler = null;
+
         function openMenu() {
             const btn     = document.getElementById('menuBtn');
             const menuBox = document.getElementById('menuBox');
-            const btnRect = btn.getBoundingClientRect();
 
-            // Position box so its top-right corner aligns with the button's bottom-right
-            const boxW = menuBox.offsetWidth || 160;
-            const top  = btnRect.bottom + 4;
-            const left = btnRect.right - boxW;
+            function positionMenu() {
+                const r  = btn.getBoundingClientRect();
+                const vw = document.documentElement.clientWidth;
+                menuBox.style.top   = `${r.bottom + 4}px`;
+                // Anchor right edge 8px past the button's right edge so it
+                // sits flush with the screen edge. Recalculated on every
+                // resize so the anchor follows the button.
+                menuBox.style.right = `${Math.max(0, vw - r.right - 10)}px`;
+                menuBox.style.left  = 'auto';
+            }
 
-            menuBox.style.top  = `${top}px`;
-            menuBox.style.left = `${Math.max(8, left)}px`;
+            positionMenu();
+            _menuResizeHandler = positionMenu;
+            window.addEventListener('resize', _menuResizeHandler);
 
             document.getElementById('menuOverlay').classList.add('visible');
         }
+
         function closeMenu() {
             document.getElementById('menuOverlay').classList.remove('visible');
+            if (_menuResizeHandler) {
+                window.removeEventListener('resize', _menuResizeHandler);
+                _menuResizeHandler = null;
+            }
         }
 
         document.getElementById('menuBtn').addEventListener('click', openMenu);
@@ -6386,6 +6474,20 @@
             showArchiveMonths();
         }
 
+        // Probe whether {folder}_puzzles_weekly.json exists on the server.
+        // We use a HEAD request so we don't pull down the file body just to
+        // decide whether to show the "Weekly" button. Any network/4xx failure
+        // is treated as "no weekly puzzles for this month".
+        async function weeklyFileExists(folder) {
+            try {
+                const url = `${DAILY_BASE}/${folder}_puzzles_weekly.json?v=${Date.now()}`;
+                const resp = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+                return resp.ok;
+            } catch(e) {
+                return false;
+            }
+        }
+
         async function showArchiveMonths() {
             archiveLevel = 'months';
             const list = document.getElementById('archiveList');
@@ -6421,6 +6523,14 @@
                 return false;
             });
 
+            // Probe each month's weekly file in parallel so we know whether to
+            // render a "Weekly" button. Done before the first render so the
+            // buttons don't pop in late and shift layout.
+            const weeklyByFolder = {};
+            await Promise.all(months.map(async folder => {
+                weeklyByFolder[folder] = await weeklyFileExists(folder);
+            }));
+
             list.innerHTML = '';
             const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             for (const folder of months) {
@@ -6428,33 +6538,59 @@
                 const label = `${monthNames[parseInt(m)-1]} ${y}`;
 
                 const item = document.createElement('div');
-                item.className = 'archive-item';
+                item.className = 'archive-item archive-item--month';
 
                 const nameEl = document.createElement('div');
                 nameEl.className = 'archive-item-date';
                 nameEl.textContent = label;
 
-                const arrow = document.createElement('div');
-                arrow.className = 'archive-item-badge unsolved';
-                arrow.textContent = '→';
+                const actions = document.createElement('div');
+                actions.className = 'archive-item-actions';
+
+                const dailyBtn = document.createElement('button');
+                dailyBtn.className = 'archive-month-btn';
+                dailyBtn.textContent = 'Daily Puzzles';
+                dailyBtn.addEventListener('click', () => showArchiveMonth(folder, label, 'daily'));
+                actions.appendChild(dailyBtn);
+
+                if (weeklyByFolder[folder]) {
+                    const weeklyBtn = document.createElement('button');
+                    weeklyBtn.className = 'archive-month-btn';
+                    weeklyBtn.textContent = 'Weekly Puzzles';
+                    weeklyBtn.addEventListener('click', () => showArchiveMonth(folder, label, 'weekly'));
+                    actions.appendChild(weeklyBtn);
+                } else {
+                    // Reserve an invisible slot the same width as the Weekly
+                    // button so the Daily button always sits in the same
+                    // column across rows, whether or not this month has a
+                    // weekly file.
+                    const placeholder = document.createElement('span');
+                    placeholder.className = 'archive-month-btn archive-month-btn--placeholder';
+                    placeholder.textContent = 'Weekly Puzzles';
+                    placeholder.setAttribute('aria-hidden', 'true');
+                    actions.appendChild(placeholder);
+                }
 
                 item.appendChild(nameEl);
-                item.appendChild(arrow);
-                item.addEventListener('click', () => showArchiveMonth(folder, label));
+                item.appendChild(actions);
                 list.appendChild(item);
             }
         }
 
-        async function showArchiveMonth(folder, label) {
+        async function showArchiveMonth(folder, label, type = 'daily') {
             archiveLevel = 'puzzles';
             const list = document.getElementById('archiveList');
             const titleEl = document.getElementById('archiveTitle');
-            titleEl.textContent = label;
+            titleEl.textContent = type === 'weekly' ? `${label} — Weekly` : label;
             list.innerHTML = '<div id="archiveLoading">Loading...</div>';
+
+            const fileName = type === 'weekly'
+                ? `${folder}_puzzles_weekly.json`
+                : `${folder}_puzzles.json`;
 
             let allPuzzles;
             try {
-                allPuzzles = await fetchJson(`${DAILY_BASE}/${folder}_puzzles.json`);
+                allPuzzles = await fetchJson(`${DAILY_BASE}/${fileName}`);
             } catch(e) {
                 list.innerHTML = '';
                 const err = document.createElement('div');
@@ -6481,9 +6617,9 @@
                 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
-                const badge = document.createElement('div');
-                badge.className = 'archive-item-badge ' + (solved ? 'solved' : 'unsolved');
-                badge.textContent = solved ? '✓ solved' : 'play →';
+                const badge = document.createElement('button');
+                badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
+                badge.textContent = solved ? 'Solved' : 'Play';
 
                 item.appendChild(dateEl);
                 item.appendChild(badge);
@@ -6580,9 +6716,9 @@
                 titleEl.className = 'practice-item-title';
                 titleEl.textContent = puzzle.title || `Puzzle ${idx + 1}`;
 
-                const badge = document.createElement('div');
-                badge.className = 'practice-item-badge ' + (solved ? 'solved' : 'unsolved');
-                badge.textContent = solved ? '✓ solved' : 'play →';
+                const badge = document.createElement('button');
+                badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
+                badge.textContent = solved ? 'Solved' : 'Play';
 
                 row.appendChild(titleEl);
                 row.appendChild(badge);
@@ -6636,9 +6772,9 @@
                     titleEl.className = 'practice-item-title';
                     titleEl.textContent = puzzle.title || `Puzzle ${pIdx + 1}`;
 
-                    const badge = document.createElement('div');
-                    badge.className = 'practice-item-badge ' + (solved ? 'solved' : 'unsolved');
-                    badge.textContent = solved ? '✓ solved' : 'play →';
+                    const badge = document.createElement('button');
+                    badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
+                    badge.textContent = solved ? 'Solved' : 'Play';
 
                     row.appendChild(titleEl);
                     row.appendChild(badge);
