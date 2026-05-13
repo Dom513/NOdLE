@@ -863,6 +863,31 @@
             font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
             color: #ccc; text-transform: uppercase;
         }
+        /* Daily / Weekly segmented toggle in the stats header. The wrapper
+           takes all remaining space so the pills sit centred in it. */
+        #statsTabsWrapper {
+            flex: 1; display: flex; justify-content: center;
+        }
+        #statsTabs {
+            display: flex; gap: 3px;
+            border: 1px solid #333; border-radius: 7px;
+            padding: 3px;
+        }
+        .stats-tab {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(12px, 3.2vw, 15px);
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: #666; background: none; border: none;
+            padding: clamp(6px, 1.8vw, 9px) clamp(14px, 4vw, 22px);
+            cursor: pointer; min-height: unset; line-height: 1;
+            border-radius: 5px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .stats-tab:hover { color: #ccc; }
+        .stats-tab.active {
+            color: #1a1a1a; background: #4488ff;
+        }
+        .stats-tab.active:hover { color: #1a1a1a; }
         #statsContent {
             padding: clamp(14px, 4vw, 24px) 24px;
             display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
@@ -1583,6 +1608,12 @@
             <div id="statsHeader">
                 <button id="statsBack">←</button>
                 <div id="statsTitle">Stats</div>
+                <div id="statsTabsWrapper">
+                    <div id="statsTabs">
+                        <button class="stats-tab active" id="statsTabDaily">Daily</button>
+                        <button class="stats-tab" id="statsTabWeekly">Weekly</button>
+                    </div>
+                </div>
             </div>
             <div id="statsContent"></div>
         </div>
@@ -6332,22 +6363,99 @@
         let archiveLevel = 'months'; // 'months' or 'puzzles'
         // ── Stats ─────────────────────────────────────────────────────────────────
 
+        // Which tab is currently active in the stats overlay ('daily' | 'weekly').
+        // Reset to 'daily' every time the overlay is opened.
+        let statsMode = 'daily';
+
         document.getElementById('statsBack').addEventListener('click', () => {
             closeOverlay('statsOverlay');
+        });
+        document.getElementById('statsTabDaily').addEventListener('click', () => {
+            if (statsMode !== 'daily') {
+                statsMode = 'daily';
+                renderStats();
+            }
+        });
+        document.getElementById('statsTabWeekly').addEventListener('click', () => {
+            if (statsMode !== 'weekly') {
+                statsMode = 'weekly';
+                renderStats();
+            }
         });
 
         function openStats() {
             openOverlay('statsOverlay');
+            // Always land on the Daily tab when opening the page.
+            statsMode = 'daily';
+            renderStats();
+        }
+
+        // Top-level router: updates the tab UI, clears content, and delegates
+        // to the per-mode renderer.
+        function renderStats() {
+            document.getElementById('statsTabDaily').classList.toggle('active', statsMode === 'daily');
+            document.getElementById('statsTabWeekly').classList.toggle('active', statsMode === 'weekly');
             const content = document.getElementById('statsContent');
             content.innerHTML = '';
+            if (statsMode === 'daily') renderDailyStats(content);
+            else                       renderWeeklyStats(content);
+        }
 
-            // Gather all solved daily puzzle dates from localStorage
+        // ── Shared stats helpers ──────────────────────────────────────────────
+        function statsFmtTime(ms) {
+            const s = Math.floor(ms / 1000);
+            return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+        }
+
+        function makeStatsHistogram(buckets) {
+            const maxCount = Math.max(...buckets.map(b => b.count), 1);
+            const wrap = document.createElement('div');
+            wrap.className = 'stat-histogram';
+            for (const b of buckets) {
+                const pct = Math.round((b.count / maxCount) * 100);
+                wrap.innerHTML += `<div class="hist-row">
+                    <div class="hist-label">${b.label}</div>
+                    <div class="hist-bar-wrap"><div class="hist-bar" style="width:${pct}%"></div></div>
+                    <div class="hist-count">${b.count}</div>
+                </div>`;
+            }
+            return wrap;
+        }
+
+        function renderStatRows(content, stats) {
+            for (const s of stats) {
+                const row = document.createElement('div');
+                row.className = 'stat-row';
+                if (s.histogram) {
+                    const mid = document.createElement('div');
+                    mid.className = 'stat-with-histogram';
+                    mid.innerHTML = `<div class="stat-left">
+                        <div class="stat-label">${s.label}</div>
+                        <div class="stat-value">${s.value}</div>
+                        <div class="stat-sub">${s.sub}</div>
+                    </div>`;
+                    mid.appendChild(s.histogram);
+                    row.appendChild(mid);
+                } else {
+                    row.innerHTML = `<div class="stat-label">${s.label}</div>
+                        <div class="stat-value">${s.value}</div>
+                        <div class="stat-sub">${s.sub}</div>`;
+                }
+                content.appendChild(row);
+            }
+        }
+
+        // ── Daily stats ───────────────────────────────────────────────────────
+        function renderDailyStats(content) {
+            // Gather all solved daily puzzle dates from localStorage.
+            // Daily entries use keys of the form `gridlines_solved_YYYY-MM-DD`.
+            // The date regex below explicitly excludes practice (`practice-*`)
+            // and weekly (`weekly_*`) entries, so the two pools never mix.
             const allSolved = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (!key.startsWith('gridlines_solved_')) continue;
                 const dateStr = key.replace('gridlines_solved_', '');
-                // Only count real dates (not practice- keys)
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
                 try {
                     const data = JSON.parse(localStorage.getItem(key));
@@ -6387,11 +6495,6 @@
                 d.setDate(d.getDate() - 1);
             }
 
-            const fmtTime = ms => {
-                const s = Math.floor(ms / 1000);
-                return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
-            };
-
             // Time buckets: <1, 1-2, 2-3, 3-4, 4-5, 5+ mins
             const timeBuckets = [
                 { label: '<1m',  count: 0 },
@@ -6404,61 +6507,151 @@
             // Hints buckets: 0, 1, 2, 3, 4, 5
             const hintBuckets = [0,1,2,3,4,5].map(n => ({ label: `${n}`, count: 0 }));
 
-            for (const d of allSolved) {
-                const mins = d.timeMs / 60000;
+            for (const dd of allSolved) {
+                const mins = dd.timeMs / 60000;
                 if      (mins < 1) timeBuckets[0].count++;
                 else if (mins < 2) timeBuckets[1].count++;
                 else if (mins < 3) timeBuckets[2].count++;
                 else if (mins < 4) timeBuckets[3].count++;
                 else if (mins < 5) timeBuckets[4].count++;
                 else               timeBuckets[5].count++;
-                const hi = Math.min(d.hintsUsed ?? 0, 5);
+                const hi = Math.min(dd.hintsUsed ?? 0, 5);
                 hintBuckets[hi].count++;
-            }
-
-            function makeHistogram(buckets) {
-                const maxCount = Math.max(...buckets.map(b => b.count), 1);
-                const wrap = document.createElement('div');
-                wrap.className = 'stat-histogram';
-                for (const b of buckets) {
-                    const pct = Math.round((b.count / maxCount) * 100);
-                    wrap.innerHTML += `<div class="hist-row">
-                        <div class="hist-label">${b.label}</div>
-                        <div class="hist-bar-wrap"><div class="hist-bar" style="width:${pct}%"></div></div>
-                        <div class="hist-count">${b.count}</div>
-                    </div>`;
-                }
-                return wrap;
             }
 
             const stats = [
                 { label: 'Puzzles Solved', value: played, sub: 'daily puzzles only', histogram: null },
-                { label: 'Average Time', value: played ? fmtTime(avgMs) : '—', sub: 'per puzzle', histogram: played ? makeHistogram(timeBuckets) : null },
-                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle', histogram: played ? makeHistogram(hintBuckets) : null },
+                { label: 'Average Time', value: played ? statsFmtTime(avgMs) : '—', sub: 'per puzzle', histogram: played ? makeStatsHistogram(timeBuckets) : null },
+                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle', histogram: played ? makeStatsHistogram(hintBuckets) : null },
                 { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'day' : 'days in a row', histogram: null },
                 { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'day' : 'days in a row', histogram: null },
             ];
 
-            for (const s of stats) {
-                const row = document.createElement('div');
-                row.className = 'stat-row';
-                if (s.histogram) {
-                    const mid = document.createElement('div');
-                    mid.className = 'stat-with-histogram';
-                    mid.innerHTML = `<div class="stat-left">
-                        <div class="stat-label">${s.label}</div>
-                        <div class="stat-value">${s.value}</div>
-                        <div class="stat-sub">${s.sub}</div>
-                    </div>`;
-                    mid.appendChild(s.histogram);
-                    row.appendChild(mid);
-                } else {
-                    row.innerHTML = `<div class="stat-label">${s.label}</div>
-                        <div class="stat-value">${s.value}</div>
-                        <div class="stat-sub">${s.sub}</div>`;
-                }
-                content.appendChild(row);
+            renderStatRows(content, stats);
+        }
+
+        // ── Weekly stats ──────────────────────────────────────────────────────
+        // Weekly puzzles save under `gridlines_solved_weekly_<weekId>` so they
+        // are completely isolated from daily entries. The week id is expected
+        // to be ISO format `YYYY-Www` (e.g. `2026-W19`).
+        function dateToIsoWeekStr(d) {
+            const tmp = new Date(d);
+            const dayNum = tmp.getUTCDay() || 7;
+            tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+            return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        }
+
+        function currentWeekStr() {
+            const d = new Date();
+            const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            return dateToIsoWeekStr(utc);
+        }
+
+        function weekStrToMonday(weekStr) {
+            const m = weekStr.match(/^(\d{4})-W(\d{2})$/);
+            if (!m) return null;
+            const year = parseInt(m[1]);
+            const week = parseInt(m[2]);
+            // ISO week 1 is the week containing Jan 4 (and the first Thursday).
+            const jan4 = new Date(Date.UTC(year, 0, 4));
+            const jan4Day = jan4.getUTCDay() || 7;
+            const week1Monday = new Date(jan4);
+            week1Monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+            const result = new Date(week1Monday);
+            result.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+            return result;
+        }
+
+        function renderWeeklyStats(content) {
+            // Gather all solved weekly puzzles from localStorage.
+            const allSolved = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key.startsWith('gridlines_solved_weekly_')) continue;
+                const weekStr = key.replace('gridlines_solved_weekly_', '');
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    if (data) allSolved.push({ week: weekStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0 });
+                } catch(e) {}
             }
+
+            // No weekly puzzles solved yet → show a Coming Soon placeholder.
+            if (allSolved.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'padding:clamp(16px,4vw,32px) 0 0; display:flex; flex-direction:column; gap:16px;';
+                empty.innerHTML = `
+                    <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
+                    <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">Weekly puzzle stats will appear here once you've solved your first weekly puzzle.</div>
+                `;
+                content.appendChild(empty);
+                return;
+            }
+
+            allSolved.sort((a, b) => a.week.localeCompare(b.week));
+
+            const played = allSolved.length;
+            const avgMs = allSolved.reduce((s, d) => s + d.timeMs, 0) / played;
+            const avgHints = allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played;
+
+            // Streak calculation — consecutive weeks up to the current week
+            const weekSet = new Set(allSolved.map(d => d.week));
+            let longestStreak = 0, streak = 0;
+            for (let k = 0; k < allSolved.length; k++) {
+                if (k === 0) {
+                    streak = 1;
+                } else {
+                    const prev = weekStrToMonday(allSolved[k-1].week);
+                    const curr = weekStrToMonday(allSolved[k].week);
+                    const diff = prev && curr ? (curr - prev) / (7 * 86400000) : null;
+                    streak = diff === 1 ? streak + 1 : 1;
+                }
+                longestStreak = Math.max(longestStreak, streak);
+            }
+            // Current streak: count backwards from current week
+            let curMonday = weekStrToMonday(currentWeekStr());
+            let currentStreak = 0;
+            while (curMonday) {
+                const ws = dateToIsoWeekStr(curMonday);
+                if (!weekSet.has(ws)) break;
+                currentStreak++;
+                curMonday.setUTCDate(curMonday.getUTCDate() - 7);
+            }
+
+            // Time buckets: <2m, 2-4m, 4-6m, 6-8m, 8-10m, 10m+
+            const timeBuckets = [
+                { label: '<2m',   count: 0 },
+                { label: '2-4m',  count: 0 },
+                { label: '4-6m',  count: 0 },
+                { label: '6-8m',  count: 0 },
+                { label: '8-10m', count: 0 },
+                { label: '10m+',  count: 0 },
+            ];
+            // Hints buckets: 0-7
+            const hintBuckets = [0,1,2,3,4,5,6,7].map(n => ({ label: `${n}`, count: 0 }));
+
+            for (const dd of allSolved) {
+                const mins = dd.timeMs / 60000;
+                if      (mins < 2)  timeBuckets[0].count++;
+                else if (mins < 4)  timeBuckets[1].count++;
+                else if (mins < 6)  timeBuckets[2].count++;
+                else if (mins < 8)  timeBuckets[3].count++;
+                else if (mins < 10) timeBuckets[4].count++;
+                else                timeBuckets[5].count++;
+                const hi = Math.min(dd.hintsUsed ?? 0, 7);
+                hintBuckets[hi].count++;
+            }
+
+            const stats = [
+                { label: 'Puzzles Solved', value: played, sub: 'weekly puzzles only', histogram: null },
+                { label: 'Average Time', value: statsFmtTime(avgMs), sub: 'per puzzle', histogram: makeStatsHistogram(timeBuckets) },
+                { label: 'Average Hints', value: avgHints.toFixed(1), sub: 'per puzzle', histogram: makeStatsHistogram(hintBuckets) },
+                { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'week' : 'weeks in a row', histogram: null },
+                { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'week' : 'weeks in a row', histogram: null },
+            ];
+
+            renderStatRows(content, stats);
         }
 
         document.getElementById('archiveBack').addEventListener('click', () => {
