@@ -1,5 +1,10 @@
 [
   {
+    "date": "2026-05-19",
+    "name": "Easy Mode added",
+    "subtext": "Enabling Easy Mode in settings will reveal all 5 numbers, so you can focus on just finding the correct patterns"
+  },
+  {
     "date": "2026-05-11",
     "name": "Updates log added",
     "subtext": "You can now follow new features and fixes from this panel."

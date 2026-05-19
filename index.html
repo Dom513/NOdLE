@@ -10,6 +10,9 @@
         gtag('js', new Date());
         gtag('config', 'G-9CG57VZP28');
     </script>
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6206971352095108"
+         crossorigin="anonymous"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="icon" type="image/png" href="nodle_icon.png">
     <link rel="manifest" href="manifest.json">
@@ -314,6 +317,9 @@
             background-color: #222;
             width: 100%; aspect-ratio: 1;
         }
+        /* Gold border applied to #playCanvas while a weekly puzzle is active.
+           Change the colour on line 320 if you want a different shade. */
+        #playCanvas.weekly-border { border-color: #2c4987; } /* ← line 320 */
         #animOverlay {
             position: absolute; top: 0; left: 0;
             width: 100% !important; height: 100% !important;
@@ -557,6 +563,14 @@
         .board-footer .equation { width: 100%; }
         .board-footer .btn-row  { width: 100%; justify-content: center; }
 
+        /* Ad unit — shown only inside screenPlay, centred below the puzzle */
+        .play-ad-wrap {
+            width: 100%;
+            max-width: 480px;
+            margin: 12px auto 0;
+            overflow: hidden;
+        }
+
         button.secondary { color: #777; border: 1px solid #444; }
         button.secondary:hover { color: #ccc; border-color: #888; }
         button.primary { color: #1a1a1a; background: #4488ff; border: 1px solid #4488ff; font-weight: bold; }
@@ -582,7 +596,7 @@
             border-radius: 0 0 0 var(--radius-lg);
             padding: 8px 8px 12px;
             display: flex; flex-direction: column; gap: 2px;
-            min-width: 198px;
+            min-width: 215px;
         }
         .menu-item-btn {
             background: none; border: none; color: #aaa;
@@ -597,12 +611,12 @@
         .menu-item-btn:hover { background: #333; color: #fff; }
 
         /* ── Update notification badges ──────────────────────────────────── */
-        /* Hidden by default. The `has-new-updates` class on <body> reveals
-           both the corner badge on the menu icon and the inline badge next
-           to the "Updates" menu-item label. Opening the Updates overlay
-           clears the class (and writes the current updates.json fingerprint
-           to localStorage), so the badges stay hidden until updates.json
-           actually changes again. */
+        /* Hidden by default. Body classes reveal them:
+             has-new-updates → menu icon + Updates inline badge
+             has-new-daily   → menu icon + Today inline badge
+             has-new-weekly  → menu icon + Weekly inline badge
+           Opening the relevant overlay clears the class and writes a
+           "last seen" key to localStorage. */
         #menuBtn { position: relative; }
         .update-badge {
             display: none;
@@ -616,7 +630,12 @@
             text-align: center;
             pointer-events: none;
         }
-        body.has-new-updates .update-badge {
+        body.has-new-updates .update-badge.on-icon,
+        body.has-new-updates .update-badge.updates-badge,
+        body.has-new-daily   .update-badge.on-icon,
+        body.has-new-daily   .update-badge.daily-badge,
+        body.has-new-weekly  .update-badge.on-icon,
+        body.has-new-weekly  .update-badge.weekly-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -1565,12 +1584,13 @@
     <!-- ── Menu overlay ──────────────────────────────────────────────────── -->
     <div id="menuOverlay">
         <div id="menuBox">
-            <button class="menu-item-btn" id="menuToday">Today's puzzle</button>
-            <button class="menu-item-btn" id="menuWeekly">Weekly puzzle</button>
+            <button class="menu-item-btn" id="menuToday">Today's puzzle<span class="update-badge inline daily-badge" aria-hidden="true">!</span></button>
+            <button class="menu-item-btn" id="menuWeekly">Weekly puzzle<span class="update-badge inline weekly-badge" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuStats">Stats</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
-            <button class="menu-item-btn" id="menuPractice">Practice</button>
-            <button class="menu-item-btn" id="menuUpdates">Updates<span class="update-badge inline" aria-hidden="true">!</span></button>
+            <button class="menu-item-btn" id="menuPractice">Practice Puzzles</button>
+            <button class="menu-item-btn" id="menuUnlimited" style="display:none;">Unlimited Mode</button>
+            <button class="menu-item-btn" id="menuUpdates">Updates<span class="update-badge inline updates-badge" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
             <button class="menu-item-btn" id="menuDownload">Get the app</button>
         </div>
@@ -1633,20 +1653,6 @@
         </div>
     </div>
 
-    <!-- ── Weekly puzzle overlay (Coming Soon) ───────────────────────────── -->
-    <div id="weeklyOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
-        <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
-            <div style="display:flex; align-items:center; gap:12px; padding:clamp(12px,3vw,20px) 16px; border-bottom:1px solid #333; flex-shrink:0;">
-                <button id="weeklyClose" style="background:none; border:none; color:#666; font-size:20px; cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset; line-height:1;">←</button>
-                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Weekly Puzzle</div>
-            </div>
-            <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
-                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">Weekly 7 number puzzles are coming to NOdLE soon, for people who want even more of a challenge.</div>
-            </div>
-        </div>
-    </div>
-
     <!-- ── Updates overlay ──────────────────────────────────────────────── -->
     <div id="updatesOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
         <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
@@ -1668,7 +1674,7 @@
     </div>
 
     <div class="screen active" id="screenLoading">
-        <div id="loadingMsg">Loading today's puzzle...</div>
+        <div id="loadingMsg">Loading puzzle...</div>
     </div>
 
     <div class="screen" id="screenSetup">
@@ -1690,7 +1696,7 @@
             <div class="btn-row">
                 <button class="secondary" id="setupClearBtn">Clear all</button>
                 <button class="secondary" id="setupRotateBtn" title="Rotate 90°">↻</button>
-                <button class="secondary" id="pasteJsonBtn">Paste JSON</button>
+                <button class="secondary" id="generateRandomBtn">Generate Random</button>
                 <button class="secondary" id="copyJsonBtn">Copy JSON</button>
                 <button class="primary"   id="goPlayBtn">Play →</button>
             </div>
@@ -1810,10 +1816,23 @@
                 <button class="secondary" id="playRestartBtn" title="Restore all lines and clear submitted numbers">Restart</button>
                 <button class="secondary" id="playResetBtn">Clear</button>
                 <button class="primary" id="submitBtn">Submit number</button>
-                <button class="primary" id="showResultsBtn" style="display:none; width:100%;">Show results</button>
+                <button class="primary" id="showResultsBtn" style="display:none;">Show results</button>
+                <button class="primary" id="newUnlimitedPuzzleBtn" style="display:none;">New puzzle</button>
             </div>
         </div>
         </div><!-- /board-wrap -->
+
+        <!-- AdSense ad unit — lives inside screenPlay so it is only ever
+             visible while a puzzle is on screen. Replace data-ad-slot with
+             your actual slot ID from the AdSense dashboard. -->
+        <div class="play-ad-wrap">
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-6206971352095108"
+                 data-ad-slot="YOUR_AD_SLOT_ID"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+        </div>
 
         <!-- Dev2 side images: 1_example.png … 9_example.png stacked alongside the grid -->
         <div id="dev2SideImages">
@@ -1872,6 +1891,7 @@
                 <div id="winNextLabel">Next puzzle in</div>
                 <div id="winCountdown"></div>
                 <button id="winShareBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Share result</button>
+                <button id="winNewPuzzleBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Create new puzzle</button>
                 <button id="winStatsBtn" class="secondary" style="width:100%; margin-top:4px;">See stats</button>
                 <div id="winPuzzleBtns" style="display:none; flex-direction:column; gap:8px; width:100%;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
@@ -2132,6 +2152,13 @@
         function connectedNodeSet() {
             const s = new Set();
             for (const e of edgeList) { s.add(e.a); s.add(e.b); }
+            // In unlimited mode, also light up any node that an edge visually
+            // passes through, so users can see crossings clearly.
+            if (currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-')) {
+                for (const e of edgeList) {
+                    for (const mid of intermediateNodes(e.a, e.b)) s.add(mid);
+                }
+            }
             return s;
         }
 
@@ -2814,7 +2841,54 @@
             closePasteJson();
         }
 
-        document.getElementById('pasteJsonBtn').addEventListener('click', openPasteJson);
+        // ── Generate Random (dev mode) ───────────────────────────────────────────
+        // Generate an unlimited puzzle and load it into the setup canvas.
+        function loadGeneratedIntoSetup() {
+            // Generate puzzle (synchronous, may return null)
+            let puzzle = null;
+            const MAX_ATTEMPTS = 600;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                puzzle = generateUnlimitedPuzzle();
+                if (puzzle) break;
+            }
+
+            if (!puzzle) {
+                alert("Couldn't generate a puzzle after 600 attempts. Try again.");
+                return;
+            }
+
+            const N = puzzle.solution.length;
+
+            // Load into setup state (same pattern as loadFromPastedJson)
+            setupSlotEdges = Array.from({ length: N }, () => []);
+            nextId = 0;
+            buildSetupSlots(N);
+
+            for (let s = 0; s < N; s++) {
+                for (const idx of puzzle.solutionEdges[s]) {
+                    const raw = puzzle.edges[idx];
+                    setupSlotEdges[s].push(makeEdge(raw.a, raw.b));
+                }
+            }
+
+            rebuildEdgeList();
+
+            // Fill number inputs
+            for (let i = 0; i < N; i++) {
+                const input = document.getElementById(`setup-n${i}`);
+                if (!input) continue;
+                const val = puzzle.solution[i];
+                input.value = (val !== null && val !== undefined) ? String(val) : '';
+            }
+            updateSetupTarget();
+            setActiveSlot(0);
+            setupDraw();
+        }
+
+        document.getElementById('generateRandomBtn').addEventListener('click', loadGeneratedIntoSetup);
+
+        // Paste JSON handlers (no longer wired to a button in dev mode, but kept for reference)
+        // document.getElementById('pasteJsonBtn').addEventListener('click', openPasteJson);
         document.getElementById('pasteJsonClose').addEventListener('click', closePasteJson);
         document.getElementById('pasteJsonCancelBtn').addEventListener('click', closePasteJson);
         document.getElementById('pasteJsonLoadBtn').addEventListener('click', loadFromPastedJson);
@@ -3226,25 +3300,45 @@
         playCanvas.addEventListener('touchcancel', playEnd,    { passive: false });
 
         function setSolvedButtonState(solved) {
-            document.getElementById('playResetBtn').style.display    = solved ? 'none' : '';
-            document.getElementById('playRestartBtn').style.display  = solved ? 'none' : '';
-            document.getElementById('submitBtn').style.display       = solved ? 'none' : '';
-            document.getElementById('showResultsBtn').style.display  = solved ? '' : 'none';
+            const isUnlimited = currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-');
+            document.getElementById('playResetBtn').style.display        = solved ? 'none' : '';
+            document.getElementById('playRestartBtn').style.display      = solved ? 'none' : '';
+            document.getElementById('submitBtn').style.display           = solved ? 'none' : '';
+            const showBtn = document.getElementById('showResultsBtn');
+            const newBtn  = document.getElementById('newUnlimitedPuzzleBtn');
+            if (solved) {
+                showBtn.style.display = '';
+                showBtn.style.width   = isUnlimited ? '' : '100%';
+                newBtn.style.display  = isUnlimited ? '' : 'none';
+            } else {
+                showBtn.style.display = 'none';
+                showBtn.style.width   = '';
+                newBtn.style.display  = 'none';
+            }
         }
 
         document.getElementById('showResultsBtn').addEventListener('click', () => {
-            // If the user finished the tutorial and closed the congrats
-            // popup with the X, reopening "Show results" should bring that
-            // same popup back — not the regular win overlay (we never
-            // saved solved data for tutorial-N dates).
+            // Tutorial: bring back the congrats popup
             if (currentPuzzleDate && currentPuzzleDate.startsWith('tutorial-')) {
                 document.getElementById('tutorialDoneOverlay').classList.add('visible');
+                return;
+            }
+            // Unlimited: win data isn't in localStorage — use replayResult set by showWin
+            if (currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-')) {
+                showWinOverlay(
+                    replayResult ? replayResult.timeMs   : 0,
+                    replayResult ? replayResult.hintsUsed : null
+                );
                 return;
             }
             const solvedData = getSolvedData(currentPuzzleDate || todayStr());
             if (solvedData) {
                 showWinOverlay(solvedData.timeMs, solvedData.hintsUsed ?? null);
             }
+        });
+
+        document.getElementById('newUnlimitedPuzzleBtn').addEventListener('click', () => {
+            initUnlimitedPuzzle();
         });
 
         document.getElementById('playResetBtn').addEventListener('click', () => {
@@ -4951,7 +5045,11 @@
             hintAnimating.clear();
             puzzleSolution      = puzzleData.solution || null;
             puzzleSolutionEdges = puzzleData.solutionEdges || null;
-            currentPuzzleDate   = puzzleData.date || null;
+            currentPuzzleDate   = puzzleData.weekId || puzzleData.date || null;
+
+            // Gold border for weekly puzzles; default border for everything else.
+            document.getElementById('playCanvas')
+                .classList.toggle('weekly-border', !!(puzzleData.weekId));
             currentPuzzleTitle  = puzzleData.title || null;
             puzzleStartTime  = null;
             puzzleSolved     = false;
@@ -4971,19 +5069,23 @@
             const descEl = document.getElementById('puzzleDescription');
             const isPracticeDate = puzzleData.date && puzzleData.date.startsWith('practice-');
             const isTutorialDate = puzzleData.date && puzzleData.date.startsWith('tutorial-');
+            const isUnlimitedDate = puzzleData.date && puzzleData.date.startsWith('unlimited-');
             if (isDevMode2 || isTutorialDate || tutorialMode) {
                 descEl.textContent = '';
                 descEl.style.display = 'none';
             } else if (puzzleData.description) {
                 descEl.textContent = puzzleData.description;
                 descEl.style.display = '';
-            } else if (puzzleData.date && !isPracticeDate && puzzleData.date !== todayStr()) {
+            } else if (puzzleData.date && !isPracticeDate && !isUnlimitedDate && !puzzleData.isCurrentWeekly && puzzleData.date !== todayStr()) {
                 const [y, m, d] = puzzleData.date.split('-');
                 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                const dateStr = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                const isWeeklyArchive = !!puzzleData.weekId;
+                const dateLabel = isWeeklyArchive
+                    ? `Week of ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
+                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
                 descEl.innerHTML =
                     `<button id="descPrev" style="background:none;border:none;color:#888;font-size:1.8em;cursor:pointer;padding:0 14px;min-height:unset;line-height:1;">&#8249;</button>` +
-                    `<span>${dateStr}</span>` +
+                    `<span>${dateLabel}</span>` +
                     `<button id="descNext" style="background:none;border:none;color:#888;font-size:1.8em;cursor:pointer;padding:0 14px;min-height:unset;line-height:1;">&#8250;</button>`;
                 descEl.style.display = 'flex';
                 descEl.style.alignItems = 'center';
@@ -5000,7 +5102,7 @@
                             if (!currentPuzzleList || currentPuzzleIndex >= currentPuzzleList.length - 1) return;
                             currentPuzzleIndex++;
                             const p = currentPuzzleList[currentPuzzleIndex];
-                            const s = getSolvedData(p.date);
+                            const s = getSolvedData(p.weekId || p.date);
                             loadPuzzle(p);
                             if (s) restoreSolvedBoard(p, s);
                         });
@@ -5012,7 +5114,7 @@
                             if (!currentPuzzleList || currentPuzzleIndex <= 0) return;
                             currentPuzzleIndex--;
                             const p = currentPuzzleList[currentPuzzleIndex];
-                            const s = getSolvedData(p.date);
+                            const s = getSolvedData(p.weekId || p.date);
                             loadPuzzle(p);
                             if (s) restoreSolvedBoard(p, s);
                         });
@@ -5644,6 +5746,7 @@
 
         function markSolved(dateStr, timeMs) {
             if (isDevMode) return; // dev=1 — never write to localStorage
+            if (dateStr.startsWith('unlimited-')) return; // unlimited puzzles never persist
             if (getSolvedData(dateStr)) return; // already solved — never overwrite (covers dev2 too)
             if (isDevMode2 && dateStr.startsWith('practice-')) return; // never save practice in dev2
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
@@ -5672,8 +5775,8 @@
             if (puzzleSolved) { console.log('[saveProgress] skipped: puzzleSolved is true'); return; }
             if (!currentPuzzleDate && edgeList.length === 0) { console.log('[saveProgress] skipped: nothing loaded'); return; }
             const dateStr = currentPuzzleDate || todayStr();
-            // Don't cache progress for archive puzzles — only today's and practice puzzles
-            const isArchive = dateStr !== todayStr() && !dateStr.startsWith('practice-');
+            // Don't cache progress for archive puzzles — only today's, weekly, and practice puzzles
+            const isArchive = dateStr !== todayStr() && !dateStr.startsWith('practice-') && !dateStr.startsWith('weekly_');
             if (isArchive) { console.log('[saveProgress] skipped: archive puzzle', dateStr); return; }
             localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
                 tileValues:    [...tileValues],
@@ -5717,6 +5820,38 @@
             setInterval(update, 1000);
         }
 
+        function startWeeklyCountdown() {
+            function nextMonday() {
+                const now = new Date();
+                const day = now.getDay(); // 0=Sun … 6=Sat
+                const daysUntil = day === 0 ? 1 : 8 - day; // days until the next Mon
+                const target = new Date(now);
+                target.setDate(target.getDate() + daysUntil);
+                target.setHours(0, 0, 0, 0);
+                return target;
+            }
+            function update() {
+                const diff = nextMonday() - new Date();
+                const totalSec = Math.max(0, Math.floor(diff / 1000));
+                const el = document.getElementById('winCountdown');
+                if (totalSec >= 86400) {
+                    // More than a day away — show "X days, Y hours"
+                    const days  = Math.floor(totalSec / 86400);
+                    const hours = Math.floor((totalSec % 86400) / 3600);
+                    el.textContent = `${days} ${days === 1 ? 'day' : 'days'}, ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+                } else {
+                    // Under a day — show hh:mm:ss
+                    const h = Math.floor(totalSec / 3600);
+                    const m = Math.floor((totalSec % 3600) / 60);
+                    const s = totalSec % 60;
+                    el.textContent =
+                        `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+                }
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
         // Single helper — shows the win overlay for any solved path
         function showWinOverlay(timeMs, hintsUsed) {
             // If we have a replay result, always use it
@@ -5750,25 +5885,48 @@
             }
 
             const isPractice = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
-            const isToday = !currentPuzzleDate || currentPuzzleDate === todayStr();
+            const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
+            const isCurrentWeekly = isWeekly && currentPuzzleDate === currentWeeklyKey();
+            const isUnlimited = currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-');
+            const isToday = !isUnlimited && (!currentPuzzleDate || currentPuzzleDate === todayStr());
 
             // Sub-text
+            const monthNamesShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             if (isPractice && currentPuzzleTitle) {
                 document.getElementById('winSub').textContent = `you solved ${currentPuzzleTitle} in`;
+            } else if (isUnlimited) {
+                document.getElementById('winSub').textContent = 'you solved this puzzle in';
             } else if (isToday) {
                 document.getElementById('winSub').textContent = "you solved today's puzzle in";
+            } else if (isCurrentWeekly) {
+                document.getElementById('winSub').textContent = "you solved this week's puzzle in";
+            } else if (isWeekly) {
+                // Archive weekly — get Monday date from the puzzle list
+                const p = currentPuzzleList && currentPuzzleIndex >= 0 ? currentPuzzleList[currentPuzzleIndex] : null;
+                if (p && p.date) {
+                    const [py, pm, pd] = p.date.split('-');
+                    document.getElementById('winSub').textContent =
+                        `you solved the week of ${parseInt(pd)} ${monthNamesShort[parseInt(pm)-1]} ${py} in`;
+                } else {
+                    document.getElementById('winSub').textContent = 'you solved this weekly puzzle in';
+                }
             } else {
                 const [y, m, d] = currentPuzzleDate.split('-');
-                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 document.getElementById('winSub').textContent =
-                    `you solved the ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y} puzzle in`;
+                    `you solved the ${parseInt(d)} ${monthNamesShort[parseInt(m)-1]} ${y} puzzle in`;
             }
 
-            // Countdown only for today's puzzle
+            // Countdown: daily → next midnight; weekly → next Monday midnight.
             const nextLabel     = document.getElementById('winNextLabel');
             const nextCountdown = document.getElementById('winCountdown');
-            if (isToday && !isPractice) {
-                nextLabel.style.display     = '';
+            if (isCurrentWeekly) {
+                nextLabel.textContent   = 'Next weekly puzzle in';
+                nextLabel.style.display = '';
+                nextCountdown.style.display = '';
+                startWeeklyCountdown();
+            } else if (isToday && !isPractice) {
+                nextLabel.textContent   = 'Next puzzle in';
+                nextLabel.style.display = '';
                 nextCountdown.style.display = '';
                 startCountdown();
             } else {
@@ -5776,19 +5934,34 @@
                 nextCountdown.style.display = 'none';
             }
 
-            // Share button only for today's puzzle
+            // Share button for today's daily puzzle and the current week's weekly puzzle.
             const shareBtn = document.getElementById('winShareBtn');
-            if (isToday && !isPractice && hintsUsed != null) {
+            if ((isToday || isCurrentWeekly) && !isPractice && !isUnlimited && hintsUsed != null) {
                 shareBtn.style.display    = '';
                 shareBtn.dataset.time     = timeStr;
                 shareBtn.dataset.hints    = hintsUsed;
+                shareBtn.dataset.isWeekly = isCurrentWeekly ? '1' : '';
             } else {
                 shareBtn.style.display = 'none';
             }
 
-            // Show puzzle nav buttons for non-today puzzles (archive and practice)
+            // Unlimited mode: show only the "Create new puzzle" button below the stats.
+            // Hide the stats button + nav buttons; the share + countdown rows are already
+            // hidden above by the isUnlimited gates.
+            const newPuzzleBtn = document.getElementById('winNewPuzzleBtn');
+            const statsBtn     = document.getElementById('winStatsBtn');
+            if (isUnlimited) {
+                newPuzzleBtn.style.display = '';
+                statsBtn.style.display     = 'none';
+            } else {
+                newPuzzleBtn.style.display = 'none';
+                statsBtn.style.display     = '';
+            }
+
+            // Show puzzle nav buttons for archive puzzles (daily or weekly archive).
+            // Hide for today's daily, the current week's weekly, practice, and unlimited.
             const puzzleBtns = document.getElementById('winPuzzleBtns');
-            if (!isToday) {
+            if (!isToday && !isCurrentWeekly && !isUnlimited) {
                 puzzleBtns.style.display = 'flex';
                 const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
                 const hasPrev = currentPuzzleList && (isPrac
@@ -5877,10 +6050,13 @@
         }
 
         document.getElementById('winShareBtn').addEventListener('click', async () => {
-            const btn     = document.getElementById('winShareBtn');
-            const timeStr = btn.dataset.time;
-            const hints   = btn.dataset.hints;
-            const msg = `I solved today's NOdLE in ${timeStr} and used ${hints}/${hintsCap} hints! Play it here: www.nodle.fyi`;
+            const btn      = document.getElementById('winShareBtn');
+            const timeStr  = btn.dataset.time;
+            const hints    = btn.dataset.hints;
+            const isWeekly = btn.dataset.isWeekly === '1';
+            const msg = isWeekly
+                ? `I solved this week's NOdLE in ${timeStr} and used ${hints}/${hintsCap} hints! Play it here: www.nodle.fyi`
+                : `I solved today's NOdLE in ${timeStr} and used ${hints}/${hintsCap} hints! Play it here: www.nodle.fyi`;
 
             // Use native share sheet if available (works on mobile)
             if (navigator.share) {
@@ -5916,8 +6092,9 @@
         });
 
         document.getElementById('winStatsBtn').addEventListener('click', () => {
+            const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
             closeOverlay('winOverlay');
-            openStats();
+            openStats(isWeekly ? 'weekly' : 'daily');
         });
 
         // ── Tutorial congratulations popup buttons ────────────────────────
@@ -6205,6 +6382,8 @@
 
         document.getElementById('menuToday').addEventListener('click', async () => {
             closeMenu();
+            setLastSeenDaily(todayStr());
+            document.body.classList.remove('has-new-daily');
             await initDailyPuzzle();
         });
 
@@ -6231,17 +6410,586 @@
                 document.getElementById('downloadOverlay').style.display = 'none';
         });
 
-        // ── Weekly puzzle (Coming Soon) ───────────────────────────────────────
+        // ── Weekly puzzle ─────────────────────────────────────────────────────────
         document.getElementById('menuWeekly').addEventListener('click', () => {
             closeMenu();
-            document.getElementById('weeklyOverlay').style.display = 'flex';
+            setLastSeenWeekly(currentWeeklyKey());
+            document.body.classList.remove('has-new-weekly');
+            initWeeklyPuzzle();
         });
-        document.getElementById('weeklyClose').addEventListener('click', () => {
-            document.getElementById('weeklyOverlay').style.display = 'none';
+
+        async function initWeeklyPuzzle() {
+            showScreen('screenLoading');
+            currentPuzzleList  = null;
+            currentPuzzleIndex = -1;
+            const today = todayStr();
+
+            try {
+                // Walk back month-by-month looking for a weekly puzzle file that
+                // contains a puzzle live during the current week.
+                const MAX_MONTHS_BACK = 6;
+                const [dy, dm] = today.split('-');
+                let yr = parseInt(dy, 10), mo = parseInt(dm, 10);
+                let weeklyPuzzle = null;
+
+                for (let i = 0; i < MAX_MONTHS_BACK; i++) {
+                    const folder = `${yr}_${String(mo).padStart(2, '0')}`;
+                    const url = `${DAILY_BASE}/${folder}_puzzles_weekly.json`;
+                    let puzzles;
+                    try {
+                        const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        puzzles = await resp.json();
+                    } catch(e) {
+                        // File doesn't exist for this month — try the previous one
+                        mo -= 1;
+                        if (mo === 0) { mo = 12; yr -= 1; }
+                        continue;
+                    }
+
+                    // A puzzle is live when today falls in [puzzle.date, puzzle.date + 6].
+                    const candidate = (Array.isArray(puzzles) ? puzzles : [])
+                        .find(p => p.date <= today && addDays(p.date, 6) >= today);
+                    if (candidate) { weeklyPuzzle = candidate; break; }
+
+                    mo -= 1;
+                    if (mo === 0) { mo = 12; yr -= 1; }
+                }
+
+                if (!weeklyPuzzle) {
+                    // No weekly puzzle is live this week — show a friendly message
+                    showScreen('screenLoading');
+                    const msgEl = document.getElementById('loadingMsg');
+                    if (msgEl) msgEl.textContent = 'Weekly Puzzles Coming Soon';
+                    return;
+                }
+
+                const weekId = mondayDateToWeekId(weeklyPuzzle.date);
+                // Spread the puzzle and attach the weekId + isCurrentWeekly flag so
+                // loadPuzzle knows to use the weekly key and suppress the date bar.
+                const puzzle = { ...weeklyPuzzle, weekId, isCurrentWeekly: true };
+
+                // Fingerprint check — same invalidation logic as initDailyPuzzle.
+                const fingerprintKey = `gridlines_puzzle_${weekId}`;
+                const freshFingerprint = JSON.stringify(
+                    [...puzzle.edges]
+                        .map(e => ({ a: e.a, b: e.b }))
+                        .sort((x, y) => (x.a - y.a) || (x.b - y.b))
+                );
+                const storedFingerprint = localStorage.getItem(fingerprintKey);
+                if (storedFingerprint !== null && storedFingerprint !== freshFingerprint) {
+                    console.log('[initWeeklyPuzzle] Fingerprint changed — wiping saved state for', weekId);
+                    localStorage.removeItem(getProgressKey(weekId));
+                    localStorage.removeItem(getSolvedKey(weekId));
+                }
+                localStorage.setItem(fingerprintKey, freshFingerprint);
+
+                const solved = getSolvedData(weekId);
+                loadPuzzle(puzzle);
+
+                if (!solved) {
+                    const progress = getProgressData(weekId);
+                    if (progress) {
+                        console.log('[initWeeklyPuzzle] Restoring saved progress for', weekId);
+                        restoreProgress(progress);
+                    }
+                } else {
+                    console.log('[initWeeklyPuzzle] Restoring solved board for', weekId);
+                    restoreSolvedBoard(puzzle, solved);
+                }
+
+            } catch(err) {
+                console.error('[initWeeklyPuzzle]', err && err.message);
+                showScreen('screenLoading');
+                const msgEl = document.getElementById('loadingMsg');
+                if (msgEl) msgEl.textContent = "Couldn't load this week's puzzle. Check your connection and try again.";
+            }
+        }
+
+        // ── Unlimited puzzle ──────────────────────────────────────────────────────
+        // Random puzzle generator. Picks 5 unique digits, places each one's pattern
+        // somewhere on the grid, then validates against three criteria:
+        //   1) ≥ 3 cases of edges from different digits crossing each other
+        //   2) ≥ 1 pair of nodes with a duplicated line
+        //   3) No pair of nodes has more than 3 lines between them
+        // Each digit pattern is a list of edges in local (r,c) coordinates inside
+        // a bounding box of `rows × cols`. Templates were chosen so that
+        // recogniseNumber() returns the expected digit at the end of generation.
+        // ── Recipe-based digit placement ──────────────────────────────────────
+        // Each digit has a "recipe" describing a stroke pattern in local
+        // coordinates with parameterised lengths. The recipe is rotated by a
+        // multiple of 45° (contiguous chains) or 90° (non-contiguous skeletons
+        // like the 8), translated into a random in-bounds position, and emitted
+        // as a list of long edges. recogniseNumber's sanity check in
+        // generateUnlimitedPuzzle runs on these long edges; the split-to-unit
+        // pass that follows produces the unit-edge form used at draw time.
+
+        function randInt(min, max) {
+            return min + Math.floor(Math.random() * (max - min + 1));
+        }
+
+        // 8 canonical grid directions (E, NE, N, NW, W, SW, S, SE) in CCW
+        // order. A rot value of k rotates by k*45° CCW.
+        const DIRS_8 = [
+            [0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1],[1,0],[1,1]
+        ];
+        function rotDir(dr, dc, k) {
+            const idx = DIRS_8.findIndex(d => d[0]===dr && d[1]===dc);
+            if (idx===-1) return [dr,dc];
+            return DIRS_8[(idx+k+8)%8];
+        }
+        function rotateRecipe(recipe, k) {
+            return recipe.map(([dr,dc,len]) => {
+                const [nr,nc] = rotDir(dr,dc,k);
+                return [nr,nc,len];
+            });
+        }
+
+        // Place a contiguous chain: array of [dr,dc,len] steps chained
+        // end-to-end from a single anchor. Returns null if no in-grid
+        // translation exists for the rotated chain.
+        function placeRecipeContig(recipe, rot) {
+            const rotated = rotateRecipe(recipe, rot);
+            let r=0,c=0,minR=0,maxR=0,minC=0,maxC=0;
+            for (const [dr,dc,len] of rotated) {
+                r += dr*len; c += dc*len;
+                minR=Math.min(minR,r); maxR=Math.max(maxR,r);
+                minC=Math.min(minC,c); maxC=Math.max(maxC,c);
+            }
+            const minSR=-minR, maxSR=gridSize-1-maxR;
+            const minSC=-minC, maxSC=gridSize-1-maxC;
+            if (minSR>maxSR || minSC>maxSC) return null;
+            const sr = minSR + Math.floor(Math.random()*(maxSR-minSR+1));
+            const sc = minSC + Math.floor(Math.random()*(maxSC-minSC+1));
+            let cr=sr, cc=sc;
+            const edges=[];
+            for (const [dr,dc,len] of rotated) {
+                const nr = cr+dr*len, nc = cc+dc*len;
+                edges.push({a: cr*gridSize+cc, b: nr*gridSize+nc});
+                cr=nr; cc=nc;
+            }
+            if (!edges.every(e => validDirection(e.a, e.b))) return null;
+            return edges;
+        }
+
+        // Place a non-contiguous recipe: array of {from:[r,c], to:[r,c]}
+        // segments sharing one local coordinate frame. Rotation here is 90°
+        // only via (r,c)→(-c,r).
+        function placeRecipeNonContig(recipe, rot90) {
+            function rc(r,c,k) {
+                for (let i=0; i<k; i++) { const nr=-c, nc=r; r=nr; c=nc; }
+                return [r,c];
+            }
+            const rotated = recipe.map(({from,to}) => ({
+                from: rc(from[0], from[1], rot90),
+                to:   rc(to[0],   to[1],   rot90)
+            }));
+            let minR=Infinity, maxR=-Infinity, minC=Infinity, maxC=-Infinity;
+            for (const {from,to} of rotated) {
+                minR=Math.min(minR, from[0], to[0]);
+                maxR=Math.max(maxR, from[0], to[0]);
+                minC=Math.min(minC, from[1], to[1]);
+                maxC=Math.max(maxC, from[1], to[1]);
+            }
+            const spanR=maxR-minR, spanC=maxC-minC;
+            if (spanR>gridSize-1 || spanC>gridSize-1) return null;
+            const sr = Math.floor(Math.random()*(gridSize-spanR));
+            const sc = Math.floor(Math.random()*(gridSize-spanC));
+            const edges = rotated.map(({from,to}) => ({
+                a: (sr+from[0]-minR)*gridSize + (sc+from[1]-minC),
+                b: (sr+to[0]  -minR)*gridSize + (sc+to[1]  -minC)
+            }));
+            if (!edges.every(e => validDirection(e.a, e.b))) return null;
+            return edges;
+        }
+
+        // Per-digit recipe generators. Each returns {type, recipe, rotSteps}.
+        //   type:     'contig' (chained) or 'noncontig' (independent segments)
+        //   recipe:   pattern in local coords (see helpers above)
+        //   rotSteps: permitted rotations — 45° units for contig, 90° units
+        //             for noncontig. Some digits are restricted to 90° rotations
+        //             because 45° would break geometric invariants the
+        //             recogniser checks (see comments on each).
+        const UNLIMITED_GENERATORS = {
+
+            // Single straight stroke, length 2..5, any of 8 directions.
+            1: () => ({
+                type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                recipe: [[0,1, randInt(2,5)]]
+            }),
+
+            // Z-shape, two variants. Both restricted to 90° rotations because
+            // 45° rotation breaks the |v2|² = 2|v1|² length relationship between
+            // the diagonal middle stroke and the straight side strokes.
+            2: () => {
+                if (Math.random() < 0.5) {
+                    // Cardinal-side Z: horizontal top/bottom, diagonal middle.
+                    const L = randInt(1,3);
+                    return {
+                        type: 'contig', rotSteps: [0,2,4,6],
+                        recipe: [[0,1,L], [1,-1,L], [0,1,L]]
+                    };
+                } else {
+                    // Diagonal-side Z: diagonal top/bottom, straight middle
+                    // of length 2L (must be 2L, not L, for v2 to span the same
+                    // chord length as the diagonal endpoints).
+                    const L = randInt(1,2);
+                    return {
+                        type: 'contig', rotSteps: [0,2,4,6],
+                        recipe: [[1,1,L], [0,-1,2*L], [1,1,L]]
+                    };
+                }
+            },
+
+            // Sigma shape: straight outer strokes, diagonal connectors meeting
+            // in the middle. 45° rotation swaps cardinal↔diagonal types but
+            // the shape is preserved as a valid 3.
+            3: () => {
+                const L = randInt(2,3);
+                const M = randInt(1, L);
+                return {
+                    type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                    recipe: [[0,-1,L], [1,1,M], [1,-1,M], [0,1,L]]
+                };
+            },
+
+            // 4 with a crossbar branching off a stalk, two variants. 90° only
+            // because the "crossbar endpoint must land on the stalk interior"
+            // geometry doesn't survive 45° rotation.
+            4: () => {
+                if (Math.random() < 0.5) {
+                    // Cardinal stalk: vertical stalk of length S, diagonal
+                    // middle of length D, horizontal crossbar back to stalk.
+                    const S = randInt(2,4);
+                    const D = randInt(1, Math.min(2, S-1));
+                    return {
+                        type: 'contig', rotSteps: [0,2,4,6],
+                        recipe: [[-1,0,S], [1,-1,D], [0,1,D]]
+                    };
+                } else {
+                    // Diagonal stalk: diagonal stalk length L, straight
+                    // middle of length 2M (must be 2M to land exactly on
+                    // stalk interior), diagonal crossbar length M.
+                    const L = randInt(2,3);
+                    const M = randInt(1, Math.min(2, L-1));
+                    return {
+                        type: 'contig', rotSteps: [0,2,4,6],
+                        recipe: [[1,1,L], [-1,0,2*M], [1,-1,M]]
+                    };
+                }
+            },
+
+            // Five-stroke zigzag. The recogniser's 3-stroke S branch returns
+            // null before the digit-5 check, so 3-stroke S shapes never work
+            // — only 5-stroke form is emitted here. 45° rotation converts
+            // cardinal↔diagonal; both keep "all same type" invariant.
+            5: () => {
+                const P = randInt(1,2);
+                const A = randInt(1,2);
+                const B = randInt(1,2);
+                return {
+                    type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                    recipe: [[0,-1,P], [1,0,A], [0,1,P], [1,0,B], [0,-1,P]]
+                };
+            },
+
+            // 6 with rectangular loop. Fires recogniser Case B: bend→junc and
+            // corner3→junc merge (collinear vertical). The three "horizontal"
+            // strokes (s0, s2, s4) must share length L for the parallel-length
+            // check to pass; the "vertical" strokes V are free.
+            6: () => {
+                const L = randInt(1,2);
+                const V = randInt(1,2);
+                return {
+                    type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                    recipe: [[0,-1,L],[1,0,V],[0,1,L],[1,0,V],[0,-1,L],[-1,0,V]]
+                };
+            },
+
+            // Two perpendicular strokes meeting at one corner.
+            7: () => ({
+                type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                recipe: [[0,1, randInt(2,4)], [1,0, randInt(2,4)]]
+            }),
+
+            // 8 as an hourglass: a degree-4 centre with four arms (two
+            // antiparallel pairs) and a bar closing each pair of tips. The top
+            // pair and bottom pair may have DIFFERENT arm lengths (T vs B),
+            // producing asymmetric 8s — a small triangle on one side, a large
+            // one on the other. The recogniser accepts this via its Case A
+            // check once edges are unit-split: it measures the distance from
+            // the centre to its immediate neighbours (all one step away after
+            // splitting), not to the stroke tips. This is why
+            // generateUnlimitedPuzzle runs its sanity check on split edges.
+            //
+            // Two variants, since placeRecipeNonContig only rotates by 90°:
+            //  • straight-axis: diagonal arms + horizontal/vertical bars
+            //  • diagonal-axis: cardinal arms + diagonal bars (a 45°-turned 8)
+            // rotSteps [0,1,2,3] then gives all four 90° orientations of each.
+            8: () => {
+                const T = randInt(1,3);  // top-pair arm length
+                const B = randInt(1,3);  // bottom-pair arm length (may differ)
+                const cr = T, cc = Math.max(T,B);  // centre (coords normalised later)
+                if (Math.random() < 0.5) {
+                    // Straight-axis hourglass: 4 diagonal arms, 2 straight bars.
+                    return {
+                        type: 'noncontig', rotSteps: [0,1,2,3],
+                        recipe: [
+                            {from:[cr,cc], to:[cr-T,cc-T]},     // top-left arm
+                            {from:[cr,cc], to:[cr-T,cc+T]},     // top-right arm
+                            {from:[cr,cc], to:[cr+B,cc-B]},     // bottom-left arm
+                            {from:[cr,cc], to:[cr+B,cc+B]},     // bottom-right arm
+                            {from:[cr-T,cc-T], to:[cr-T,cc+T]}, // top bar
+                            {from:[cr+B,cc-B], to:[cr+B,cc+B]}  // bottom bar
+                        ]
+                    };
+                } else {
+                    // Diagonal-axis hourglass: 4 cardinal arms, 2 diagonal bars.
+                    return {
+                        type: 'noncontig', rotSteps: [0,1,2,3],
+                        recipe: [
+                            {from:[cr,cc], to:[cr-T,cc]},   // N arm
+                            {from:[cr,cc], to:[cr,cc-T]},   // W arm
+                            {from:[cr,cc], to:[cr+B,cc]},   // S arm
+                            {from:[cr,cc], to:[cr,cc+B]},   // E arm
+                            {from:[cr-T,cc], to:[cr,cc-T]}, // NW bar (diagonal)
+                            {from:[cr+B,cc], to:[cr,cc+B]}  // SE bar (diagonal)
+                        ]
+                    };
+                }
+            },
+
+            // 9 with top loop and tail. First two strokes are collinear and
+            // get merged by the recogniser into a single tail-stroke, with
+            // the loop/tail junction internal to that merged stroke.
+            // Detection uses the dedAdj degree pattern (one deg-3, one deg-1,
+            // rest deg-2) rather than stroke count. 45° rotation gives the
+            // all-diagonal variant; cross(hangDir, perpDir) sign is preserved.
+            9: () => {
+                const T = randInt(1,2);
+                const H = randInt(1,2);
+                const W = randInt(1,2);
+                return {
+                    type: 'contig', rotSteps: [0,1,2,3,4,5,6,7],
+                    recipe: [[-1,0,T], [-1,0,H], [0,-1,W], [1,0,H], [0,1,W]]
+                };
+            }
+        };
+
+        function placeUnlimitedDigit(digit) {
+            const gen = UNLIMITED_GENERATORS[digit];
+            if (!gen) return null;
+            for (let attempt = 0; attempt < 30; attempt++) {
+                const {type, recipe, rotSteps} = gen();
+                const rot = rotSteps[Math.floor(Math.random() * rotSteps.length)];
+                const edges = type === 'contig'
+                    ? placeRecipeContig(recipe, rot)
+                    : placeRecipeNonContig(recipe, rot);
+                if (edges) return edges;
+            }
+            return null;
+        }
+
+        // Strict transversal intersection of two non-endpoint-sharing segments.
+        // Uses CCW signs; collinear overlap is intentionally NOT counted as a
+        // crossing — those are double-line cases handled separately.
+        function unlimitedSegmentsCross(e1, e2) {
+            if (e1.a === e2.a || e1.a === e2.b ||
+                e1.b === e2.a || e1.b === e2.b) return false;
+            const n1a = nodes[e1.a], n1b = nodes[e1.b];
+            const n2a = nodes[e2.a], n2b = nodes[e2.b];
+            const ax = n1a.c, ay = n1a.r, bx = n1b.c, by = n1b.r;
+            const cx = n2a.c, cy = n2a.r, dx = n2b.c, dy = n2b.r;
+            function ccw(ax, ay, bx, by, cx, cy) {
+                return (cy - ay) * (bx - ax) - (by - ay) * (cx - ax);
+            }
+            const d1 = ccw(cx, cy, dx, dy, ax, ay);
+            const d2 = ccw(cx, cy, dx, dy, bx, by);
+            const d3 = ccw(ax, ay, bx, by, cx, cy);
+            const d4 = ccw(ax, ay, bx, by, dx, dy);
+            return (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+                    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)));
+        }
+
+        function unlimitedCheckCriteria(allEdges, solutionEdges) {
+            // Build a map from edge index → which digit slot it belongs to
+            const edgeSlot = new Array(allEdges.length);
+            for (let i = 0; i < solutionEdges.length; i++) {
+                for (const idx of solutionEdges[i]) edgeSlot[idx] = i;
+            }
+
+            // (1) Count crossings between edges of DIFFERENT digits
+            let crossings = 0;
+            for (let i = 0; i < allEdges.length; i++) {
+                for (let j = i + 1; j < allEdges.length; j++) {
+                    if (edgeSlot[i] === edgeSlot[j]) continue;
+                    if (unlimitedSegmentsCross(allEdges[i], allEdges[j])) crossings++;
+                }
+            }
+            if (crossings < 3) return false;
+
+            // (2) Count edges per (canonical) node pair to detect double lines and
+            // (3) reject anything with > 3 lines between the same pair.
+            const pairCounts = new Map();
+            for (const e of allEdges) {
+                const key = Math.min(e.a, e.b) + '-' + Math.max(e.a, e.b);
+                pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+            }
+            let hasDouble = false;
+            for (const count of pairCounts.values()) {
+                if (count >= 2) hasDouble = true;
+                if (count > 3) return false;
+            }
+            if (!hasDouble) return false;
+
+            return true;
+        }
+
+        // (4) Reject any puzzle where one digit has no node in common with any
+        // other digit — i.e. a number floating in isolation. A "node in common"
+        // includes any node an edge passes through, not just edge endpoints.
+        function unlimitedDigitsAllConnected(allEdges, solutionEdges) {
+            const digitNodes = solutionEdges.map(indices => {
+                const s = new Set();
+                for (const idx of indices) {
+                    const e = allEdges[idx];
+                    s.add(e.a); s.add(e.b);
+                    for (const m of intermediateNodes(e.a, e.b)) s.add(m);
+                }
+                return s;
+            });
+            const n = digitNodes.length;
+            // Adjacency: digit i ↔ digit j if they share any node.
+            const adj = Array.from({ length: n }, () => new Set());
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    for (const v of digitNodes[i]) {
+                        if (digitNodes[j].has(v)) {
+                            adj[i].add(j); adj[j].add(i);
+                            break;
+                        }
+                    }
+                }
+            }
+            // BFS from digit 0 — every digit must be reachable.
+            const seen = new Set([0]);
+            const q = [0];
+            while (q.length) {
+                const cur = q.shift();
+                for (const nx of adj[cur]) if (!seen.has(nx)) { seen.add(nx); q.push(nx); }
+            }
+            return seen.size === n;
+        }
+
+        // Split every long edge into a chain of one-grid-unit edges, mirroring
+        // what setup mode does when a user drags from node A to node B. The
+        // returned object also has an oldToNew index map so solutionEdges can be
+        // rewritten to point at the new edge indices.
+        function unlimitedSplitToUnitEdges(edges) {
+            const newEdges = [];
+            const oldToNew = [];
+            for (let i = 0; i < edges.length; i++) {
+                const e = edges[i];
+                const seq = [e.a, ...intermediateNodes(e.a, e.b), e.b];
+                const newIdxs = [];
+                for (let j = 0; j < seq.length - 1; j++) {
+                    newIdxs.push(newEdges.length);
+                    newEdges.push({ a: seq[j], b: seq[j + 1] });
+                }
+                oldToNew.push(newIdxs);
+            }
+            return { newEdges, oldToNew };
+        }
+
+        function generateUnlimitedPuzzle() {
+            // Pick 5 unique digits from 1..9 using a Fisher–Yates shuffle
+            const pool = [1,2,3,4,5,6,7,8,9];
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            const chosen = pool.slice(0, 5);
+
+            const allEdges = [];
+            const solutionEdges = [];
+            for (const digit of chosen) {
+                const placed = placeUnlimitedDigit(digit);
+                if (!placed) return null;
+                const startIdx = allEdges.length;
+                for (const e of placed) allEdges.push(e);
+                const indices = [];
+                for (let k = startIdx; k < allEdges.length; k++) indices.push(k);
+                solutionEdges.push(indices);
+            }
+
+            // Sanity-check: every slot must still be recognised as its target
+            // digit. Recognition runs on the unit-split form of each slot —
+            // that is the form the final puzzle uses, and some valid shapes
+            // (e.g. asymmetric hourglass 8s) are only recognised once split,
+            // because the recogniser measures the distance from a node to its
+            // immediate neighbours rather than to stroke endpoints.
+            for (let i = 0; i < chosen.length; i++) {
+                const slotLong = solutionEdges[i].map(k => allEdges[k]);
+                const { newEdges: slotUnit } = unlimitedSplitToUnitEdges(slotLong);
+                const slotEdges = slotUnit.map((e, idx) => ({ id: idx, a: e.a, b: e.b }));
+                const result = recogniseNumber(slotEdges);
+                if (!result || result.num !== chosen[i]) return null;
+            }
+
+            // Visual / structural criteria. Run on long edges so that geometric
+            // crossings between numbers are detected as crossings (after splitting
+            // they would become shared endpoints, not transversal crossings).
+            if (!unlimitedCheckCriteria(allEdges, solutionEdges)) return null;
+            if (!unlimitedDigitsAllConnected(allEdges, solutionEdges)) return null;
+
+            // All checks passed. Split long edges into unit-length edges (the same
+            // shape setup mode produces when you drag from one node to another).
+            // Drawing then never has to span an intermediate node, which removes
+            // the parallel-line "kinks" caused by per-subsegment crowd offsets.
+            const { newEdges, oldToNew } = unlimitedSplitToUnitEdges(allEdges);
+            const newSolutionEdges = solutionEdges.map(slot =>
+                slot.flatMap(idx => oldToNew[idx])
+            );
+
+            return {
+                solution: chosen,
+                target: chosen.reduce((s, n) => s + n, 0),
+                edges: newEdges,
+                solutionEdges: newSolutionEdges
+            };
+        }
+
+        async function initUnlimitedPuzzle() {
+            showScreen('screenLoading');
+            currentPuzzleList  = null;
+            currentPuzzleIndex = -1;
+
+            // Try many random combinations to find one that satisfies all criteria.
+            let puzzle = null;
+            const MAX_ATTEMPTS = 600;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                puzzle = generateUnlimitedPuzzle();
+                if (puzzle) break;
+            }
+
+            if (!puzzle) {
+                const msgEl = document.getElementById('loadingMsg');
+                if (msgEl) msgEl.textContent = "Couldn't generate a puzzle. Try again.";
+                return;
+            }
+
+            puzzle.date = `unlimited-${Date.now()}`;
+            loadPuzzle(puzzle);
+        }
+
+        // Menu + win-overlay handlers for unlimited mode
+        document.getElementById('menuUnlimited').addEventListener('click', () => {
+            closeMenu();
+            initUnlimitedPuzzle();
         });
-        document.getElementById('weeklyOverlay').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('weeklyOverlay'))
-                document.getElementById('weeklyOverlay').style.display = 'none';
+        document.getElementById('winNewPuzzleBtn').addEventListener('click', () => {
+            closeOverlay('winOverlay');
+            initUnlimitedPuzzle();
         });
 
         // ── Updates ───────────────────────────────────────────────────────────
@@ -6278,6 +7026,13 @@
                 _latestUpdates = updates;
                 _latestUpdatesFingerprint = updatesFingerprint(updates);
                 const seen = localStorage.getItem('nodle_updates_seen');
+                // On first visit suppress the badge and silently mark as seen —
+                // the user shouldn't be greeted with notifications on first open.
+                if (_isFirstVisit && !seen) {
+                    try { localStorage.setItem('nodle_updates_seen', _latestUpdatesFingerprint); } catch {}
+                    document.body.classList.remove('has-new-updates');
+                    return;
+                }
                 const hasNew = seen !== _latestUpdatesFingerprint;
                 document.body.classList.toggle('has-new-updates', hasNew && updates.length > 0);
                 if (hasNew) {
@@ -6345,6 +7100,88 @@
             }
             document.body.classList.remove('has-new-updates');
         });
+
+        // ── Daily & Weekly new-puzzle badges ──────────────────────────────────
+        // nodle_seen_daily:  date string of the last daily the user has seen.
+        //   Written to today on boot (the app opens on today's puzzle), so the
+        //   badge never fires on initial load — it only appears when midnight
+        //   rolls over while the app is still open.
+        // nodle_seen_weekly: weekly key of the last weekly the user has seen.
+        //   Checked on boot, but only lights up if a puzzle actually exists for
+        //   the current week (async fetch), so missing weeks show no badge.
+
+        function getLastSeenDaily()  { try { return localStorage.getItem('nodle_seen_daily')  || ''; } catch { return ''; } }
+        function setLastSeenDaily(d) { try { localStorage.setItem('nodle_seen_daily', d); }   catch {} }
+        function getLastSeenWeekly()  { try { return localStorage.getItem('nodle_seen_weekly') || ''; } catch { return ''; } }
+        function setLastSeenWeekly(k) { try { localStorage.setItem('nodle_seen_weekly', k); } catch {} }
+
+        function checkDailyBadge() {
+            document.body.classList.toggle('has-new-daily', getLastSeenDaily() !== todayStr());
+        }
+
+        // Lightweight probe: does a weekly puzzle exist for the current week?
+        // Checks at most 2 monthly files (current + previous) to cover the case
+        // where the Monday falls in the prior month.
+        async function weeklyPuzzleExistsNow() {
+            const today = todayStr();
+            const [dy, dm] = today.split('-');
+            let yr = parseInt(dy, 10), mo = parseInt(dm, 10);
+            for (let i = 0; i < 2; i++) {
+                const folder = `${yr}_${String(mo).padStart(2, '0')}`;
+                const url = `${DAILY_BASE}/${folder}_puzzles_weekly.json`;
+                try {
+                    const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
+                    if (!resp.ok) { mo--; if (mo === 0) { mo = 12; yr--; } continue; }
+                    const puzzles = await resp.json();
+                    if (Array.isArray(puzzles) &&
+                        puzzles.some(p => p.date <= today && addDays(p.date, 6) >= today)) {
+                        return true;
+                    }
+                } catch {}
+                mo--; if (mo === 0) { mo = 12; yr--; }
+            }
+            return false;
+        }
+
+        async function checkWeeklyBadge() {
+            // If already seen this week, never show the badge
+            if (getLastSeenWeekly() === currentWeeklyKey()) {
+                document.body.classList.remove('has-new-weekly');
+                return;
+            }
+            // Not seen yet — only light up if a puzzle actually exists
+            const exists = await weeklyPuzzleExistsNow();
+            document.body.classList.toggle('has-new-weekly', exists);
+        }
+
+        // On boot: suppress daily badge (game loads on today's puzzle already).
+        // Capture first-visit state BEFORE setLastSeenDaily writes the key —
+        // an empty key means localStorage has never been touched by this app.
+        const _isFirstVisit = getLastSeenDaily() === '';
+        setLastSeenDaily(todayStr());
+        document.body.classList.remove('has-new-daily');
+        // On boot: check weekly — but suppress entirely on first visit so the
+        // user isn't greeted with badges the moment they open the site.
+        if (_isFirstVisit) {
+            setLastSeenWeekly(currentWeeklyKey());
+            document.body.classList.remove('has-new-weekly');
+        } else {
+            checkWeeklyBadge();
+        }
+
+        // Re-check just after every midnight so the badges appear the moment
+        // the date changes, even if the user leaves the app open overnight.
+        (function scheduleMidnightCheck() {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setDate(midnight.getDate() + 1);
+            midnight.setHours(0, 0, 0, 0);
+            setTimeout(() => {
+                checkDailyBadge();   // new day → new daily puzzle
+                checkWeeklyBadge();  // covers Sunday → Monday rollover
+                scheduleMidnightCheck();
+            }, (midnight - now) + 500); // +500 ms buffer past midnight
+        })();
         document.getElementById('updatesClose').addEventListener('click', () => {
             document.getElementById('updatesOverlay').style.display = 'none';
         });
@@ -6361,6 +7198,27 @@
         // ── Archive ───────────────────────────────────────────────────────────────
 
         let archiveLevel = 'months'; // 'months' or 'puzzles'
+        // ── Weekly puzzle helpers ──────────────────────────────────────────────
+
+        // Adds n days to a YYYY-MM-DD date string and returns the resulting date.
+        function addDays(dateStr, n) {
+            const d = new Date(dateStr + 'T00:00:00Z');
+            d.setUTCDate(d.getUTCDate() + n);
+            return d.toISOString().split('T')[0];
+        }
+
+        // Converts a Monday date string ("YYYY-MM-DD") to a weekly key
+        // ("weekly_YYYY-Www"), e.g. "2026-05-11" → "weekly_2026-W20".
+        function mondayDateToWeekId(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00Z');
+            return 'weekly_' + dateToIsoWeekStr(d);
+        }
+
+        // Returns the weekly key for the current calendar week, e.g. "weekly_2026-W20".
+        function currentWeeklyKey() {
+            return 'weekly_' + currentWeekStr();
+        }
+
         // ── Stats ─────────────────────────────────────────────────────────────────
 
         // Which tab is currently active in the stats overlay ('daily' | 'weekly').
@@ -6383,10 +7241,10 @@
             }
         });
 
-        function openStats() {
+        function openStats(mode = 'daily') {
             openOverlay('statsOverlay');
-            // Always land on the Daily tab when opening the page.
-            statsMode = 'daily';
+            // Land on the requested tab (defaults to daily).
+            statsMode = mode;
             renderStats();
         }
 
@@ -6577,23 +7435,11 @@
                 } catch(e) {}
             }
 
-            // No weekly puzzles solved yet → show a Coming Soon placeholder.
-            if (allSolved.length === 0) {
-                const empty = document.createElement('div');
-                empty.style.cssText = 'padding:clamp(16px,4vw,32px) 0 0; display:flex; flex-direction:column; gap:16px;';
-                empty.innerHTML = `
-                    <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                    <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">Weekly puzzle stats will appear here once you've solved your first weekly puzzle.</div>
-                `;
-                content.appendChild(empty);
-                return;
-            }
-
             allSolved.sort((a, b) => a.week.localeCompare(b.week));
 
             const played = allSolved.length;
-            const avgMs = allSolved.reduce((s, d) => s + d.timeMs, 0) / played;
-            const avgHints = allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played;
+            const avgMs = played ? allSolved.reduce((s, d) => s + d.timeMs, 0) / played : 0;
+            const avgHints = played ? allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played : 0;
 
             // Streak calculation — consecutive weeks up to the current week
             const weekSet = new Set(allSolved.map(d => d.week));
@@ -6645,8 +7491,8 @@
 
             const stats = [
                 { label: 'Puzzles Solved', value: played, sub: 'weekly puzzles only', histogram: null },
-                { label: 'Average Time', value: statsFmtTime(avgMs), sub: 'per puzzle', histogram: makeStatsHistogram(timeBuckets) },
-                { label: 'Average Hints', value: avgHints.toFixed(1), sub: 'per puzzle', histogram: makeStatsHistogram(hintBuckets) },
+                { label: 'Average Time', value: played ? statsFmtTime(avgMs) : '—', sub: 'per puzzle', histogram: played ? makeStatsHistogram(timeBuckets) : null },
+                { label: 'Average Hints', value: played ? avgHints.toFixed(1) : '—', sub: 'per puzzle', histogram: played ? makeStatsHistogram(hintBuckets) : null },
                 { label: 'Current Streak', value: currentStreak, sub: currentStreak === 1 ? 'week' : 'weeks in a row', histogram: null },
                 { label: 'Longest Streak', value: longestStreak, sub: longestStreak === 1 ? 'week' : 'weeks in a row', histogram: null },
             ];
@@ -6794,13 +7640,23 @@
             }
 
             const today = todayStr();
-            allPuzzles = allPuzzles.filter(p => p.date < today);
+            if (type === 'weekly') {
+                // A weekly puzzle enters the archive only once its full 7-day window
+                // has elapsed (i.e., today is on or after the following Monday).
+                allPuzzles = allPuzzles.filter(p => addDays(p.date, 7) <= today);
+                // Annotate each puzzle with its weekId so loadPuzzle can use the
+                // correct localStorage key and show the right description label.
+                allPuzzles = allPuzzles.map(p => ({ ...p, weekId: mondayDateToWeekId(p.date) }));
+            } else {
+                allPuzzles = allPuzzles.filter(p => p.date < today);
+            }
             allPuzzles.sort((a, b) => b.date.localeCompare(a.date));
 
             list.innerHTML = '';
 
             for (const puzzle of allPuzzles) {
-                const solved = getSolvedData(puzzle.date);
+                const solvedKey = puzzle.weekId || puzzle.date;
+                const solved = getSolvedData(solvedKey);
                 const item = document.createElement('div');
                 item.className = 'archive-item';
 
@@ -6808,7 +7664,9 @@
                 dateEl.className = 'archive-item-date';
                 const [y, m, d] = puzzle.date.split('-');
                 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                dateEl.textContent = puzzle.weekId
+                    ? `Week of ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
+                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
                 const badge = document.createElement('button');
                 badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
@@ -6822,7 +7680,7 @@
                     closeOverlay('winOverlay');
                     currentPuzzleList  = allPuzzles;
                     currentPuzzleIndex = allPuzzles.indexOf(puzzle);
-                    loadPuzzle(puzzle);
+                    loadPuzzle(puzzle); // uses puzzle.weekId for currentPuzzleDate if present
                     if (solved) restoreSolvedBoard(puzzle, solved);
                 });
 
@@ -7322,6 +8180,11 @@
         // updates.json changed since the user last opened the Updates panel.
         checkForUpdates();
 
+        // Initialise the AdSense ad unit inside screenPlay.
+        // Because the <ins> element lives only inside screenPlay it is hidden
+        // on all other screens (archive, loading, etc.) automatically.
+        (adsbygoogle = window.adsbygoogle || []).push({});
+
         // ── Mobile back-button navigation ─────────────────────────────────────────
         // Intercepts the hardware/gesture back button (and browser back) while any
         // overlay, popup, or sub-level screen is open and performs the same action
@@ -7366,10 +8229,6 @@
                 var dl = document.getElementById('downloadOverlay');
                 if (dl && dl.style.display === 'flex')
                     return function () { dl.style.display = 'none'; };
-
-                var wk = document.getElementById('weeklyOverlay');
-                if (wk && wk.style.display === 'flex')
-                    return function () { wk.style.display = 'none'; };
 
                 var up = document.getElementById('updatesOverlay');
                 if (up && up.style.display === 'flex')
@@ -7474,14 +8333,6 @@
                 }, 0);
             });
 
-            // Weekly puzzle overlay — same pattern as download
-            document.getElementById('menuWeekly').addEventListener('click', function () {
-                setTimeout(function () {
-                    if (document.getElementById('weeklyOverlay').style.display === 'flex')
-                        pushNav();
-                }, 0);
-            });
-
             // Updates overlay — same pattern
             document.getElementById('menuUpdates').addEventListener('click', function () {
                 setTimeout(function () {
@@ -7490,14 +8341,11 @@
                 }, 0);
             });
 
-            // Paste JSON overlay (dev mode, but harmless to wire always)
-            var pasteBtn = document.getElementById('pasteJsonBtn');
-            if (pasteBtn) {
-                pasteBtn.addEventListener('click', function () {
-                    setTimeout(function () {
-                        var pj = document.getElementById('pasteJsonOverlay');
-                        if (pj && pj.style.display === 'flex') pushNav();
-                    }, 0);
+            // Generate Random button (dev mode) — no overlay, just generates
+            var genBtn = document.getElementById('generateRandomBtn');
+            if (genBtn) {
+                genBtn.addEventListener('click', function () {
+                    // No nav push needed since we stay in setup, no overlay
                 });
             }
 
@@ -7558,14 +8406,6 @@
             });
             document.getElementById('downloadOverlay').addEventListener('click', function (e) {
                 if (e.target === document.getElementById('downloadOverlay')) consumeNav(1);
-            });
-
-            // Weekly puzzle close
-            document.getElementById('weeklyClose').addEventListener('click', function () {
-                consumeNav(1);
-            });
-            document.getElementById('weeklyOverlay').addEventListener('click', function (e) {
-                if (e.target === document.getElementById('weeklyOverlay')) consumeNav(1);
             });
 
             // Updates close
