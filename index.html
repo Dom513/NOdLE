@@ -431,12 +431,6 @@
         }
         #infoContent p:last-child { margin-bottom: 0; }
         #infoContent em { color: #ddd; font-style: normal; }
-        #infoPracticeIntro {
-            color: #bbb !important;
-            font-size: var(--fs-sm) !important;
-            font-weight: 700;
-            margin-top: 4px;
-        }
         #infoGuideBack {
             position: absolute; top: 10px; left: 14px;
             background: none; border: none; color: #555;
@@ -544,7 +538,7 @@
             color: #555; letter-spacing: 0.15em;
         }
 
-        /* ── Puzzle description (practice puzzles) ───────────────────────── */
+        /* ── Puzzle description (archive date label) ─────────────────────── */
         #puzzleDescription {
             width: 100%; max-width: 460px;
             padding: clamp(8px, 2vw, 12px) clamp(8px, 3vw, 16px);
@@ -779,10 +773,43 @@
             transition: background 0.12s;
         }
         .archive-item:hover { background: #242424; }
-        /* Month rows have per-button click targets (Daily / Weekly), so the
-           row itself isn't clickable — drop the pointer and hover affordance. */
-        .archive-item.archive-item--month { cursor: default; }
+        /* Month rows use a 3-equal-column grid so the "Daily Puzzles" button
+           (placed in column 2 and centred within it) sits at the exact
+           horizontal centre of the row, regardless of how wide the
+           month-label on the left or the Weekly button on the right are.
+           The Tutorial row reuses the same rules — its single Play Tutorial
+           button is also placed in column 2 — so its centre lines up
+           pixel-for-pixel with every Daily Puzzles button below it. */
+        .archive-item.archive-item--month {
+            cursor: default;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            align-items: center;
+            column-gap: clamp(6px, 2vw, 10px);
+        }
         .archive-item.archive-item--month:hover { background: transparent; }
+        .archive-item.archive-item--month > .archive-item-date {
+            grid-column: 1;
+            justify-self: start;
+        }
+        /* First button in the row (Daily Puzzles in month rows; Play Tutorial
+           in the Tutorial row) → column 2, horizontally centred.
+           Must target `button` explicitly — `:first-of-type` is tag-agnostic,
+           so without the tag the invisible placeholder <span> (which is the
+           first span among siblings) would also match this rule and be placed
+           in column 2, colliding with Daily and creating an extra grid row. */
+        .archive-item.archive-item--month > button.archive-month-btn:first-of-type {
+            grid-column: 2;
+            justify-self: center;
+        }
+        /* Second button (Weekly Puzzles) or invisible placeholder span →
+           column 3, pinned to the start of the column so it sits closest to
+           Daily rather than drifting to the row's right edge. */
+        .archive-item.archive-item--month > .archive-month-btn:nth-of-type(2),
+        .archive-item.archive-item--month > .archive-month-btn--placeholder {
+            grid-column: 3;
+            justify-self: start;
+        }
         .archive-item-date {
             font-family: 'Share Tech Mono', monospace;
             font-size: clamp(11px, 3vw, 13px); color: #888;
@@ -795,19 +822,19 @@
         }
         .archive-item-badge.solved  { color: #4488ff; }
         .archive-item-badge.unsolved { color: #444; }
-        /* Month-row action buttons (Daily / Weekly). Two compact pills shown
-           on the right of each month entry; Weekly only appears if a
-           {folder}_puzzles_weekly.json file exists. */
-        .archive-item-actions {
-            display: flex; align-items: center; gap: clamp(6px, 2vw, 10px);
-        }
+        /* Month-row action buttons (Daily / Weekly / Play Tutorial). An
+           explicit `width` (with `box-sizing: border-box`) makes every
+           button render at the exact same pixel width regardless of text
+           length, so the trio reads as a uniform set. */
         .archive-month-btn {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: clamp(10px, 2.5vw, 12px);
             letter-spacing: 0.12em; text-transform: uppercase;
             color: #888; background: none;
             border: 1px solid #333; border-radius: 6px;
-            padding: clamp(5px, 1.5vw, 7px) clamp(9px, 2.5vw, 13px);
+            padding: clamp(5px, 1.5vw, 7px) 0;
+            box-sizing: border-box;
+            width: clamp(105px, 28vw, 145px);
             cursor: pointer; min-height: unset; line-height: 1;
             transition: color 0.15s, border-color 0.15s, background 0.15s;
         }
@@ -824,10 +851,10 @@
             background: none; border-color: #333;
         }
         /* Per-row pill button used as the Play / Solved indicator in the
-           archive puzzle list and practice puzzle lists. Visually matches
-           the .archive-month-btn pill used in the month header rows. When
-           the user has solved the puzzle, the --solved modifier fills the
-           button green and the label is changed to "Solved". */
+           archive puzzle list. Visually matches the .archive-month-btn pill
+           used in the month header rows. When the user has solved the
+           puzzle, the --solved modifier fills the button green and the
+           label is changed to "Solved". */
         .archive-play-btn {
             font-family: 'Rajdhani', sans-serif; font-weight: 700;
             font-size: clamp(10px, 2.5vw, 12px);
@@ -847,8 +874,6 @@
         .archive-play-btn.archive-play-btn--solved:hover {
             background: #348a47; border-color: #348a47; color: #fff;
         }
-        .practice-item-badge.solved  { color: #4488ff; }
-        .practice-item-badge.unsolved { color: #444; }
         #archiveLoading {
             font-family: 'Share Tech Mono', monospace;
             font-size: 12px; color: #555;
@@ -961,59 +986,9 @@
             width: 18px; flex-shrink: 0;
         }
 
-        /* ── Practice overlay ────────────────────────────────────────────── */
-        #practiceOverlay {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 200;
-            flex-direction: column; align-items: center;
-        }
-        #practiceOverlay.visible { display: flex; }
-        #practiceBox {
-            width: 100%; max-width: 500px; height: 100%;
-            display: flex; flex-direction: column;
-            background: #1a1a1a;
-        }
-        #practiceHeader {
-            display: flex; align-items: center; gap: 12px;
-            padding: clamp(12px, 3vw, 20px) 16px;
-            border-bottom: 1px solid #333; flex-shrink: 0;
-        }
-        #practiceBack {
-            background: none; border: none; color: #666;
-            font-size: 20px; cursor: pointer;
-            padding: 4px 8px; transition: color 0.15s;
-            min-height: unset; line-height: 1;
-        }
-        #practiceBack:hover { color: #ccc; }
-        #practiceTitle {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
-            color: #ccc; text-transform: uppercase;
-        }
-        #practiceList { overflow-y: auto; flex: 1; padding: 8px 0; }
-        .practice-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 20px; border-bottom: 1px solid #222;
-            cursor: pointer; transition: background 0.12s;
-        }
-        .practice-item:hover { background: #242424; }
-        .practice-item-title {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(11px, 3vw, 13px); color: #888;
-            letter-spacing: 0.08em;
-        }
-        .practice-item-badge {
-            font-family: 'Rajdhani', sans-serif; font-weight: 700;
-            font-size: clamp(10px, 2.5vw, 12px);
-            letter-spacing: 0.12em; text-transform: uppercase;
-            color: #444;
-        }
+        /* ── Practice overlay removed ───────────────────────────────────── */
 
         #winPuzzleBtns button:disabled { opacity: 0.3; cursor: default; }
-
-        /* ── Info welcome buttons ────────────────────────────────────────── */
-        #infoBtns button { width: 100%; }
 
         #hintChoiceOverlay {
             display: none; position: fixed; inset: 0;
@@ -1541,7 +1516,7 @@
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="12" cy="12" r="9.5"/>
                     <line x1="12" y1="11" x2="12" y2="17"/>
-                    <circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none"/>
+                    <line x1="12" y1="7.5" x2="12.01" y2="7.5"/>
                 </svg>
             </button>
             <button id="numberGuideBtn" title="Number guide" aria-label="Number guide">
@@ -1588,7 +1563,6 @@
             <button class="menu-item-btn" id="menuWeekly">Weekly puzzle<span class="update-badge inline weekly-badge" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuStats">Stats</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
-            <button class="menu-item-btn" id="menuPractice">Practice Puzzles</button>
             <button class="menu-item-btn" id="menuUnlimited" style="display:none;">Unlimited Mode</button>
             <button class="menu-item-btn" id="menuUpdates">Updates<span class="update-badge inline updates-badge" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuDonate">Donate</button>
@@ -1661,15 +1635,6 @@
                 <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Updates</div>
             </div>
             <div id="updatesList" style="padding:clamp(16px,4vw,24px) 20px clamp(24px,6vw,40px); overflow-y:auto; display:flex; flex-direction:column; gap:clamp(16px,4vw,24px);"></div>
-        </div>
-    </div>
-    <div id="practiceOverlay">
-        <div id="practiceBox">
-            <div id="practiceHeader">
-                <button id="practiceBack">←</button>
-                <div id="practiceTitle">Practice</div>
-            </div>
-            <div id="practiceList"></div>
         </div>
     </div>
 
@@ -1861,10 +1826,6 @@
                         <p style="font-weight:400;">You can tap a number in the sum to place it back on the board if you've made a mistake.</p>
                         <p style="font-weight:400;">Tap lines to unhighlight them or click "Clear" to unhighlight them all.</p>
                         <p style="font-weight:400;">Click the question mark to get a hint.</p>
-                        <p id="infoPracticeIntro">Try some practice puzzles if you want more help identifying what different versions of the numbers can look like.</p>
-                    </div>
-                    <div id="infoBtns" style="flex-direction:column; gap:8px; margin-top:clamp(10px,2.5vw,16px); display:flex;">
-                        <button class="primary" id="infoPracticeBtn">Try practice puzzles</button>
                     </div>
                 </div>
                 <!-- Number guide view -->
@@ -1908,10 +1869,9 @@
             <div id="tutorialDoneBox">
                 <button id="tutorialDoneClose" type="button" aria-label="Close">✕</button>
                 <div id="tutorialDoneTitle">Congratulations!</div>
-                <div id="tutorialDoneText">Now you know how to play NOdLE. You can attempt more practice puzzles or take on the daily puzzle. If you ever get stuck, click on the <span class="info-icon">ⓘ</span> in the top left.</div>
+                <div id="tutorialDoneText">Now you know how to play NOdLE. Take on the daily puzzle to get started. If you ever get stuck, click on the <span class="info-icon">ⓘ</span> in the top left.</div>
                 <div id="tutorialDoneBtns">
                     <button class="primary" id="tutorialDoneTodayBtn">Play today's puzzle</button>
-                    <button class="secondary" id="tutorialDonePracticeBtn">More practice puzzles</button>
                 </div>
             </div>
         </div>
@@ -2918,7 +2878,6 @@
         let puzzleSolution      = null; // solution numbers from puzzle JSON, if provided
         let puzzleSolutionEdges = null; // solutionEdges[i] = edge indices for solution slot i
         let currentPuzzleDate   = null; // date string of the currently loaded puzzle
-        let currentPuzzleTitle  = null; // title of the currently loaded puzzle (practice puzzles)
         let currentPuzzleList   = null; // full ordered list of puzzles for prev/next nav
         let currentPuzzleIndex  = -1;  // index of current puzzle in currentPuzzleList
         let replayResult = null; //stores any newly replayed puzzle scores
@@ -4995,7 +4954,6 @@
         // e.g. 'https://yourusername.github.io/your-repo/puzzles'
         const PUZZLE_BASE_URL   = 'puzzles';
         const DAILY_BASE        = `${PUZZLE_BASE_URL}/daily_puzzles`;
-        const PRACTICE_BASE     = `${PUZZLE_BASE_URL}/practice_puzzles`;
 
         async function fetchJson(url) {
             const resp = await fetch(`${url}?v=${Date.now()}`, { cache: 'no-store' });
@@ -5013,7 +4971,7 @@
 
         function loadPuzzle(puzzleData) {
             // If the user was mid-tutorial and is now navigating to any
-            // non-tutorial puzzle (daily, practice, archive...), tear the
+            // non-tutorial puzzle (daily, archive...), tear the
             // tutorial state down first. Otherwise the instruction box, the
             // skip-tutorial button, and the tutorial-mode body class would
             // all linger on top of the new puzzle.
@@ -5050,7 +5008,6 @@
             // Gold border for weekly puzzles; default border for everything else.
             document.getElementById('playCanvas')
                 .classList.toggle('weekly-border', !!(puzzleData.weekId));
-            currentPuzzleTitle  = puzzleData.title || null;
             puzzleStartTime  = null;
             puzzleSolved     = false;
             puzzleElapsed    = 0;
@@ -5065,9 +5022,8 @@
             if (timerEl) timerEl.textContent = '0:00';
             document.getElementById('play-target').textContent = puzzleData.target;
 
-            // Show description (practice), formatted date (archive), or nothing (today)
+            // Show description (custom puzzles), formatted date (archive), or nothing (today)
             const descEl = document.getElementById('puzzleDescription');
-            const isPracticeDate = puzzleData.date && puzzleData.date.startsWith('practice-');
             const isTutorialDate = puzzleData.date && puzzleData.date.startsWith('tutorial-');
             const isUnlimitedDate = puzzleData.date && puzzleData.date.startsWith('unlimited-');
             if (isDevMode2 || isTutorialDate || tutorialMode) {
@@ -5076,13 +5032,10 @@
             } else if (puzzleData.description) {
                 descEl.textContent = puzzleData.description;
                 descEl.style.display = '';
-            } else if (puzzleData.date && !isPracticeDate && !isUnlimitedDate && !puzzleData.isCurrentWeekly && puzzleData.date !== todayStr()) {
+            } else if (puzzleData.date && !isUnlimitedDate && !puzzleData.isCurrentWeekly && puzzleData.date !== todayStr()) {
                 const [y, m, d] = puzzleData.date.split('-');
                 const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-                const isWeeklyArchive = !!puzzleData.weekId;
-                const dateLabel = isWeeklyArchive
-                    ? `Week of ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
-                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                const dateLabel = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
                 descEl.innerHTML =
                     `<button id="descPrev" style="background:none;border:none;color:#888;font-size:1.8em;cursor:pointer;padding:0 14px;min-height:unset;line-height:1;">&#8249;</button>` +
                     `<span>${dateLabel}</span>` +
@@ -5162,14 +5115,13 @@
             updateTiles();
         }
 
-        // Daily and archive puzzles get the difficulty toggle. Practice and
-        // tutorial puzzles do not.
+        // Daily and archive puzzles get the difficulty toggle. Tutorial
+        // puzzles do not.
         function isPuzzleEligibleForDifficulty(puzzleData) {
             if (!puzzleData) return false;
             if (tutorialMode) return false;
             const date = puzzleData.date;
             if (!date) return false;
-            if (date.startsWith('practice-')) return false;
             if (date.startsWith('tutorial-')) return false;
             if (date === 'dev') return false;
             return true;
@@ -5185,7 +5137,7 @@
             const isElig = isPuzzleEligibleForDifficulty(puzzleData);
             toggle.checked  = getDifficulty() === 'easy';
             // Disable only when the puzzle isn't eligible for difficulty
-            // switching (e.g. practice/tutorial). A solved daily puzzle stays
+            // switching (e.g. tutorial). A solved daily puzzle stays
             // toggleable: the change just persists for the next puzzle without
             // disturbing the completed board.
             toggle.disabled = !isElig;
@@ -5748,7 +5700,6 @@
             if (isDevMode) return; // dev=1 — never write to localStorage
             if (dateStr.startsWith('unlimited-')) return; // unlimited puzzles never persist
             if (getSolvedData(dateStr)) return; // already solved — never overwrite (covers dev2 too)
-            if (isDevMode2 && dateStr.startsWith('practice-')) return; // never save practice in dev2
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
                 hintsUsed: hintsCap - hintsRemaining,
@@ -5775,8 +5726,8 @@
             if (puzzleSolved) { console.log('[saveProgress] skipped: puzzleSolved is true'); return; }
             if (!currentPuzzleDate && edgeList.length === 0) { console.log('[saveProgress] skipped: nothing loaded'); return; }
             const dateStr = currentPuzzleDate || todayStr();
-            // Don't cache progress for archive puzzles — only today's, weekly, and practice puzzles
-            const isArchive = dateStr !== todayStr() && !dateStr.startsWith('practice-') && !dateStr.startsWith('weekly_');
+            // Don't cache progress for archive puzzles — only today's and weekly puzzles
+            const isArchive = dateStr !== todayStr() && !dateStr.startsWith('weekly_');
             if (isArchive) { console.log('[saveProgress] skipped: archive puzzle', dateStr); return; }
             localStorage.setItem(getProgressKey(dateStr), JSON.stringify({
                 tileValues:    [...tileValues],
@@ -5884,7 +5835,6 @@
                 hintsRow.style.display      = 'none';
             }
 
-            const isPractice = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
             const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
             const isCurrentWeekly = isWeekly && currentPuzzleDate === currentWeeklyKey();
             const isUnlimited = currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-');
@@ -5892,9 +5842,7 @@
 
             // Sub-text
             const monthNamesShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            if (isPractice && currentPuzzleTitle) {
-                document.getElementById('winSub').textContent = `you solved ${currentPuzzleTitle} in`;
-            } else if (isUnlimited) {
+            if (isUnlimited) {
                 document.getElementById('winSub').textContent = 'you solved this puzzle in';
             } else if (isToday) {
                 document.getElementById('winSub').textContent = "you solved today's puzzle in";
@@ -5906,7 +5854,7 @@
                 if (p && p.date) {
                     const [py, pm, pd] = p.date.split('-');
                     document.getElementById('winSub').textContent =
-                        `you solved the week of ${parseInt(pd)} ${monthNamesShort[parseInt(pm)-1]} ${py} in`;
+                        `you solved the ${parseInt(pd)} ${monthNamesShort[parseInt(pm)-1]} ${py} weekly puzzle in`;
                 } else {
                     document.getElementById('winSub').textContent = 'you solved this weekly puzzle in';
                 }
@@ -5924,7 +5872,7 @@
                 nextLabel.style.display = '';
                 nextCountdown.style.display = '';
                 startWeeklyCountdown();
-            } else if (isToday && !isPractice) {
+            } else if (isToday) {
                 nextLabel.textContent   = 'Next puzzle in';
                 nextLabel.style.display = '';
                 nextCountdown.style.display = '';
@@ -5936,7 +5884,7 @@
 
             // Share button for today's daily puzzle and the current week's weekly puzzle.
             const shareBtn = document.getElementById('winShareBtn');
-            if ((isToday || isCurrentWeekly) && !isPractice && !isUnlimited && hintsUsed != null) {
+            if ((isToday || isCurrentWeekly) && !isUnlimited && hintsUsed != null) {
                 shareBtn.style.display    = '';
                 shareBtn.dataset.time     = timeStr;
                 shareBtn.dataset.hints    = hintsUsed;
@@ -5959,17 +5907,14 @@
             }
 
             // Show puzzle nav buttons for archive puzzles (daily or weekly archive).
-            // Hide for today's daily, the current week's weekly, practice, and unlimited.
+            // Hide for today's daily, the current week's weekly, and unlimited.
             const puzzleBtns = document.getElementById('winPuzzleBtns');
             if (!isToday && !isCurrentWeekly && !isUnlimited) {
                 puzzleBtns.style.display = 'flex';
-                const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
-                const hasPrev = currentPuzzleList && (isPrac
-                    ? currentPuzzleIndex > 0
-                    : currentPuzzleIndex < currentPuzzleList.length - 1);
-                const hasNext = currentPuzzleList && (isPrac
-                    ? currentPuzzleIndex < currentPuzzleList.length - 1
-                    : currentPuzzleIndex > 0);
+                document.getElementById('winPlayToday').textContent =
+                    isWeekly ? "Play this week's puzzle" : "Play today's puzzle";
+                const hasPrev = currentPuzzleList && currentPuzzleIndex < currentPuzzleList.length - 1;
+                const hasNext = currentPuzzleList && currentPuzzleIndex > 0;
                 document.getElementById('winPrev').disabled = !hasPrev;
                 document.getElementById('winNext').disabled = !hasNext;
             } else {
@@ -6109,10 +6054,6 @@
             document.getElementById('tutorialDoneOverlay').classList.remove('visible');
             await initDailyPuzzle();
         });
-        document.getElementById('tutorialDonePracticeBtn').addEventListener('click', () => {
-            document.getElementById('tutorialDoneOverlay').classList.remove('visible');
-            openPractice();
-        });
 
         // ── Skip-tutorial button & confirmation bubble ────────────────────
         document.getElementById('tutorialSkipBtn').addEventListener('click', () => {
@@ -6158,7 +6099,11 @@
 
         document.getElementById('winPlayToday').addEventListener('click', async () => {
             closeOverlay('winOverlay');
-            await initDailyPuzzle();
+            if (currentPuzzleDate && currentPuzzleDate.startsWith('weekly_')) {
+                await initWeeklyPuzzle();
+            } else {
+                await initDailyPuzzle();
+            }
         });
 
         document.getElementById('winPlayAgain').addEventListener('click', () => {
@@ -6171,8 +6116,7 @@
 
         document.getElementById('winPrev').addEventListener('click', () => {
             if (!currentPuzzleList) return;
-            const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
-            const nextIdx = isPrac ? currentPuzzleIndex - 1 : currentPuzzleIndex + 1;
+            const nextIdx = currentPuzzleIndex + 1;
             if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
             closeOverlay('winOverlay');
             currentPuzzleIndex = nextIdx;
@@ -6184,8 +6128,7 @@
 
         document.getElementById('winNext').addEventListener('click', () => {
             if (!currentPuzzleList) return;
-            const isPrac = currentPuzzleDate && currentPuzzleDate.startsWith('practice-');
-            const nextIdx = isPrac ? currentPuzzleIndex + 1 : currentPuzzleIndex - 1;
+            const nextIdx = currentPuzzleIndex - 1;
             if (nextIdx < 0 || nextIdx >= currentPuzzleList.length) return;
             closeOverlay('winOverlay');
             currentPuzzleIndex = nextIdx;
@@ -7307,8 +7250,8 @@
         function renderDailyStats(content) {
             // Gather all solved daily puzzle dates from localStorage.
             // Daily entries use keys of the form `gridlines_solved_YYYY-MM-DD`.
-            // The date regex below explicitly excludes practice (`practice-*`)
-            // and weekly (`weekly_*`) entries, so the two pools never mix.
+            // The date regex below excludes weekly (`weekly_*`) entries, so
+            // the two pools never mix.
             const allSolved = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -7571,11 +7514,39 @@
             }));
 
             list.innerHTML = '';
+
+            // ── Tutorial row (always first, above the monthly archive) ─────
+            // Lets users replay the interactive tutorial that new visitors
+            // are routed through on their first visit. The row reuses the
+            // 3-equal-column grid layout used by the month rows below — the
+            // CSS rule `.archive-month-btn:first-of-type { grid-column: 2 }`
+            // places this lone button in the centre column, so its centre
+            // lines up perfectly with the Daily Puzzles buttons below.
+            {
+                const item = document.createElement('div');
+                item.className = 'archive-item archive-item--month';
+
+                const playBtn = document.createElement('button');
+                playBtn.className = 'archive-month-btn';
+                playBtn.textContent = 'Play Tutorial';
+                playBtn.addEventListener('click', async () => {
+                    closeOverlay('archiveOverlay');
+                    await initTutorial();
+                });
+
+                item.appendChild(playBtn);
+                list.appendChild(item);
+            }
+
             const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             for (const folder of months) {
                 const [y, m] = folder.split('_');
                 const label = `${monthNames[parseInt(m)-1]} ${y}`;
 
+                // The month row is a 3-column grid (`1fr auto 1fr`). Direct
+                // children flow into the columns in order: date → col 1,
+                // dailyBtn → col 2 (auto-centred), weeklyBtn (or invisible
+                // placeholder) → col 3 (pinned to the start of its column).
                 const item = document.createElement('div');
                 item.className = 'archive-item archive-item--month';
 
@@ -7583,35 +7554,31 @@
                 nameEl.className = 'archive-item-date';
                 nameEl.textContent = label;
 
-                const actions = document.createElement('div');
-                actions.className = 'archive-item-actions';
-
                 const dailyBtn = document.createElement('button');
                 dailyBtn.className = 'archive-month-btn';
                 dailyBtn.textContent = 'Daily Puzzles';
                 dailyBtn.addEventListener('click', () => showArchiveMonth(folder, label, 'daily'));
-                actions.appendChild(dailyBtn);
 
+                let trailingEl;
                 if (weeklyByFolder[folder]) {
-                    const weeklyBtn = document.createElement('button');
-                    weeklyBtn.className = 'archive-month-btn';
-                    weeklyBtn.textContent = 'Weekly Puzzles';
-                    weeklyBtn.addEventListener('click', () => showArchiveMonth(folder, label, 'weekly'));
-                    actions.appendChild(weeklyBtn);
+                    trailingEl = document.createElement('button');
+                    trailingEl.className = 'archive-month-btn';
+                    trailingEl.textContent = 'Weekly Puzzles';
+                    trailingEl.addEventListener('click', () => showArchiveMonth(folder, label, 'weekly'));
                 } else {
                     // Reserve an invisible slot the same width as the Weekly
-                    // button so the Daily button always sits in the same
-                    // column across rows, whether or not this month has a
-                    // weekly file.
-                    const placeholder = document.createElement('span');
-                    placeholder.className = 'archive-month-btn archive-month-btn--placeholder';
-                    placeholder.textContent = 'Weekly Puzzles';
-                    placeholder.setAttribute('aria-hidden', 'true');
-                    actions.appendChild(placeholder);
+                    // button so the Daily button stays centred in the row
+                    // and the layout looks identical across months with and
+                    // without weekly puzzles.
+                    trailingEl = document.createElement('span');
+                    trailingEl.className = 'archive-month-btn archive-month-btn--placeholder';
+                    trailingEl.textContent = 'Weekly Puzzles';
+                    trailingEl.setAttribute('aria-hidden', 'true');
                 }
 
                 item.appendChild(nameEl);
-                item.appendChild(actions);
+                item.appendChild(dailyBtn);
+                item.appendChild(trailingEl);
                 list.appendChild(item);
             }
         }
@@ -7664,9 +7631,7 @@
                 dateEl.className = 'archive-item-date';
                 const [y, m, d] = puzzle.date.split('-');
                 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                dateEl.textContent = puzzle.weekId
-                    ? `Week of ${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`
-                    : `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
+                dateEl.textContent = `${parseInt(d)} ${monthNames[parseInt(m)-1]} ${y}`;
 
                 const badge = document.createElement('button');
                 badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
@@ -7695,166 +7660,7 @@
             }
         }
 
-        // ── Practice puzzles ──────────────────────────────────────────────────────
-
-        let practiceLevel = 'root'; // 'root' or 'folder'
-        document.getElementById('practiceBack').addEventListener('click', () => {
-            if (practiceLevel === 'folder') {
-                showPracticeRoot();
-            } else {
-                closeOverlay('practiceOverlay');
-                document.getElementById('practiceTitle').textContent = 'Practice';
-            }
-        });
-
-        async function openPractice() {
-            openOverlay('practiceOverlay');
-            showPracticeRoot();
-        }
-
-        async function showPracticeRoot() {
-            practiceLevel = 'root';
-            const list = document.getElementById('practiceList');
-            document.getElementById('practiceTitle').textContent = 'Practice';
-            list.innerHTML = '<div id="archiveLoading">Loading practice puzzles...</div>';
-
-            let items;
-            try {
-                items = await fetchJson(`${PRACTICE_BASE}/index.json`);
-            } catch(e) {
-                list.innerHTML = '';
-                const err = document.createElement('div');
-                err.id = 'archiveLoading';
-                err.textContent = 'Could not load practice puzzles.';
-                list.appendChild(err);
-                return;
-            }
-
-            list.innerHTML = '';
-            renderPracticeItems(list, items, null);
-        }
-
-        async function showPracticeFolder(folderName, folderLabel) {
-            practiceLevel = 'folder';
-            const list = document.getElementById('practiceList');
-            document.getElementById('practiceTitle').textContent = folderLabel || folderName;
-            list.innerHTML = '<div id="archiveLoading">Loading...</div>';
-
-            let items;
-            try {
-                items = await fetchJson(`${PRACTICE_BASE}/${folderName}/index.json`);
-            } catch(e) {
-                list.innerHTML = '';
-                const err = document.createElement('div');
-                err.id = 'archiveLoading';
-                err.textContent = `Could not load puzzles (${folderName}): ${e.message}`;
-                list.appendChild(err);
-                return;
-            }
-
-            // Subfolder puzzles are plain objects — annotate with folder-scoped keys
-            const annotated = items.map((p, i) => ({ ...p, date: `practice-${folderName}-${i}` }));
-
-            list.innerHTML = '';
-
-            annotated.forEach((puzzle, idx) => {
-                const solved = getSolvedData(puzzle.date);
-
-                const row = document.createElement('div');
-                row.className = 'practice-item';
-
-                const titleEl = document.createElement('div');
-                titleEl.className = 'practice-item-title';
-                titleEl.textContent = puzzle.title || `Puzzle ${idx + 1}`;
-
-                const badge = document.createElement('button');
-                badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
-                badge.textContent = solved ? 'Solved' : 'Play';
-
-                row.appendChild(titleEl);
-                row.appendChild(badge);
-
-                row.addEventListener('click', () => {
-                    closeOverlay('practiceOverlay');
-                    closeOverlay('winOverlay');
-                    currentPuzzleList  = annotated;
-                    currentPuzzleIndex = idx;
-                    loadPuzzle(puzzle);
-                    if (solved) restoreSolvedBoard(puzzle, solved);
-                });
-
-                list.appendChild(row);
-            });
-        }
-
-        function renderPracticeItems(list, items, parentFolder) {
-            // Root index.json has items with type: 'puzzle' or type: 'folder'
-            // Build flat puzzle list for prev/next
-            const puzzleItems = items.filter(it => it.type !== 'folder');
-            const annotated = puzzleItems.map((p, i) => ({ ...p, date: `practice-root-${i}` }));
-
-            items.forEach(item => {
-                if (item.type === 'folder') {
-                    const row = document.createElement('div');
-                    row.className = 'practice-item';
-
-                    const nameEl = document.createElement('div');
-                    nameEl.className = 'practice-item-title';
-                    nameEl.textContent = item.label || item.name;
-
-                    const arrow = document.createElement('div');
-                    arrow.className = 'practice-item-badge unsolved';
-                    arrow.textContent = '→';
-
-                    row.appendChild(nameEl);
-                    row.appendChild(arrow);
-                    row.addEventListener('click', () => showPracticeFolder(item.name, item.label));
-                    list.appendChild(row);
-                } else {
-                    const pIdx = annotated.findIndex(a => a.date === `practice-root-${puzzleItems.indexOf(item)}`);
-                    const puzzle = annotated[pIdx];
-                    if (!puzzle) return;
-                    const solved = getSolvedData(puzzle.date);
-
-                    const row = document.createElement('div');
-                    row.className = 'practice-item';
-
-                    const titleEl = document.createElement('div');
-                    titleEl.className = 'practice-item-title';
-                    titleEl.textContent = puzzle.title || `Puzzle ${pIdx + 1}`;
-
-                    const badge = document.createElement('button');
-                    badge.className = 'archive-play-btn' + (solved ? ' archive-play-btn--solved' : '');
-                    badge.textContent = solved ? 'Solved' : 'Play';
-
-                    row.appendChild(titleEl);
-                    row.appendChild(badge);
-
-                    row.addEventListener('click', () => {
-                        closeOverlay('practiceOverlay');
-                        closeOverlay('winOverlay');
-                        currentPuzzleList  = annotated;
-                        currentPuzzleIndex = pIdx;
-                        loadPuzzle(puzzle);
-                        if (solved) restoreSolvedBoard(puzzle, solved);
-                    });
-
-                    list.appendChild(row);
-                }
-            });
-        }
-
-        document.getElementById('menuPractice').addEventListener('click', () => {
-            closeMenu();
-            openPractice();
-        });
-
-        // ── Info overlay welcome buttons ──────────────────────────────────────────
-
-        document.getElementById('infoPracticeBtn').addEventListener('click', () => {
-            closeOverlay('infoOverlay');
-            openPractice();
-        });
+        // ── Practice puzzles removed ──────────────────────────────────────────────
 
 
         // ── First-visit detection ─────────────────────────────────────────────────
@@ -8242,11 +8048,6 @@
                         ? showArchiveMonths
                         : function () { closeOverlay('archiveOverlay'); };
 
-                if (document.getElementById('practiceOverlay').classList.contains('visible'))
-                    return practiceLevel === 'folder'
-                        ? showPracticeRoot
-                        : function () { closeOverlay('practiceOverlay'); };
-
                 if (document.getElementById('menuOverlay').classList.contains('visible'))
                     return closeMenu;
 
@@ -8290,17 +8091,6 @@
             // Stats overlay
             var _origOpenStats = openStats;
             openStats = function () { pushNav(); _origOpenStats.apply(this, arguments); };
-
-            // Practice overlay (top-level open)
-            var _origOpenPractice = openPractice;
-            openPractice = async function () { pushNav(); await _origOpenPractice.apply(this, arguments); };
-
-            // Practice drill-down into a folder
-            var _origShowPracticeFolder = showPracticeFolder;
-            showPracticeFolder = async function (folderName, folderLabel) {
-                pushNav();
-                await _origShowPracticeFolder.apply(this, arguments);
-            };
 
             // Info overlay — push when the ⓘ button opens it
             document.getElementById('infoBtn').addEventListener('click', function () {
@@ -8371,11 +8161,6 @@
 
             // Stats back button
             document.getElementById('statsBack').addEventListener('click', function () {
-                consumeNav(1);
-            });
-
-            // Practice back button (handles both levels)
-            document.getElementById('practiceBack').addEventListener('click', function () {
                 consumeNav(1);
             });
 
