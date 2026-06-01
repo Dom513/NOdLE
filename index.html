@@ -5754,7 +5754,10 @@
             } catch(e) { return null; }
         }
 
+        let _countdownTimer = null; // shared by both daily and weekly countdowns
+
         function startCountdown() {
+            if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
             function update() {
                 const now = new Date();
                 const tomorrow = new Date(now);
@@ -5768,10 +5771,11 @@
                     `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }
             update();
-            setInterval(update, 1000);
+            _countdownTimer = setInterval(update, 1000);
         }
 
         function startWeeklyCountdown() {
+            if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
             function nextMonday() {
                 const now = new Date();
                 const day = now.getDay(); // 0=Sun … 6=Sat
@@ -5791,7 +5795,7 @@
                     const hours = Math.floor((totalSec % 86400) / 3600);
                     el.textContent = `${days} ${days === 1 ? 'day' : 'days'}, ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
                 } else {
-                    // Under a day — show hh:mm:ss
+                    // Under 24 hours — show hh:mm:ss
                     const h = Math.floor(totalSec / 3600);
                     const m = Math.floor((totalSec % 3600) / 60);
                     const s = totalSec % 60;
@@ -5800,7 +5804,7 @@
                 }
             }
             update();
-            setInterval(update, 1000);
+            _countdownTimer = setInterval(update, 1000);
         }
 
         // Single helper — shows the win overlay for any solved path

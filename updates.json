@@ -1,5 +1,10 @@
 [
   {
+    "date": "2026-06-01",
+    "name": "Weekly Puzzles added",
+    "subtext": "Every week, a new super tricky puzzle appears. These puzzles have 7 numbers instead of the usual 5"
+  },
+  {
     "date": "2026-05-19",
     "name": "Easy Mode added",
     "subtext": "Enabling Easy Mode in settings will reveal all 5 numbers, so you can focus on just finding the correct patterns"
@@ -7,11 +12,11 @@
   {
     "date": "2026-05-11",
     "name": "Updates log added",
-    "subtext": "You can now follow new features and fixes from this panel."
+    "subtext": "You can now follow new features and fixes from this panel"
   },
   {
     "date": "2026-05-10",
     "name": "Quality of life improvements",
-    "subtext": "We have added an interactive tutorial for new users of NOdLE, and made viewing the number guide easier."
+    "subtext": "We have added an interactive tutorial for new users of NOdLE, and made viewing the number guide easier"
   }
 ]
