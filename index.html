@@ -3019,6 +3019,21 @@
             return -1;
         }
 
+        // Returns true if there is at least one edge in edgeList whose drawn path
+        // passes through BOTH node a and node b as adjacent steps (either direction).
+        // Covers direct unit edges and sub-segments of longer edges.
+        function edgesExistBetween(a, b) {
+            for (const e of edgeList) {
+                const mids = intermediateNodes(e.a, e.b);
+                const seq  = [e.a, ...mids, e.b];
+                for (let i = 0; i < seq.length - 1; i++) {
+                    if ((seq[i] === a && seq[i + 1] === b) ||
+                        (seq[i] === b && seq[i + 1] === a)) return true;
+                }
+            }
+            return false;
+        }
+
         // Are b and c on the same ray from a (collinear, same direction)?
         function sameRay(a, b, c) {
             if (a === -1 || b === -1 || c === -1) return false;
@@ -3063,6 +3078,40 @@
                 return;
             }
             if (node === playLastNode) return;
+
+            // ── Connectivity gate ──────────────────────────────────────────
+            // An edge must exist between playLastNode and the newly entered node.
+            // This prevents the gesture jumping across gaps in the grid.
+            if (!edgesExistBetween(playLastNode, node)) {
+                // No connecting edge — reanchor without highlighting anything.
+                playOriginNode = node;
+                playLastNode   = node;
+                return;
+            }
+
+            // ── Chain-continuity gate ──────────────────────────────────────
+            // Even when a connecting edge exists, the new edge must form a
+            // continuous chain with the red edges drawn so far this gesture.
+            // Specifically: the segment about to be committed (playLastNode→node
+            // in the direction-change case, or the origin→node collinear case)
+            // must share playLastNode with whatever was last committed.
+            // We enforce this by checking that playLastNode is actually an
+            // endpoint of an edge in edgeList that was turned red this gesture
+            // (tracked via playTouched), OR that no red edges have been
+            // committed yet (first edge of the gesture is always allowed).
+            const gestureHasRed = playTouched.size > 0;
+            if (gestureHasRed) {
+                // playLastNode must be an endpoint of at least one touched edge
+                const lastNodeIsEndpoint = edgeList.some(e =>
+                    playTouched.has(e.id) && (e.a === playLastNode || e.b === playLastNode)
+                );
+                if (!lastNodeIsEndpoint) {
+                    // The chain is broken — reanchor without highlighting.
+                    playOriginNode = node;
+                    playLastNode   = node;
+                    return;
+                }
+            }
 
             playHasDragged = true;
             playPending    = null;
