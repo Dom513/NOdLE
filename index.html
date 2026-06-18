@@ -1613,20 +1613,6 @@
         </div>
     </div>
 
-    <!-- ── Download overlay ──────────────────────────────────────────────── -->
-    <div id="downloadOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
-        <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
-            <div style="display:flex; align-items:center; gap:12px; padding:clamp(12px,3vw,20px) 16px; border-bottom:1px solid #333; flex-shrink:0;">
-                <button id="downloadClose" style="background:none; border:none; color:#666; font-size:20px; cursor:pointer; padding:4px 8px; transition:color 0.15s; min-height:unset; line-height:1;">←</button>
-                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(16px,5vw,22px); letter-spacing:0.1em; color:#ccc; text-transform:uppercase;">Get the App</div>
-            </div>
-            <div style="padding:clamp(28px,7vw,48px) 24px; display:flex; flex-direction:column; gap:16px;">
-                <div style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:clamp(28px,8vw,44px); letter-spacing:0.06em; color:#fff; text-transform:uppercase; line-height:1;">Coming Soon</div>
-                <div style="font-family:'Share Tech Mono',monospace; font-size:clamp(12px,3vw,14px); color:#888; line-height:1.8;">We are currently developing NOdLE into an Android App. If you would like to be part of the beta-testing group, please email <a href="/cdn-cgi/l/email-protection#afcbc0c2c6c1c6ccd8c6c3cbca9cefc8c2cec6c381ccc0c2" style="color:#4488ff; text-decoration:none;"><span class="__cf_email__" data-cfemail="caaea5a7a3a4a3a9bda3a6aeaff98aada7aba3a6e4a9a5a7">[email&#160;protected]</span></a></div>
-            </div>
-        </div>
-    </div>
-
     <!-- ── Updates overlay ──────────────────────────────────────────────── -->
     <div id="updatesOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; flex-direction:column; align-items:center;">
         <div style="width:100%; max-width:500px; height:100%; display:flex; flex-direction:column; background:#1a1a1a;">
@@ -6395,15 +6381,7 @@
 
         document.getElementById('menuDownload').addEventListener('click', () => {
             closeMenu();
-            document.getElementById('downloadOverlay').style.display = 'flex';
-        });
-
-        document.getElementById('downloadClose').addEventListener('click', () => {
-            document.getElementById('downloadOverlay').style.display = 'none';
-        });
-        document.getElementById('downloadOverlay').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('downloadOverlay'))
-                document.getElementById('downloadOverlay').style.display = 'none';
+            window.open('https://play.google.com/store/apps/details?id=com.dwgame.nodle', '_blank');
         });
 
         // ── Weekly puzzle ─────────────────────────────────────────────────────────
@@ -8236,14 +8214,6 @@
             });
             document.getElementById('hintChoiceOverlay').addEventListener('click', function (e) {
                 if (e.target === document.getElementById('hintChoiceOverlay')) consumeNav(1);
-            });
-
-            // Download close
-            document.getElementById('downloadClose').addEventListener('click', function () {
-                consumeNav(1);
-            });
-            document.getElementById('downloadOverlay').addEventListener('click', function (e) {
-                if (e.target === document.getElementById('downloadOverlay')) consumeNav(1);
             });
 
             // Updates close
