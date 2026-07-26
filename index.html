@@ -10,9 +10,6 @@
         gtag('js', new Date());
         gtag('config', 'G-9CG57VZP28');
     </script>
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6206971352095108"
-         crossorigin="anonymous"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="icon" type="image/png" href="images/nodle_icon.png">
     <link rel="manifest" href="manifest.json">
@@ -556,14 +553,6 @@
         }
         .board-footer .equation { width: 100%; }
         .board-footer .btn-row  { width: 100%; justify-content: center; }
-
-        /* Ad unit — shown only inside screenPlay, centred below the puzzle */
-        .play-ad-wrap {
-            width: 100%;
-            max-width: 480px;
-            margin: 12px auto 0;
-            overflow: hidden;
-        }
 
         button.secondary { color: #777; border: 1px solid #444; }
         button.secondary:hover { color: #ccc; border-color: #888; }
@@ -1773,18 +1762,6 @@
         </div>
         </div><!-- /board-wrap -->
 
-        <!-- AdSense ad unit — lives inside screenPlay so it is only ever
-             visible while a puzzle is on screen. Replace data-ad-slot with
-             your actual slot ID from the AdSense dashboard. -->
-        <div class="play-ad-wrap">
-            <ins class="adsbygoogle"
-                 style="display:block"
-                 data-ad-client="ca-pub-6206971352095108"
-                 data-ad-slot="YOUR_AD_SLOT_ID"
-                 data-ad-format="auto"
-                 data-full-width-responsive="true"></ins>
-        </div>
-
         <!-- Dev2 side images: 1_example.png … 9_example.png stacked alongside the grid -->
         <div id="dev2SideImages">
             <img src="images/1_example.png" alt="1">
@@ -2420,12 +2397,12 @@
             })() : getPos(setupCanvas, e);
 
             if (!setupDragMoved) {
-                // Pure tap — remove edge nearest tap from whichever slot owns it
-                const hit = getEdgeNear(pos.x, pos.y, edgeList, SETUP_EDGE_THRESHOLD);
+                // Pure tap — only remove a line belonging to the currently
+                // active slot. Lines from other slots are ignored entirely,
+                // even if they're nearer to the tap point.
+                const hit = getEdgeNear(pos.x, pos.y, setupSlotEdges[activeSlot] || [], SETUP_EDGE_THRESHOLD);
                 if (hit) {
-                    for (let s = 0; s < setupSlotEdges.length; s++) {
-                        setupSlotEdges[s] = setupSlotEdges[s].filter(e => e.id !== hit.id);
-                    }
+                    setupSlotEdges[activeSlot] = setupSlotEdges[activeSlot].filter(e => e.id !== hit.id);
                     rebuildEdgeList();
                 }
             } else if (setupLastNode !== -1) {
@@ -2790,11 +2767,13 @@
         // ── Generate Random (dev mode) ───────────────────────────────────────────
         // Generate an unlimited puzzle and load it into the setup canvas.
         function loadGeneratedIntoSetup() {
-            // Generate puzzle (synchronous, may return null)
+            // Generate puzzle (synchronous, may return null), sized to match
+            // however many slots the setup screen currently has (1-7).
+            const slotCount = getSetupSlotCount();
             let puzzle = null;
             const MAX_ATTEMPTS = 600;
             for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-                puzzle = generateUnlimitedPuzzle();
+                puzzle = generateUnlimitedPuzzle(slotCount);
                 if (puzzle) break;
             }
 
@@ -6785,14 +6764,19 @@
                     ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)));
         }
 
-        function unlimitedCheckCriteria(allEdges, solutionEdges) {
+        function unlimitedCheckCriteria(allEdges, solutionEdges, digitCount) {
+            digitCount = digitCount || solutionEdges.length;
+
             // Build a map from edge index → which digit slot it belongs to
             const edgeSlot = new Array(allEdges.length);
             for (let i = 0; i < solutionEdges.length; i++) {
                 for (const idx of solutionEdges[i]) edgeSlot[idx] = i;
             }
 
-            // (1) Count crossings between edges of DIFFERENT digits
+            // (1) Count crossings between edges of DIFFERENT digits.
+            // Cross-digit crossings are only possible when there are at least
+            // 2 digits, and the achievable count shrinks with fewer digits —
+            // scale the requirement instead of always demanding 3.
             let crossings = 0;
             for (let i = 0; i < allEdges.length; i++) {
                 for (let j = i + 1; j < allEdges.length; j++) {
@@ -6800,7 +6784,8 @@
                     if (unlimitedSegmentsCross(allEdges[i], allEdges[j])) crossings++;
                 }
             }
-            if (crossings < 3) return false;
+            const minCrossings = digitCount <= 1 ? 0 : Math.min(3, digitCount - 1);
+            if (crossings < minCrossings) return false;
 
             // (2) Count edges per (canonical) node pair to detect double lines and
             // (3) reject anything with > 3 lines between the same pair.
@@ -6814,7 +6799,11 @@
                 if (count >= 2) hasDouble = true;
                 if (count > 3) return false;
             }
-            if (!hasDouble) return false;
+            // A double-line overlap is much less likely to occur by chance
+            // with very few digits on the board — only require it once there
+            // are enough digits for it to be a reasonable ask.
+            const requireDouble = digitCount >= 3;
+            if (requireDouble && !hasDouble) return false;
 
             return true;
         }
@@ -6875,14 +6864,17 @@
             return { newEdges, oldToNew };
         }
 
-        function generateUnlimitedPuzzle() {
-            // Pick 5 unique digits from 1..9 using a Fisher–Yates shuffle
+        function generateUnlimitedPuzzle(count = 5) {
+            // Clamp to a sane range: at least 1 digit, at most the pool size (9)
+            // and never more than MAX_SLOTS (7), matching the setup screen's cap.
+            count = Math.max(1, Math.min(9, MAX_SLOTS, count | 0));
+            // Pick `count` unique digits from 1..9 using a Fisher–Yates shuffle
             const pool = [1,2,3,4,5,6,7,8,9];
             for (let i = pool.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [pool[i], pool[j]] = [pool[j], pool[i]];
             }
-            const chosen = pool.slice(0, 5);
+            const chosen = pool.slice(0, count);
 
             const allEdges = [];
             const solutionEdges = [];
@@ -6913,7 +6905,7 @@
             // Visual / structural criteria. Run on long edges so that geometric
             // crossings between numbers are detected as crossings (after splitting
             // they would become shared endpoints, not transversal crossings).
-            if (!unlimitedCheckCriteria(allEdges, solutionEdges)) return null;
+            if (!unlimitedCheckCriteria(allEdges, solutionEdges, chosen.length)) return null;
             if (!unlimitedDigitsAllConnected(allEdges, solutionEdges)) return null;
 
             // All checks passed. Split long edges into unit-length edges (the same
@@ -8016,11 +8008,6 @@
         // small JSON, runs independently, and only paints the badge if
         // updates.json changed since the user last opened the Updates panel.
         checkForUpdates();
-
-        // Initialise the AdSense ad unit inside screenPlay.
-        // Because the <ins> element lives only inside screenPlay it is hidden
-        // on all other screens (archive, loading, etc.) automatically.
-        (adsbygoogle = window.adsbygoogle || []).push({});
 
         // ── Mobile back-button navigation ─────────────────────────────────────────
         // Intercepts the hardware/gesture back button (and browser back) while any
