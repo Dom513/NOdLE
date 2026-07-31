@@ -7446,8 +7446,8 @@
                 const name = document.createElement('div');
                 name.className = 'lb-name';
                 const usernameinput = document.getElementById('settingsUsernameInput');
-                name.textContent = (isMe ? (usernameinput.value || 'Unknown') + ' (You)' : (entry.username || 'Unknown'));
-                name.title = (isMe ? (usernameinput.value || 'Unknown') + ' (You)' : (entry.username || 'Unknown'));
+                name.textContent = (isMe ? (usernameinput.value + ' (You)' || 'You') : (entry.username || 'Unknown'));
+                name.title = (isMe ? (usernameinput.value + ' (You)' || 'You') : (entry.username || 'Unknown'));
                 const time = document.createElement('div');
                 time.className = 'lb-time';
                 const totalSec = Math.floor((entry.timeMs || 0) / 1000);
