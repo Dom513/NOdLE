@@ -601,6 +601,12 @@
            Opening the relevant overlay clears the class and writes a
            "last seen" key to localStorage. */
         #menuBtn { position: relative; }
+        #settingsBtn { position: relative; }
+        body.has-new-username .update-badge.username-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
         .update-badge {
             display: none;
             background: #d92626;
@@ -613,11 +619,11 @@
             text-align: center;
             pointer-events: none;
         }
-        body.has-new-updates .update-badge.on-icon,
+        body.has-new-updates .update-badge.on-icon:not(.username-badge),
         body.has-new-updates .update-badge.updates-badge,
-        body.has-new-daily   .update-badge.on-icon,
+        body.has-new-daily   .update-badge.on-icon:not(.username-badge),
         body.has-new-daily   .update-badge.daily-badge,
-        body.has-new-weekly  .update-badge.on-icon,
+        body.has-new-weekly  .update-badge.on-icon:not(.username-badge),
         body.has-new-weekly  .update-badge.weekly-badge {
             display: inline-flex;
             align-items: center;
@@ -691,6 +697,106 @@
             font-family: 'Share Tech Mono', monospace;
             font-size: clamp(10px, 2.6vw, 12px); color: #666;
             letter-spacing: 0.04em; text-align: center; line-height: 1.4;
+        }
+        /* Username field inside Settings */
+        #settingsUsernameInput {
+            width: 100%;
+            background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: var(--radius);
+            color: #ddd; font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(12px, 3.2vw, 14px); padding: 8px 10px;
+            outline: none; transition: border-color 0.15s; text-align: center;
+        }
+        #settingsUsernameInput:focus { border-color: #4488ff; }
+        #settingsUsernameSaved {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(9px, 2.2vw, 11px); color: #00e676;
+            min-height: 14px; text-align: center;
+        }
+        #settingsUsernameSaved:empty {
+            min-height: 0;
+        }
+
+        /* ── Leaderboard overlay (full page, same style as stats/archive) ──── */
+        #leaderboardOverlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            flex-direction: column; align-items: center;
+        }
+        #leaderboardOverlay.visible { display: flex; }
+        #leaderboardBox {
+            width: 100%; max-width: 500px; height: 100%;
+            display: flex; flex-direction: column;
+            background: #1a1a1a;
+        }
+        #leaderboardHeader {
+            display: flex; align-items: center; gap: 12px;
+            padding: clamp(12px, 3vw, 20px) 16px;
+            border-bottom: 1px solid #333; flex-shrink: 0;
+        }
+        #leaderboardBack {
+            background: none; border: none; color: #666;
+            font-size: 20px; cursor: pointer;
+            padding: 4px 8px; transition: color 0.15s;
+            min-height: unset; line-height: 1;
+        }
+        #leaderboardBack:hover { color: #ccc; }
+        #leaderboardTitle {
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(16px, 5vw, 22px); letter-spacing: 0.1em;
+            color: #ccc; text-transform: uppercase;
+        }
+        #leaderboardTabsWrapper {
+            flex: 1; display: flex; justify-content: center;
+        }
+        #leaderboardList {
+            flex: 1; min-height: 0; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 2px;
+            padding: 8px 0;
+        }
+        .lb-header {
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 24px;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            font-size: clamp(10px, 2.5vw, 12px);
+            color: #888; letter-spacing: 0.12em; text-transform: uppercase;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        .lb-header-rank  { width: 44px; flex-shrink: 0; text-align: center; }
+        .lb-header-name   { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+        .lb-header-time   { width: 80px; flex-shrink: 0; text-align: center; }
+        .lb-header-hints  { width: 56px; flex-shrink: 0; text-align: center; }
+        .lb-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 12px 24px; border-radius: var(--radius);
+            background: #222;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .lb-row.lb-row--me { background: #1c3a66; }
+        .lb-rank {
+            width: 44px; flex-shrink: 0; text-align: center;
+            color: #fff; font-size: clamp(14px, 3.4vw, 17px);
+        }
+        .lb-row--me .lb-rank { color: #9cc4ff; }
+        .lb-name {
+            flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; color: #fff; font-size: clamp(13px, 3.2vw, 15px);
+        }
+        .lb-row--me .lb-name { color: #fff; font-weight: 700; }
+        .lb-time {
+            color: #fff; font-weight: 700; font-size: clamp(16px, 4vw, 20px);
+            flex-shrink: 0; width: 80px; text-align: center;
+            font-family: 'Rajdhani', sans-serif;
+        }
+        .lb-hints {
+            color: #fff; font-size: clamp(16px, 4vw, 20px); flex-shrink: 0;
+            width: 56px; text-align: center;
+            font-family: 'Rajdhani', sans-serif; font-weight: 700;
+        }
+        .lb-empty, .lb-loading {
+            font-family: 'Share Tech Mono', monospace; font-size: 12px; color: #555;
+            text-align: center; padding: 30px 10px;
         }
 
         /* Toggle switch — blue when checked, dim grey when off. */
@@ -1490,6 +1596,7 @@
             display: block;
         }
     </style>
+<base target="_blank">
 </head>
 <body>
 
@@ -1532,6 +1639,7 @@
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                     </g>
                 </svg>
+                <span class="update-badge on-icon username-badge" aria-hidden="true">!</span>
             </button>
             <button id="menuBtn" title="Menu" aria-label="Menu">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1550,6 +1658,7 @@
         <div id="menuBox">
             <button class="menu-item-btn" id="menuToday">Today's puzzle<span class="update-badge inline daily-badge" aria-hidden="true">!</span></button>
             <button class="menu-item-btn" id="menuWeekly">Weekly puzzle<span class="update-badge inline weekly-badge" aria-hidden="true">!</span></button>
+            <button class="menu-item-btn" id="menuLeaderboard">Leaderboard</button>
             <button class="menu-item-btn" id="menuStats">Stats</button>
             <button class="menu-item-btn" id="menuArchive">Archive</button>
             <button class="menu-item-btn" id="menuUnlimited" style="display:none;">Unlimited Mode</button>
@@ -1564,6 +1673,12 @@
         <div id="settingsBox">
             <button id="settingsClose">✕</button>
             <div id="settingsTitle">Settings</div>
+            <div class="settings-option" style="gap:2px;">
+                <span class="settings-option-label">Username</span>
+                <input type="text" id="settingsUsernameInput" maxlength="20" placeholder="Enter a username" autocomplete="off">
+                <div id="settingsUsernameSaved"></div>
+                <div class="settings-option-sub">Username required to access leaderboards</div>
+            </div>
             <div class="settings-option">
                 <div class="settings-option-row">
                     <span class="settings-option-label">Easy mode</span>
@@ -1571,6 +1686,23 @@
                 </div>
                 <div class="settings-option-sub">Reveals all numbers. Resets in-progress puzzles.</div>
             </div>
+        </div>
+    </div>
+
+    <!-- ── Leaderboard overlay ──────────────────────────────────────────── -->
+    <div id="leaderboardOverlay">
+        <div id="leaderboardBox">
+            <div id="leaderboardHeader">
+                <button id="leaderboardBack">←</button>
+                <div id="leaderboardTitle">Leaderboard</div>
+                <div id="leaderboardTabsWrapper">
+                    <div id="statsTabs">
+                        <button class="stats-tab active" id="lbTabDaily">Daily</button>
+                        <button class="stats-tab" id="lbTabWeekly">Weekly</button>
+                    </div>
+                </div>
+            </div>
+            <div id="leaderboardList"><div class="lb-loading">Loading...</div></div>
         </div>
     </div>
 
@@ -1816,7 +1948,10 @@
                 <div id="winCountdown"></div>
                 <button id="winShareBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Share result</button>
                 <button id="winNewPuzzleBtn" class="primary" style="display:none; width:100%; margin-top:4px;">Create new puzzle</button>
-                <button id="winStatsBtn" class="secondary" style="width:100%; margin-top:4px;">See stats</button>
+                <div id="winPostGameBtns" style="display:flex; gap:8px; width:100%; margin-top:4px;">
+                    <button class="secondary" id="winStatsBtn" style="width:calc(50% - 4px); margin:0; padding:8px; text-align:center;">Stats</button>
+                    <button class="secondary" id="winLeaderboardBtn" style="width:calc(50% - 4px); margin:0; padding:8px; text-align:center;">Leaderboard</button>
+                </div>
                 <div id="winPuzzleBtns" style="display:none; flex-direction:column; gap:8px; width:100%;">
                     <button class="secondary" id="winPlayToday">Play today's puzzle</button>
                     <button class="secondary" id="winPlayAgain">Play again</button>
@@ -4553,6 +4688,16 @@
             if (solvedDateStr === todayStr()) clearProgress();
             try { markSolved(solvedDateStr, elapsed); }
             catch (e) { console.error('[showWin] markSolved failed:', e); }
+            // Upload to leaderboard for current daily / weekly puzzles
+            try {
+                const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
+                const isUnlimited = currentPuzzleDate && currentPuzzleDate.startsWith('unlimited-');
+                const isToday = !isUnlimited && (!currentPuzzleDate || currentPuzzleDate === todayStr());
+                const isCurrentWeekly = isWeekly && currentPuzzleDate === currentWeeklyKey();
+                if (isToday || isCurrentWeekly) {
+                    uploadScore(currentPuzzleDate, elapsed, hintsCap - hintsRemaining, isWeekly);
+                }
+            } catch (e) { /* silent fail */ }
 
             // Hide difficulty toggle once solved
             try { updateDifficultyUI(currentPuzzleData); }
@@ -5911,17 +6056,20 @@
                 shareBtn.style.display = 'none';
             }
 
-            // Unlimited mode: show only the "Create new puzzle" button below the stats.
-            // Hide the stats button + nav buttons; the share + countdown rows are already
-            // hidden above by the isUnlimited gates.
+            // Show post-game buttons only for today's daily or current weekly.
+            // Archive puzzles and unlimited mode don't get these.
             const newPuzzleBtn = document.getElementById('winNewPuzzleBtn');
-            const statsBtn     = document.getElementById('winStatsBtn');
+            const postGameBtns = document.getElementById('winPostGameBtns');
             if (isUnlimited) {
                 newPuzzleBtn.style.display = '';
-                statsBtn.style.display     = 'none';
-            } else {
+                if (postGameBtns) postGameBtns.style.display = 'none';
+            } else if (isToday || isCurrentWeekly) {
                 newPuzzleBtn.style.display = 'none';
-                statsBtn.style.display     = '';
+                if (postGameBtns) postGameBtns.style.display = '';
+            } else {
+                // Archive puzzle — hide both
+                newPuzzleBtn.style.display = 'none';
+                if (postGameBtns) postGameBtns.style.display = 'none';
             }
 
             // Show puzzle nav buttons for archive puzzles (daily or weekly archive).
@@ -6058,6 +6206,11 @@
             const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
             closeOverlay('winOverlay');
             openStats(isWeekly ? 'weekly' : 'daily');
+        });
+        document.getElementById('winLeaderboardBtn').addEventListener('click', () => {
+            const isWeekly = currentPuzzleDate && currentPuzzleDate.startsWith('weekly_');
+            closeOverlay('winOverlay');
+            openLeaderboard(isWeekly ? 'weekly' : 'daily');
         });
 
         // ── Tutorial congratulations popup buttons ────────────────────────
@@ -6323,6 +6476,7 @@
 
         // ── Settings flyout ──────────────────────────────────────────────
         function openSettings() {
+            document.body.classList.remove('has-new-username');
             updateDifficultyUI(currentPuzzleData);
             openOverlay('settingsOverlay');
         }
@@ -6331,6 +6485,40 @@
         }
         document.getElementById('settingsBtn').addEventListener('click', openSettings);
         document.getElementById('settingsClose').addEventListener('click', closeSettings);
+
+        // ── Username settings init ──────────────────────────────────────────
+        (function initUsernameSettings() {
+            const input = document.getElementById('settingsUsernameInput');
+            if (!input) return;
+            const custom = localStorage.getItem('nodle_username');
+            if (custom) {
+                input.value = custom;
+            } else {
+                let fallback = localStorage.getItem('nodle_username_default');
+                if (!fallback) {
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                    const suffix = Array.from({length: 6}, () =>
+                        chars.charAt(Math.floor(Math.random() * chars.length))
+                    ).join('');
+                    fallback = 'player_' + suffix;
+                    localStorage.setItem('nodle_username_default', fallback);
+                }
+                input.placeholder = fallback;
+                if (localStorage.getItem('nodle_seen_daily')) {
+                document.body.classList.add('has-new-username');
+                }
+            }
+            input.addEventListener('input', () => {
+                const val = input.value.trim();
+                if (val) {
+                    localStorage.setItem('nodle_username', val);
+                    document.body.classList.remove('has-new-username');
+                } else {
+                    localStorage.removeItem('nodle_username');
+                    document.body.classList.add('has-new-username');
+                }
+            });
+        })();
         document.getElementById('settingsOverlay').addEventListener('click', (e) => {
             if (e.target === document.getElementById('settingsOverlay')) closeSettings();
         });
@@ -6348,9 +6536,21 @@
             await initDailyPuzzle();
         });
 
+        document.getElementById('menuLeaderboard').addEventListener('click', () => {
+            closeMenu();
+            openLeaderboard('daily');
+        });
+        document.getElementById('menuLeaderboard').addEventListener('click', () => {
+            closeMenu();
+            openLeaderboard('daily');
+        });
         document.getElementById('menuStats').addEventListener('click', () => {
             closeMenu();
             openStats();
+        });
+        document.getElementById('menuLeaderboard').addEventListener('click', () => {
+            closeMenu();
+            openLeaderboard('daily');
         });
 
         document.getElementById('menuDonate').addEventListener('click', () => {
@@ -7164,6 +7364,123 @@
         // ── Archive ───────────────────────────────────────────────────────────────
 
         let archiveLevel = 'months'; // 'months' or 'puzzles'
+
+        // ── Leaderboard ─────────────────────────────────────────────────────
+        let lbMode = 'daily';
+
+        async function uploadScore(dateStr, timeMs, hintsUsed, isWeekly) {
+            const fb = window.nodleFirebase;
+            const fs = window.nodleFirestore;
+            if (!fb || !fb.db || !fb.uid || !fs) return;
+            const username = localStorage.getItem('nodle_username')
+                || localStorage.getItem('nodle_username_default')
+                || 'Unknown';
+            const coll = isWeekly ? 'leaderboard_weekly' : 'leaderboard_daily';
+            try {
+                const ref = fs.doc(fb.db, coll, dateStr, 'scores', fb.uid);
+                await fs.setDoc(ref, {
+                    username,
+                    timeMs,
+                    hintsUsed,
+                    timestamp: fs.serverTimestamp()
+                });
+            } catch (e) {
+                console.error('[uploadScore] failed:', e && e.message);
+            }
+        }
+
+        async function fetchLeaderboard(dateStr, isWeekly) {
+            const fb = window.nodleFirebase;
+            const fs = window.nodleFirestore;
+            if (!fb || !fb.db || !fs) return [];
+            const coll = isWeekly ? 'leaderboard_weekly' : 'leaderboard_daily';
+            try {
+                const q = fs.query(fs.collection(fb.db, coll, dateStr, 'scores'));
+                const snap = await fs.getDocs(q);
+                const entries = [];
+                snap.forEach(doc => entries.push({ id: doc.id, ...doc.data() }));
+                entries.sort((a, b) => {
+                    const ha = a.hintsUsed ?? 99;
+                    const hb = b.hintsUsed ?? 99;
+                    if (ha !== hb) return ha - hb;
+                    return (a.timeMs ?? Infinity) - (b.timeMs ?? Infinity);
+                });
+                return entries;
+            } catch (e) {
+                console.error('[fetchLeaderboard] failed:', e && e.message);
+                return [];
+            }
+        }
+
+        function renderLeaderboardList(entries) {
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '';
+            const fb = window.nodleFirebase;
+            const myUid = fb && fb.uid ? fb.uid : null;
+
+            // Header row
+            const header = document.createElement('div');
+            header.className = 'lb-header';
+            header.innerHTML = `
+                <div class="lb-header-rank">Rank</div>
+                <div class="lb-header-name">Username</div>
+                <div class="lb-header-time">Time</div>
+                <div class="lb-header-hints">Hints</div>
+            `;
+            list.appendChild(header);
+
+            if (entries.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'lb-empty';
+                empty.textContent = 'No scores yet. Be the first!';
+                list.appendChild(empty);
+                return;
+            }
+            entries.forEach((entry, idx) => {
+                const isMe = entry.id === myUid;
+                const row = document.createElement('div');
+                row.className = 'lb-row' + (isMe ? ' lb-row--me' : '');
+                const rank = document.createElement('div');
+                rank.className = 'lb-rank';
+                rank.textContent = idx + 1;
+                const name = document.createElement('div');
+                name.className = 'lb-name';
+                const usernameinput = document.getElementById('settingsUsernameInput');
+                name.textContent = (isMe ? (usernameinput.value || 'Unknown') + ' (You)' : (entry.username || 'Unknown'));
+                name.title = (isMe ? (usernameinput.value || 'Unknown') + ' (You)' : (entry.username || 'Unknown'));
+                const time = document.createElement('div');
+                time.className = 'lb-time';
+                const totalSec = Math.floor((entry.timeMs || 0) / 1000);
+                const m = Math.floor(totalSec / 60);
+                const s = totalSec % 60;
+                time.textContent = `${m}:${String(s).padStart(2, '0')}`;
+                const hints = document.createElement('div');
+                hints.className = 'lb-hints';
+                hints.textContent = entry.hintsUsed ?? 0;
+                row.appendChild(rank);
+                row.appendChild(name);
+                row.appendChild(time);
+                row.appendChild(hints);
+                list.appendChild(row);
+            });
+        }
+
+        async function renderLeaderboard() {
+            document.getElementById('lbTabDaily').classList.toggle('active', lbMode === 'daily');
+            document.getElementById('lbTabWeekly').classList.toggle('active', lbMode === 'weekly');
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '<div class="lb-loading">Loading...</div>';
+            const dateStr = lbMode === 'daily' ? todayStr() : currentWeeklyKey();
+            const entries = await fetchLeaderboard(dateStr, lbMode === 'weekly');
+            renderLeaderboardList(entries);
+        }
+
+        function openLeaderboard(mode) {
+            lbMode = mode || 'daily';
+            openOverlay('leaderboardOverlay');
+            renderLeaderboard();
+        }
+
         // ── Weekly puzzle helpers ──────────────────────────────────────────────
 
         // Adds n days to a YYYY-MM-DD date string and returns the resulting date.
@@ -7193,6 +7510,15 @@
 
         document.getElementById('statsBack').addEventListener('click', () => {
             closeOverlay('statsOverlay');
+        });
+        document.getElementById('leaderboardBack').addEventListener('click', () => {
+            closeOverlay('leaderboardOverlay');
+        });
+        document.getElementById('lbTabDaily').addEventListener('click', () => {
+            if (lbMode !== 'daily') { lbMode = 'daily'; renderLeaderboard(); }
+        });
+        document.getElementById('lbTabWeekly').addEventListener('click', () => {
+            if (lbMode !== 'weekly') { lbMode = 'weekly'; renderLeaderboard(); }
         });
         document.getElementById('statsTabDaily').addEventListener('click', () => {
             if (statsMode !== 'daily') {
@@ -8058,6 +8384,9 @@
                 if (up && up.style.display === 'flex')
                     return function () { up.style.display = 'none'; };
 
+                if (document.getElementById('leaderboardOverlay').classList.contains('visible'))
+                    return function () { closeOverlay('leaderboardOverlay'); };
+
                 if (document.getElementById('statsOverlay').classList.contains('visible'))
                     return function () { closeOverlay('statsOverlay'); };
 
@@ -8109,6 +8438,8 @@
             // Stats overlay
             var _origOpenStats = openStats;
             openStats = function () { pushNav(); _origOpenStats.apply(this, arguments); };
+            var _origOpenLeaderboard = openLeaderboard;
+            openLeaderboard = function () { pushNav(); _origOpenLeaderboard.apply(this, arguments); };
 
             // Info overlay — push when the ⓘ button opens it
             document.getElementById('infoBtn').addEventListener('click', function () {
@@ -8236,6 +8567,46 @@
                 navigator.serviceWorker.register('./sw.js');
             });
         }
+    </script>
+
+    <!-- ── Firebase init (app, analytics, auth, firestore) ─────────────────
+         Foundation for the upcoming leaderboard feature. Only sets things up
+         and signs the device in anonymously — no leaderboard reads/writes
+         happen yet. Exposed on window.nodleFirebase for later code to use. -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-analytics.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5YTUQlUsvLjsoMR6x0LGVkntdHiqyqwo",
+            authDomain: "nodle-1e68a.firebaseapp.com",
+            projectId: "nodle-1e68a",
+            storageBucket: "nodle-1e68a.firebasestorage.app",
+            messagingSenderId: "646867230272",
+            appId: "1:646867230272:web:a345069286dca64dbdc9a5",
+            measurementId: "G-QJBWP61TF2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Sign the device in anonymously so it has a stable UID for future
+        // leaderboard writes. Silent — no UI, no user-facing concept of login.
+        signInAnonymously(auth).catch((err) => {
+            console.error('[firebase] anonymous sign-in failed:', err && err.message);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            window.nodleFirebase = { app, analytics, auth, db, uid: user ? user.uid : null };
+        });
+    </script>
+    <script type="module">
+        import { collection, doc, setDoc, getDocs, query, where, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+        window.nodleFirestore = { collection, doc, setDoc, getDocs, query, where, orderBy, limit, serverTimestamp };
     </script>
 </body>
 </html>
