@@ -579,9 +579,10 @@
             border-radius: 0 0 0 var(--radius-lg);
             padding: 8px 8px 12px;
             display: flex; flex-direction: column; gap: 2px;
-            min-width: 215px;
+            min-width: 222px;
         }
         .menu-item-btn {
+            display: flex; align-items: center; gap: 12px;
             background: none; border: none; color: #aaa;
             font-family: 'Share Tech Mono', monospace;
             font-size: clamp(13px, 4vw, 16px);
@@ -592,6 +593,12 @@
             min-height: unset; white-space: nowrap;
         }
         .menu-item-btn:hover { background: #333; color: #fff; }
+        .menu-item-icon {
+            width: 18px; height: 18px;
+            flex-shrink: 0;
+            fill: currentColor;
+        }
+        .menu-item-label { flex: 1; min-width: 0; }
 
         /* ── Update notification badges ──────────────────────────────────── */
         /* Hidden by default. Body classes reveal them:
@@ -1656,15 +1663,67 @@
     <!-- ── Menu overlay ──────────────────────────────────────────────────── -->
     <div id="menuOverlay">
         <div id="menuBox">
-            <button class="menu-item-btn" id="menuToday">Today's puzzle<span class="update-badge inline daily-badge" aria-hidden="true">!</span></button>
-            <button class="menu-item-btn" id="menuWeekly">Weekly puzzle<span class="update-badge inline weekly-badge" aria-hidden="true">!</span></button>
-            <button class="menu-item-btn" id="menuLeaderboard">Leaderboard</button>
-            <button class="menu-item-btn" id="menuStats">Stats</button>
-            <button class="menu-item-btn" id="menuArchive">Archive</button>
-            <button class="menu-item-btn" id="menuUnlimited" style="display:none;">Unlimited Mode</button>
-            <button class="menu-item-btn" id="menuUpdates">Updates<span class="update-badge inline updates-badge" aria-hidden="true">!</span></button>
-            <button class="menu-item-btn" id="menuDonate">Donate</button>
-            <button class="menu-item-btn" id="menuDownload">Get the app</button>
+            <button class="menu-item-btn" id="menuToday">
+                <svg class="menu-item-icon" viewBox="0 0 1100 1100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M260,240 L485,240 A100,100 0 1,0 615,240 L840,240 A20,20 0 0,1 860,260 L860,485 A100,100 0 1,1 860,615 L860,840 A20,20 0 0,1 840,860 L260,860 A20,20 0 0,1 240,840 L240,260 A20,20 0 0,1 260,240 Z"/>
+                </svg>
+                <span class="menu-item-label">Daily puzzle</span>
+                <span class="update-badge inline daily-badge" aria-hidden="true">!</span>
+            </button>
+            <button class="menu-item-btn" id="menuWeekly">
+                <svg class="menu-item-icon" viewBox="0 0 1100 1100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M260,240 L485,240 A100,100 0 1,1 615,240 L840,240 A20,20 0 0,1 860,260 L860,485 A100,100 0 1,1 860,615 L860,840 A20,20 0 0,1 840,860 L615,860 A100,100 0 1,0 485,860 L260,860 A20,20 0 0,1 240,840 L240,615 A100,100 0 1,0 240,485 L240,260 A20,20 0 0,1 260,240 Z"/>
+                </svg>
+                <span class="menu-item-label">Weekly puzzle</span>
+                <span class="update-badge inline weekly-badge" aria-hidden="true">!</span>
+            </button>
+            <button class="menu-item-btn" id="menuLeaderboard">
+                <svg class="menu-item-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="3" y="10" width="5" height="11" rx="0.5"/>
+                    <rect x="9.5" y="3" width="5" height="18" rx="0.5"/>
+                    <rect x="16" y="13" width="5" height="8" rx="0.5"/>
+                </svg>
+                <span class="menu-item-label">Leaderboard</span>
+            </button>
+            <button class="menu-item-btn" id="menuStats">
+                <svg class="menu-item-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                </svg>
+                <span class="menu-item-label">Stats</span>
+            </button>
+            <button class="menu-item-btn" id="menuArchive">
+                <svg class="menu-item-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
+                </svg>
+                <span class="menu-item-label">Archive</span>
+            </button>
+            <button class="menu-item-btn" id="menuUnlimited" style="display:none;">
+                <span class="menu-item-label">Unlimited Mode</span>
+            </button>
+            <button class="menu-item-btn" id="menuUpdates">
+                <svg class="menu-item-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+                <span class="menu-item-label">Updates</span>
+                <span class="update-badge inline updates-badge" aria-hidden="true">!</span>
+            </button>
+            <button class="menu-item-btn" id="menuDonate">
+                <svg class="menu-item-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                </svg>
+                <span class="menu-item-label">Donate</span>
+            </button>
+            <button class="menu-item-btn" id="menuDownload">
+                <svg class="menu-item-icon" viewBox="254 578 1152 1118" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <g transform="translate(-450.000000,2300.000000) scale(0.140000,-0.140000)" stroke="none">
+                        <path d="M6530 12180 c-97 -17 -190 -73 -190 -113 0 -13 479 -497 1391 -1406 1068 -1064 1397 -1386 1415 -1386 18 0 140 116 505 480 264 264 485 488 490 497 7 13 4 23 -11 38 -11 11 -25 20 -31 20 -6 0 -77 38 -157 84 -81 46 -244 136 -362 201 -118 65 -255 141 -305 170 -49 29 -133 74 -185 100 -52 27 -102 54 -110 61 -15 12 -242 139 -360 202 -36 19 -94 51 -130 72 -92 53 -326 183 -385 214 -27 15 -72 40 -100 56 -27 16 -68 38 -90 48 -22 10 -70 38 -108 60 -37 23 -70 42 -74 42 -3 0 -57 29 -119 65 -62 36 -115 65 -117 65 -2 0 -53 28 -113 61 -60 34 -147 83 -194 109 -47 26 -107 60 -135 75 -27 15 -97 53 -155 85 -167 93 -264 119 -370 100z"/>
+                        <path d="M6200 11581 c-14 -27 -9 -5226 5 -5240 7 -7 446 425 1317 1292 718 716 1311 1312 1317 1324 10 20 -64 97 -1015 1045 -564 563 -1155 1152 -1312 1310 -158 158 -290 288 -294 288 -4 0 -12 -9 -18 -19z"/>
+                        <path d="M9978 9515 c-296 -295 -538 -542 -538 -548 0 -6 233 -244 518 -529 347 -346 525 -518 539 -518 17 0 217 103 381 196 64 36 124 69 217 119 50 27 118 66 153 87 34 21 65 38 67 38 3 0 40 20 83 44 220 124 351 196 356 196 4 0 35 18 70 40 105 66 178 161 202 259 47 198 -46 371 -261 486 -90 48 -270 147 -360 198 -38 22 -97 54 -130 72 -33 17 -78 42 -100 55 -22 13 -78 44 -125 70 -47 25 -172 95 -277 154 -106 59 -207 109 -225 112 -32 5 -50 -12 -570 -531z"/>
+                        <path d="M9130 8662 c-8 -3 -264 -254 -570 -559 -1342 -1338 -2200 -2197 -2200 -2203 0 -17 52 -52 105 -70 40 -14 84 -20 142 -20 94 0 157 21 273 89 36 21 106 60 155 86 90 48 105 56 180 99 22 12 105 59 185 103 80 44 161 89 180 100 155 87 350 193 356 193 4 0 15 6 23 14 9 8 45 30 81 49 104 55 160 86 430 237 283 159 338 189 425 235 33 18 85 47 115 65 30 18 90 51 133 74 43 22 100 53 125 68 26 15 65 37 87 48 22 12 63 35 90 52 28 17 102 58 165 91 63 33 126 67 140 77 14 9 54 31 90 50 36 18 83 45 105 60 22 15 65 39 97 53 61 29 71 41 55 72 -12 25 -907 919 -933 933 -11 5 -26 7 -34 4z"/>
+                    </g>
+                </svg>
+                <span class="menu-item-label">Get the app</span>
+            </button>
         </div>
     </div>
 
