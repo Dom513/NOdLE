@@ -636,6 +636,7 @@
             align-items: center;
             justify-content: center;
         }
+        body.first-visit-gate .update-badge { display: none !important; }
         .update-badge.on-icon {
             position: absolute;
             top: 4px;
@@ -5890,10 +5891,6 @@
             tutorialMode    = false;
             tutorialPuzzles = null;
             tutorialIdx     = -1;
-            // The final tutorial puzzle leaves puzzleSolved=true on the board
-            // (showWin sets it before the tutorial-mode early return). Reset
-            // it now so any saveProgress call between here and the next
-            // loadPuzzle isn't blocked by a stale solved flag.
             puzzleSolved    = false;
             document.body.classList.remove('tutorial-mode');
             hideTutorialInstruction();
@@ -6459,7 +6456,7 @@
                 // Read solved state AFTER the fingerprint check so stale state is already gone
                 const solved = getSolvedData(dateStr);
                 loadPuzzle(puzzle);
-
+                document.body.classList.remove('first-visit-gate');
                 if (!solved) {
                     const progress = getProgressData(dateStr);
                     if (progress) {
@@ -6563,9 +6560,7 @@
                     localStorage.setItem('nodle_username_default', fallback);
                 }
                 input.placeholder = fallback;
-                if (localStorage.getItem('nodle_seen_daily')) {
                 document.body.classList.add('has-new-username');
-                }
             }
             input.addEventListener('input', () => {
                 const val = input.value.trim();
@@ -7385,14 +7380,9 @@
         const _isFirstVisit = getLastSeenDaily() === '';
         setLastSeenDaily(todayStr());
         document.body.classList.remove('has-new-daily');
-        // On boot: check weekly — but suppress entirely on first visit so the
-        // user isn't greeted with badges the moment they open the site.
-        if (_isFirstVisit) {
-            setLastSeenWeekly(currentWeeklyKey());
-            document.body.classList.remove('has-new-weekly');
-        } else {
-            checkWeeklyBadge();
-        }
+        // Hide every badge until a new user has finished or skipped the tutorial
+        if (isFirstVisit()) document.body.classList.add('first-visit-gate');
+        checkWeeklyBadge();
 
         // Re-check just after every midnight so the badges appear the moment
         // the date changes, even if the user leaves the app open overnight.
