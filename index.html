@@ -5915,8 +5915,12 @@
             if (isDevMode) return; // dev=1 — never write to localStorage
             if (dateStr.startsWith('unlimited-')) return; // unlimited puzzles never persist
             if (getSolvedData(dateStr)) return; // already solved — never overwrite (covers dev2 too)
+            // Live = solved while it was still today's daily / this week's weekly.
+            // Archive plays are stored with live:false so they never count to streaks.
+            const live = dateStr === todayStr() || dateStr === currentWeeklyKey();
             localStorage.setItem(getSolvedKey(dateStr), JSON.stringify({
                 timeMs,
+                live,
                 hintsUsed: hintsCap - hintsRemaining,
                 tileValues:  [...tileValues],
                 tileEdgeIds: tileEdgeIds.map(ids => ids ? [...ids] : null),
@@ -7658,7 +7662,7 @@
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
                 try {
                     const data = JSON.parse(localStorage.getItem(key));
-                    if (data) allSolved.push({ date: dateStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0 });
+                    if (data) allSolved.push({ date: dateStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0, live: data.live !== false });
                 } catch(e) {}
             }
             allSolved.sort((a, b) => a.date.localeCompare(b.date));
@@ -7667,31 +7671,24 @@
             const avgMs = played ? allSolved.reduce((s, d) => s + d.timeMs, 0) / played : 0;
             const avgHints = played ? allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played : 0;
 
-            // Streak calculation — consecutive days up to today
+            // Streak calculation — live solves only (archive plays don't count).
+            // Today not being solved yet doesn't break the streak; it only
+            // breaks once a full day has been missed.
             const today = todayStr();
-            let currentStreak = 0, longestStreak = 0, streak = 0;
-            const dateSet = new Set(allSolved.map(d => d.date));
+            const liveDates = allSolved.filter(d => d.live).map(d => d.date); // sorted ascending
+            const dateSet = new Set(liveDates);
 
-            // Walk all solved dates forward to find streaks
-            for (let k = 0; k < allSolved.length; k++) {
-                if (k === 0) {
-                    streak = 1;
-                } else {
-                    const prev = new Date(allSolved[k-1].date);
-                    const curr = new Date(allSolved[k].date);
-                    const diff = (curr - prev) / 86400000;
-                    streak = diff === 1 ? streak + 1 : 1;
-                }
+            let longestStreak = 0, streak = 0;
+            for (let k = 0; k < liveDates.length; k++) {
+                streak = (k > 0 && addDays(liveDates[k - 1], 1) === liveDates[k]) ? streak + 1 : 1;
                 longestStreak = Math.max(longestStreak, streak);
             }
-            // Current streak: count backwards from today
-            let d = new Date(today);
-            currentStreak = 0;
-            while (true) {
-                const ds = d.toISOString().split('T')[0];
-                if (!dateSet.has(ds)) break;
+
+            let cursor = dateSet.has(today) ? today : addDays(today, -1);
+            let currentStreak = 0;
+            while (dateSet.has(cursor)) {
                 currentStreak++;
-                d.setDate(d.getDate() - 1);
+                cursor = addDays(cursor, -1);
             }
 
             // Time buckets: <1, 1-2, 2-3, 3-4, 4-5, 5+ mins
@@ -7772,7 +7769,7 @@
                 const weekStr = key.replace('gridlines_solved_weekly_', '');
                 try {
                     const data = JSON.parse(localStorage.getItem(key));
-                    if (data) allSolved.push({ week: weekStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0 });
+                    if (data) allSolved.push({ week: weekStr, timeMs: data.timeMs || 0, hintsUsed: data.hintsUsed ?? 0, live: data.live !== false });
                 } catch(e) {}
             }
 
@@ -7782,28 +7779,32 @@
             const avgMs = played ? allSolved.reduce((s, d) => s + d.timeMs, 0) / played : 0;
             const avgHints = played ? allSolved.reduce((s, d) => s + d.hintsUsed, 0) / played : 0;
 
-            // Streak calculation — consecutive weeks up to the current week
-            const weekSet = new Set(allSolved.map(d => d.week));
+            // Streak calculation — live solves only (archive plays don't count).
+            // An unsolved current week doesn't break the streak until it has passed.
+            const liveWeeks = allSolved.filter(d => d.live).map(d => d.week); // sorted ascending
+            const weekSet = new Set(liveWeeks);
+
             let longestStreak = 0, streak = 0;
-            for (let k = 0; k < allSolved.length; k++) {
+            for (let k = 0; k < liveWeeks.length; k++) {
                 if (k === 0) {
                     streak = 1;
                 } else {
-                    const prev = weekStrToMonday(allSolved[k-1].week);
-                    const curr = weekStrToMonday(allSolved[k].week);
+                    const prev = weekStrToMonday(liveWeeks[k - 1]);
+                    const curr = weekStrToMonday(liveWeeks[k]);
                     const diff = prev && curr ? (curr - prev) / (7 * 86400000) : null;
                     streak = diff === 1 ? streak + 1 : 1;
                 }
                 longestStreak = Math.max(longestStreak, streak);
             }
-            // Current streak: count backwards from current week
-            let curMonday = weekStrToMonday(currentWeekStr());
+
+            let cursor = weekStrToMonday(currentWeekStr());
+            if (cursor && !weekSet.has(dateToIsoWeekStr(cursor))) {
+                cursor.setUTCDate(cursor.getUTCDate() - 7); // current week not done yet — start from last week
+            }
             let currentStreak = 0;
-            while (curMonday) {
-                const ws = dateToIsoWeekStr(curMonday);
-                if (!weekSet.has(ws)) break;
+            while (cursor && weekSet.has(dateToIsoWeekStr(cursor))) {
                 currentStreak++;
-                curMonday.setUTCDate(curMonday.getUTCDate() - 7);
+                cursor.setUTCDate(cursor.getUTCDate() - 7);
             }
 
             // Time buckets: <2m, 2-4m, 4-6m, 6-8m, 8-10m, 10m+
